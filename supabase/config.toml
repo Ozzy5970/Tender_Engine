@@ -1,0 +1,17 @@
+project_id = "hhkmbwlfbonsafrwkqnc"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "auth"]
+extra_search_path = ["public"]
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://127.0.0.1:54323/api"

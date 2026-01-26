@@ -1,0 +1,173 @@
+import { Check, Shield, Zap, ArrowRight, Building } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { motion } from "framer-motion"
+
+export default function Pricing() {
+    const navigate = useNavigate()
+
+    return (
+        <div className="max-w-7xl mx-auto py-16 px-4 font-sans">
+            <div className="text-center max-w-3xl mx-auto mb-16">
+                <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight sm:text-5xl mb-4">
+                    Choose Your Plan
+                </h1>
+                <p className="text-xl text-gray-500">
+                    Transparent pricing to help you win more tenders.
+                </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
+                {/* 1. STARTER (FREE) */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm hover:shadow-md transition-shadow relative"
+                >
+                    <div className="mb-8">
+                        <h3 className="text-xl font-bold text-gray-900">Starter</h3>
+                        <p className="text-gray-500 mt-2 text-sm">
+                            Perfect for small subcontractors testing the system.
+                            <br /><span className="font-semibold text-orange-600">Strict limit: 1 Tender / month.</span>
+                        </p>
+                        <div className="mt-6 flex items-baseline">
+                            <span className="text-5xl font-extrabold text-gray-900">Free</span>
+                        </div>
+                    </div>
+                    <ul className="mb-8 space-y-4">
+                        <li className="flex items-start text-gray-600 space-x-3">
+                            <Check className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                            <span className="text-sm"><strong>1 Tender Analysis / Month</strong><br /><span className="text-xs text-gray-500">Analyze one full tender document.</span></span>
+                        </li>
+                        <li className="flex items-start text-gray-600 space-x-3">
+                            <Check className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                            <span className="text-sm"><strong>Basic Compliance</strong><br /><span className="text-xs text-gray-500">See if your docs are Valid or Expired.</span></span>
+                        </li>
+                        <li className="flex items-start text-gray-600 space-x-3">
+                            <Check className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                            <span className="text-sm"><strong>Limited AI Insights</strong><br /><span className="text-xs text-gray-500">Basic pass/fail results only.</span></span>
+                        </li>
+                    </ul>
+                    <button
+                        className="w-full py-3 px-6 rounded-xl border-2 border-gray-200 text-gray-700 font-bold hover:border-gray-300 hover:bg-gray-50 transition-all"
+                        onClick={() => navigate('/tenders')}
+                    >
+                        Current Plan
+                    </button>
+                </motion.div>
+
+                {/* 2. STANDARD (R200) */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="bg-white rounded-2xl border-2 border-blue-500 p-8 shadow-xl relative transform scale-105 z-10"
+                >
+                    <div className="absolute top-0 inset-x-0 bg-blue-500 text-white text-xs font-bold py-1 text-center rounded-t-lg">
+                        POPULAR
+                    </div>
+                    <div className="mb-8 mt-2">
+                        <h3 className="text-xl font-bold text-blue-600">Standard</h3>
+                        <p className="text-gray-500 mt-2 text-sm">
+                            For growing businesses bidding regularly.
+                            <br /><span className="font-semibold text-blue-600">20 Tenders + Full AI Power.</span>
+                        </p>
+                        <div className="mt-6 flex items-baseline text-gray-900">
+                            <span className="text-3xl font-bold">R</span>
+                            <span className="text-5xl font-extrabold tracking-tight">2,000</span>
+                            <span className="text-gray-500 text-xl ml-2">/mo</span>
+                        </div>
+                    </div>
+                    <ul className="mb-8 space-y-4">
+                        <li className="flex items-start text-gray-700 space-x-3">
+                            <div className="p-1 rounded-full bg-blue-100 text-blue-600 mt-0.5">
+                                <Zap className="w-4 h-4" />
+                            </div>
+                            <span className="text-sm font-bold">20 Tenders / Month</span>
+                        </li>
+                        <li className="flex items-start text-gray-600 space-x-3">
+                            <Check className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                            <span className="text-sm"><strong>Full AI Analysis</strong><br /><span className="text-xs text-gray-500">Same powerful AI engine as Enterprise.</span></span>
+                        </li>
+                        <li className="flex items-start text-gray-600 space-x-3">
+                            <Check className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                            <span className="text-sm"><strong>Standard Support</strong><br /><span className="text-xs text-gray-500">Email us anytime. We reply within 24h.</span></span>
+                        </li>
+                        <li className="flex items-start text-gray-600 space-x-3">
+                            <Check className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                            <span className="text-sm"><strong>Advanced Compliance</strong><br /><span className="text-xs text-gray-500">Gap analysis & expiry alerts.</span></span>
+                        </li>
+                    </ul>
+                    <button
+                        className="w-full py-3 px-6 rounded-xl bg-blue-600 text-white font-bold text-lg hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+                        onClick={() => navigate('/settings?tab=billing')}
+                    >
+                        Upgrade
+                    </button>
+                </motion.div>
+
+                {/* 3. ENTERPRISE (R4000) */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="bg-gray-900 rounded-2xl border border-gray-800 p-8 shadow-xl text-white relative"
+                >
+                    <div className="mb-8">
+                        <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                            <Building className="w-5 h-5 text-purple-400" /> Enterprise
+                        </h3>
+                        <p className="text-gray-400 mt-2 text-sm">
+                            For established teams who can't afford downtime.
+                            <br /><span className="font-semibold text-purple-400">Unlimited Everything.</span>
+                        </p>
+                        <div className="mt-6 flex items-baseline text-white">
+                            <span className="text-3xl font-bold">R</span>
+                            <span className="text-5xl font-extrabold tracking-tight">4,000</span>
+                            <span className="text-gray-400 text-xl ml-2">/mo</span>
+                        </div>
+                    </div>
+                    <ul className="mb-8 space-y-4">
+                        <li className="flex items-start text-gray-300 space-x-3">
+                            <div className="p-1 rounded-full bg-purple-500/20 text-purple-400 mt-0.5">
+                                <Zap className="w-4 h-4" />
+                            </div>
+                            <span className="text-sm font-bold text-white">Unlimited Tenders</span>
+                        </li>
+                        <li className="flex items-start text-gray-300 space-x-3">
+                            <div className="p-1 rounded-full bg-purple-500/20 text-purple-400 mt-0.5">
+                                <Shield className="w-4 h-4" />
+                            </div>
+                            <span className="text-sm font-bold text-white">Priority Support (VIP)</span>
+                            <span className="text-xs bg-purple-900 text-purple-300 px-2 py-0.5 rounded-full ml-auto">ASAP</span>
+                        </li>
+                        <li className="flex items-start text-gray-300 space-x-3">
+                            <Check className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
+                            <span className="text-sm text-gray-300"><strong>Deep AI Insights</strong><br /><span className="text-xs text-gray-500">Full analysis & strategy suggestions.</span></span>
+                        </li>
+                        <li className="flex items-start text-gray-300 space-x-3">
+                            <Check className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
+                            <span className="text-sm text-gray-300"><strong>Full System Access</strong><br /><span className="text-xs text-gray-500">Compliance Vault, Templates, History.</span></span>
+                        </li>
+                    </ul>
+                    <button
+                        className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-lg hover:shadow-lg hover:to-indigo-500 transition-all flex items-center justify-center gap-2 group"
+                        onClick={() => navigate('/settings?tab=billing')}
+                    >
+                        Get Enterprise
+                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                </motion.div>
+            </div>
+
+            <div className="mt-24 border-t border-gray-200 pt-16 text-center">
+                <p className="text-sm font-semibold text-gray-500 tracking-wider uppercase mb-8">Trusted Construction Partners</p>
+                <div className="flex justify-center flex-wrap gap-8 opacity-50 grayscale">
+                    <div className="h-8 w-24 bg-gray-300 rounded"></div>
+                    <div className="h-8 w-24 bg-gray-300 rounded"></div>
+                    <div className="h-8 w-24 bg-gray-300 rounded"></div>
+                </div>
+            </div>
+        </div>
+    )
+}
