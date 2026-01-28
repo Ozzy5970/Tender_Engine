@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react"
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ArrowUpRight, CheckCircle, FileText, AlertTriangle } from "lucide-react"
 import { TenderService, CompanyService } from "@/services/api"
@@ -32,8 +32,8 @@ import Privacy from "@/pages/Privacy"
 // Simple Protected Route wrapper
 // Simple Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading, companyName } = useAuth()
-  const location = useLocation()
+  const { session, loading } = useAuth()
+
 
   if (loading) return <div className="h-screen flex items-center justify-center">Loading...</div>
   if (!session) return <Navigate to="/auth" replace />
@@ -43,7 +43,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function Dashboard() {
-  const { companyName, isAdmin } = useAuth()
+  const { companyName } = useAuth()
   const navigate = useNavigate()
   const [activeTendersCount, setActiveTendersCount] = useState<number | null>(null)
   const [avgReadiness, setAvgReadiness] = useState<number | null>(null)

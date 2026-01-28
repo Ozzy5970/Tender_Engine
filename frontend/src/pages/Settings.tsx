@@ -4,8 +4,6 @@ import { supabase } from "@/lib/supabase"
 import {
     User, Bell, CreditCard, Loader2, Save, Shield,
     Gift,
-    Lock,
-    Smartphone,
     CheckCircle,
     FileText,
     X,
@@ -168,7 +166,7 @@ function BillingSettings({ navigate }: any) {
 
     const toggleAutoRenew = async () => {
         setLoading(true)
-        const newCancelStatus = !subscription?.cancel_at_period_end
+
         // If currently cancelling (true), we want to RESUME (false).
         // If currently active (false), we want to CANCEL (true).
         // Logic: currently true (off) -> toggle to false (on).
@@ -554,7 +552,7 @@ function NotificationSettings() {
 
     // Helpers to disable controls
     const canUseEmail = isStandard || isPro // Tier 2+ (Admin included in isPro)
-    const canUsePro = isPro              // Tier 3+ (Admin included)
+
 
     return (
         <div className="space-y-8">

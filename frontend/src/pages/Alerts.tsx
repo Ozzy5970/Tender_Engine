@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Info, AlertTriangle, AlertOctagon, Check, Bell, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CompanyService } from "@/services/api"
 import { useFetch } from "@/hooks/useFetch"
 import { toast } from "sonner"
 
-type AlertSeverity = "high" | "medium" | "low" // Matches DB check constraint usually, let's map it. 
+
 // DB says: check (priority in ('HIGH', 'MEDIUM', 'LOW'))
 
 interface Alert {

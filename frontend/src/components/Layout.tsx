@@ -10,7 +10,7 @@ import {
     Bell,
     BookOpen,
     Settings,
-    CreditCard // Added for completeness if needed later
+
 } from "lucide-react"
 
 export default function Layout() {

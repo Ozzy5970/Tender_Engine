@@ -58,7 +58,7 @@ export default function Tenders() {
     const currentLimit = TENDER_LIMITS[tier] || 1
     const currentCount = (apiTenders as any[])?.length || 0
     const isLimitReached = currentCount >= currentLimit
-    const remaining = currentLimit === Infinity ? 999 : currentLimit - currentCount
+
 
     // Progress calculation (capped at 100%)
     const progressPercent = currentLimit === Infinity ? 0 : Math.min((currentCount / currentLimit) * 100, 100)

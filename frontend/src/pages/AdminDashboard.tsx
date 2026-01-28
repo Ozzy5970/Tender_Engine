@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/Skeleton"
 import { AdminService, FeedbackService, ErrorService } from "@/services/api"
-import { ArrowUpRight, DollarSign, CreditCard, Star, ShieldAlert, Loader2, Send, Trash2, Users } from "lucide-react"
+import { DollarSign, Star, ShieldAlert, Loader2, Send, Trash2, Users } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { motion } from "framer-motion"
