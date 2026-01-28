@@ -2,7 +2,7 @@
 -- Description: Optimizes query speed for dashboards and filtering.
 
 -- 1. TENDERS: Index for fast filtering and sorting
-create index if not exists idx_tenders_sector on public.tenders(sector);
+-- create index if not exists idx_tenders_sector on public.tenders(sector);
 create index if not exists idx_tenders_closing_date on public.tenders(closing_date);
 
 -- 2. FEEDBACK: Index for Admin Dashboard joins

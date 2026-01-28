@@ -14,7 +14,7 @@ export default function AuthPage() {
         setLoading(true)
         setMessage("")
 
-        // Using magic link for simplicity, can handle passwords too
+        // Magic Link Login
         const { error } = await supabase.auth.signInWithOtp({
             email,
             options: {
@@ -25,13 +25,12 @@ export default function AuthPage() {
         if (error) {
             setMessage("Error: " + error.message)
         } else {
-            setMessage("Check your email for the login link!")
+            setMessage("Check your email for the secure login link!")
         }
         setLoading(false)
     }
 
     const handleGoogleLogin = async () => {
-        // Note: This requires Google Auth to be configured in Supabase Dashboard
         const { error } = await supabase.auth.signInWithOAuth({
             provider: "google",
             options: {
@@ -62,6 +61,7 @@ export default function AuthPage() {
                         onClick={handleGoogleLogin}
                         className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
                     >
+                        {/* Google SVG */}
                         <svg className="h-5 w-5 mr-3" viewBox="0 0 24 24">
                             <path
                                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -119,7 +119,7 @@ export default function AuthPage() {
                             disabled={loading}
                             className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {loading ? <Loader2 className="animate-spin h-5 w-5" /> : "Sign in with Magic Link"}
+                            {loading ? <Loader2 className="animate-spin h-5 w-5" /> : "Send Secure Login Link"}
                         </button>
                     </div>
 

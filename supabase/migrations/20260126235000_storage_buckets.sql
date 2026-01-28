@@ -7,7 +7,7 @@ values ('tenders_documents', 'tenders_documents', false)
 on conflict (id) do nothing;
 
 -- 2. Enable RLS on Objects (Should be on by default, but ensuring)
-alter table storage.objects enable row level security;
+-- alter table storage.objects enable row level security;
 
 -- 3. Policy: Authenticated users can upload (INSERT)
 -- They can upload to their own folder: user_id/*

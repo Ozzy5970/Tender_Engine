@@ -39,12 +39,58 @@ const OFFICIAL_DESCRIPTIONS: Record<string, string> = {
     "SWORN AFFIDAVIT": "Official sworn affidavit confirming B-BBEE status for Exempted Micro Enterprises (Emerging)."
 }
 
+// Extracted Component to prevent re-renders
+interface TemplateCardProps {
+    template: any
+    onArchive: (t: any) => Promise<void>
+    onDelete: (id: string, url: string) => Promise<void>
+}
+
+const TemplateCard = ({ template, onArchive, onDelete }: TemplateCardProps) => (
+    <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`bg-white border rounded-lg p-3 shadow-sm hover:shadow-md transition-all flex justify-between items-start group ${!template.is_active ? 'opacity-60 grayscale' : ''}`}
+    >
+        <div className="flex-1 min-w-0 mr-3">
+            <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] font-mono font-bold bg-gray-100 text-gray-600 px-1.5 rounded">
+                    {template.code}
+                </span>
+                <span className="text-[10px] font-mono font-bold bg-blue-50 text-blue-600 px-1.5 rounded flex items-center">
+                    <Download className="w-2.5 h-2.5 mr-1" />
+                    {template.download_count || 0}
+                </span>
+                {!template.is_active && <span className="text-[10px] bg-red-100 text-red-600 px-1 rounded">ARCHIVED</span>}
+            </div>
+            <h4 className="text-sm font-medium text-gray-900 truncate" title={template.title}>{template.title}</h4>
+            <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">{template.description}</p>
+        </div>
+
+        <div className="flex flex-col gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+                onClick={async () => {
+                    const url = await TemplateService.download(template)
+                    window.open(url, '_blank')
+                }}
+                className="p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100" title="Download">
+                <Download className="w-3 h-3" />
+            </button>
+            <button onClick={() => onArchive(template)} className="p-1.5 bg-gray-50 text-gray-500 rounded hover:bg-orange-50 hover:text-orange-600" title="Archive">
+                <Archive className="w-3 h-3" />
+            </button>
+            <button onClick={() => onDelete(template.id, template.file_url)} className="p-1.5 bg-gray-50 text-gray-500 rounded hover:bg-red-50 hover:text-red-600" title="Delete">
+                <Trash2 className="w-3 h-3" />
+            </button>
+        </div>
+    </motion.div>
+)
+
 export default function AdminTemplates() {
     const navigate = useNavigate()
     const [templates, setTemplates] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [showUpload, setShowUpload] = useState(false)
-    const [showArchived, setShowArchived] = useState(false)
 
     // Form State
     const [form, setForm] = useState({ title: "", code: "", category: "General", description: "" })
@@ -64,11 +110,12 @@ export default function AdminTemplates() {
 
     useEffect(() => {
         loadTemplates()
-    }, [showArchived])
+    }, [])
 
     const loadTemplates = async () => {
         setLoading(true)
-        const { data } = await TemplateService.getAll(showArchived)
+        // Fixed to false as per user request to remove legacy archive view
+        const { data } = await TemplateService.getAll(false)
         if (data) setTemplates(data as any[])
         setLoading(false)
     }
@@ -265,48 +312,86 @@ export default function AdminTemplates() {
     // Render Logic
     // We want to group by COMPLIANCE_CATEGORIES first (Tax, Company...)
 
+    function renderSection(categoryKey: string, label: string) {
+        // 1. Get all Doc Types for this Category
+        const docTypes = Object.entries(DOCUMENT_TYPES)
+            .filter(([_, def]) => def.category === categoryKey)
 
-    const TemplateCard = ({ template }: { template: any }) => (
-        <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`bg-white border rounded-lg p-3 shadow-sm hover:shadow-md transition-all flex justify-between items-start group ${!template.is_active ? 'opacity-60 grayscale' : ''}`}
-        >
-            <div className="flex-1 min-w-0 mr-3">
-                <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-mono font-bold bg-gray-100 text-gray-600 px-1.5 rounded">
-                        {template.code}
+        if (docTypes.length === 0) return null
+
+        return (
+            <div key={categoryKey} className="mb-12 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="bg-gray-50/50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h2 className="text-lg font-bold text-gray-900">{label}</h2>
+                    <span className="text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded border border-gray-200">
+                        {docTypes.length} Requirements
                     </span>
-                    {template.download_count > 0 && (
-                        <span className="text-[10px] font-mono font-bold bg-blue-50 text-blue-600 px-1.5 rounded flex items-center">
-                            <Download className="w-2.5 h-2.5 mr-1" />
-                            {template.download_count}
-                        </span>
-                    )}
-                    {!template.is_active && <span className="text-[10px] bg-red-100 text-red-600 px-1 rounded">ARCHIVED</span>}
                 </div>
-                <h4 className="text-sm font-medium text-gray-900 truncate" title={template.title}>{template.title}</h4>
-                <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">{template.description}</p>
-            </div>
 
-            <div className="flex flex-col gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                    onClick={async () => {
-                        const url = await TemplateService.download(template)
-                        window.open(url, '_blank')
-                    }}
-                    className="p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100" title="Download">
-                    <Download className="w-3 h-3" />
-                </button>
-                <button onClick={() => toggleArchive(template)} className="p-1.5 bg-gray-50 text-gray-500 rounded hover:bg-orange-50 hover:text-orange-600" title="Archive">
-                    <Archive className="w-3 h-3" />
-                </button>
-                <button onClick={() => handleDelete(template.id, template.file_url)} className="p-1.5 bg-gray-50 text-gray-500 rounded hover:bg-red-50 hover:text-red-600" title="Delete">
-                    <Trash2 className="w-3 h-3" />
-                </button>
+                <div className="divide-y divide-gray-100">
+                    {/* Iterate each strict User Requirement to show gaps */}
+                    {docTypes.map(([typeKey, def]) => {
+                        // Find templates linked precisely to this typeKey
+                        const linkedTemplate = templates.find(t => t.category === typeKey && t.is_active)
+                        // const archivedCount = templates.filter(t => t.category === typeKey && !t.is_active).length
+
+                        return (
+                            <div key={typeKey} className="grid grid-cols-1 md:grid-cols-12 gap-6 p-6 hover:bg-slate-50 transition-colors group">
+                                {/* Left: User Requirement (The "Gap") */}
+                                <div className="md:col-span-4">
+                                    <div className="flex items-start gap-3">
+                                        <div className={`mt-1 p-1.5 rounded-md ${linkedTemplate ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+                                            {linkedTemplate ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-gray-900 text-sm">{def.label}</h3>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                {def.mandatory ? (
+                                                    <span className="text-[10px] uppercase font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Mandatory</span>
+                                                ) : (
+                                                    <span className="text-[10px] uppercase font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">Optional</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right: The Template (The "Plug") */}
+                                <div className="md:col-span-8 flex items-center">
+                                    {linkedTemplate ? (
+                                        <div className="w-full">
+                                            <TemplateCard
+                                                template={linkedTemplate}
+                                                onArchive={toggleArchive}
+                                                onDelete={handleDelete}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="w-full border-2 border-dashed border-gray-200 rounded-xl p-4 flex items-center justify-between group-hover:border-blue-300 group-hover:bg-blue-50/50 transition-all">
+                                            <div className="flex items-center text-gray-400 group-hover:text-blue-600">
+                                                <AlertCircle className="w-5 h-5 mr-2" />
+                                                <span className="text-sm font-medium">No template uploaded for this section.</span>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    setForm(prev => ({ ...prev, category: typeKey, code: "", title: "", description: "" }))
+                                                    setShowUpload(true)
+                                                }}
+                                                className="text-sm font-semibold text-blue-600 bg-white border border-blue-200 px-3 py-1.5 rounded-lg shadow-sm hover:bg-blue-600 hover:text-white transition-all flex items-center"
+                                            >
+                                                <Plus className="w-3 h-3 mr-1.5" />
+                                                Upload Template
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
             </div>
-        </motion.div>
-    )
+        )
+    }
 
     return (
         <div className="max-w-7xl mx-auto py-8 px-4 font-sans">
@@ -319,9 +404,6 @@ export default function AdminTemplates() {
                 <div className="flex gap-3">
                     <button onClick={() => navigate('/admin/templates/history')} className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 flex items-center">
                         <History className="w-4 h-4 mr-2" /> Audit Log
-                    </button>
-                    <button onClick={() => setShowArchived(!showArchived)} className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50">
-                        {showArchived ? "Hide Archived" : "Show Archived"}
                     </button>
                     <button onClick={() => setShowUpload(!showUpload)} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm flex items-center">
                         <Plus className="w-4 h-4 mr-2" /> New Template
@@ -446,7 +528,7 @@ export default function AdminTemplates() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                     {templates.filter(t => t.category === "General" && !t.code.startsWith("MBD")).map(t => (
-                        <TemplateCard key={t.id} template={t} />
+                        <TemplateCard key={t.id} template={t} onArchive={toggleArchive} onDelete={handleDelete} />
                     ))}
                     {templates.filter(t => t.category === "General" && !t.code.startsWith("MBD")).length === 0 && (
                         <p className="text-gray-400 text-sm italic col-span-full py-4 text-center border border-dashed rounded-lg">No standard SBD forms uploaded yet.</p>
@@ -467,7 +549,7 @@ export default function AdminTemplates() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                     {templates.filter(t => t.category === "General" && t.code.startsWith("MBD")).map(t => (
-                        <TemplateCard key={t.id} template={t} />
+                        <TemplateCard key={t.id} template={t} onArchive={toggleArchive} onDelete={handleDelete} />
                     ))}
                     {templates.filter(t => t.category === "General" && t.code.startsWith("MBD")).length === 0 && (
                         <p className="text-gray-400 text-sm italic col-span-full py-4 text-center border border-dashed rounded-lg">No municipal MBD forms uploaded yet.</p>
@@ -490,88 +572,5 @@ export default function AdminTemplates() {
             />
         </div>
     )
-
-    // Helper functions need to be inside component scope or props passed. 
-    // Re-defining renderSection here to access state.
-    function renderSection(categoryKey: string, label: string) {
-        // 1. Get all Doc Types for this Category
-        const docTypes = Object.entries(DOCUMENT_TYPES)
-            .filter(([_, def]) => def.category === categoryKey)
-
-        if (docTypes.length === 0) return null
-
-        return (
-            <div key={categoryKey} className="mb-12 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div className="bg-gray-50/50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                    <h2 className="text-lg font-bold text-gray-900">{label}</h2>
-                    <span className="text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded border border-gray-200">
-                        {docTypes.length} Requirements
-                    </span>
-                </div>
-
-                <div className="divide-y divide-gray-100">
-                    {/* Iterate each strict User Requirement to show gaps */}
-                    {docTypes.map(([typeKey, def]) => {
-                        // Find templates linked precisely to this typeKey
-                        const linkedTemplate = templates.find(t => t.category === typeKey && t.is_active)
-                        const archivedCount = templates.filter(t => t.category === typeKey && !t.is_active).length
-
-                        return (
-                            <div key={typeKey} className="grid grid-cols-1 md:grid-cols-12 gap-6 p-6 hover:bg-slate-50 transition-colors group">
-                                {/* Left: User Requirement (The "Gap") */}
-                                <div className="md:col-span-4">
-                                    <div className="flex items-start gap-3">
-                                        <div className={`mt-1 p-1.5 rounded-md ${linkedTemplate ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
-                                            {linkedTemplate ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold text-gray-900 text-sm">{def.label}</h3>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                {def.mandatory ? (
-                                                    <span className="text-[10px] uppercase font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Mandatory</span>
-                                                ) : (
-                                                    <span className="text-[10px] uppercase font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">Optional</span>
-                                                )}
-                                                {archivedCount > 0 && showArchived && (
-                                                    <span className="text-[10px] text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
-                                                        {archivedCount} Archived
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Right: The Template (The "Plug") */}
-                                <div className="md:col-span-8 flex items-center">
-                                    {linkedTemplate ? (
-                                        <div className="w-full">
-                                            <TemplateCard template={linkedTemplate} />
-                                        </div>
-                                    ) : (
-                                        <div className="w-full border-2 border-dashed border-gray-200 rounded-xl p-4 flex items-center justify-between group-hover:border-blue-300 group-hover:bg-blue-50/50 transition-all">
-                                            <div className="flex items-center text-gray-400 group-hover:text-blue-600">
-                                                <AlertCircle className="w-5 h-5 mr-2" />
-                                                <span className="text-sm font-medium">No template uploaded for this section.</span>
-                                            </div>
-                                            <button
-                                                onClick={() => {
-                                                    setForm(prev => ({ ...prev, category: typeKey, code: "", title: "", description: "" }))
-                                                    setShowUpload(true)
-                                                }}
-                                                className="text-sm font-semibold text-blue-600 bg-white border border-blue-200 px-3 py-1.5 rounded-lg shadow-sm hover:bg-blue-600 hover:text-white transition-all flex items-center"
-                                            >
-                                                <Plus className="w-3 h-3 mr-1.5" />
-                                                Upload Template
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )
-                    })}
-                </div>
-            </div>
-        )
-    }
 }
+

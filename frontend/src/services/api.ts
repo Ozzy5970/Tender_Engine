@@ -347,6 +347,144 @@ export const CompanyService = {
                 issue_date: new Date().toISOString()
             })
         )
+    },
+
+    async deleteComplianceDoc(id: string) {
+        // 1. Fetch doc to get file_url
+        const { data: doc, error: fetchError } = await supabase
+            .from('compliance_documents')
+            .select('file_url')
+            .eq('id', id)
+            .single()
+
+        if (fetchError) return { data: null, error: fetchError.message, status: 500 }
+
+        // 2. Delete file from storage
+        if (doc && doc.file_url) {
+            const { error: storageError } = await supabase.storage
+                .from('compliance')
+                .remove([doc.file_url])
+
+            if (storageError) console.error("Failed to delete file from storage:", storageError)
+            // Continue to delete record even if storage fails
+        }
+
+        // 3. Delete Record
+        return handleRequest(
+            supabase.from('compliance_documents').delete().eq('id', id)
+        )
+    },
+
+    // --- Alerts ---
+    async getAlerts() {
+        try {
+            // Trigger generation in background to avoid blocking UI
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                // We use a standalone helper to avoid 'this' context issues
+                // Fire and forget - don't await
+                generateAlertsClientSide(user.id).catch(console.error)
+            }
+
+            return handleRequest(
+                supabase.from('alerts')
+                    .select('*')
+                    .eq('user_id', user?.id)
+                    .order('created_at', { ascending: false })
+            )
+        } catch (e) {
+            console.error("Alert generation failed", e)
+            // Even if generation fails, try to return existing alerts
+            return handleRequest(
+                supabase.from('alerts').select('*').order('created_at', { ascending: false })
+            )
+        }
+    },
+
+    async markAlertRead(id: string) {
+        return handleRequest(
+            supabase.from('alerts').update({ is_read: true }).eq('id', id)
+        )
+    },
+
+    async markAllAlertsRead() {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return { data: null, error: 'No user', status: 401 }
+
+        return handleRequest(
+            supabase.from('alerts').update({ is_read: true }).eq('user_id', user.id)
+        )
+    }
+}
+
+// Standalone Helper: Generate alerts client-side since migration might not be run
+async function generateAlertsClientSide(userId: string) {
+    try {
+        const today = new Date()
+        const next30Days = new Date(); next30Days.setDate(today.getDate() + 30)
+        const next7Days = new Date(); next7Days.setDate(today.getDate() + 7)
+
+        // 1. Check Compliance Docs
+        const { data: docs } = await supabase.from('compliance_documents')
+            .select('id, title, expiry_date, category')
+            .eq('user_id', userId)
+
+        if (docs) {
+            for (const doc of docs) {
+                if (!doc.expiry_date) continue
+                const exp = new Date(doc.expiry_date)
+
+                // A. Expiring Soon (0 < days < 30)
+                if (exp > today && exp <= next30Days) {
+                    const msg = `Document Expiring Soon: ${doc.title} (${doc.category}) expires on ${doc.expiry_date.split('T')[0]}`
+                    await _ensureAlert(userId, 'HIGH', msg)
+                }
+
+                // B. Expired
+                if (exp < today) {
+                    const msg = `EXPIRED: ${doc.title} has expired! Please renew immediately.`
+                    await _ensureAlert(userId, 'HIGH', msg) // Ensure unique
+                }
+            }
+        }
+
+        // 2. Check Tenders
+        const { data: tenders } = await supabase.from('tenders')
+            .select('id, title, closing_date, status')
+            .eq('user_id', userId)
+            .in('status', ['DRAFT', 'ANALYZING', 'COMPLIANT'])
+            .gte('closing_date', today.toISOString())
+            .lte('closing_date', next7Days.toISOString())
+
+        if (tenders) {
+            for (const tender of tenders) {
+                const msg = `Tender Closing Soon: ${tender.title} closes on ${tender.closing_date.split('T')[0]}`
+                await _ensureAlert(userId, 'HIGH', msg)
+            }
+        }
+    } catch (err) {
+        console.error("Error generating alerts:", err)
+    }
+}
+
+async function _ensureAlert(userId: string, priority: string, message: string) {
+    // Simple deduplication: Check if unread alert with same message exists, or created recently?
+    // Let's check if such an alert exists created in last 7 days.
+    const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(new Date().getDate() - 7)
+
+    const { count } = await supabase.from('alerts')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('message', message)
+        .gte('created_at', sevenDaysAgo.toISOString())
+
+    if (!count || count === 0) {
+        await supabase.from('alerts').insert({
+            user_id: userId,
+            priority,
+            message,
+            is_read: false
+        })
     }
 }
 
@@ -360,8 +498,10 @@ export const TemplateService = {
     },
 
     async download(template: Template) {
-        // Increment download count using secure RPC
-        await supabase.rpc('increment_template_download', { template_id: template.id })
+        // Increment download count using secure RPC in background (non-blocking)
+        supabase.rpc('increment_template_download', { template_id: template.id }).then(({ error }) => {
+            if (error) console.error("Failed to increment download count", error)
+        })
 
         // Check if there is a public URL or if we need to sign it
         // Since bucket is public in our setup:
@@ -377,6 +517,30 @@ export const AdminService = {
         )
     },
 
+    async broadcast(title: string, message: string, priority: 'INFO' | 'WARNING' | 'CRITICAL') {
+        const { data: { user } } = await supabase.auth.getUser()
+        return handleRequest(
+            supabase.from('system_messages').insert({
+                title,
+                message,
+                priority,
+                created_by: user?.id
+            })
+        )
+    },
+
+    async getBroadcasts() {
+        return handleRequest(
+            supabase.from('system_messages').select('*').order('created_at', { ascending: false })
+        )
+    },
+
+    async deleteBroadcast(id: string) {
+        return handleRequest(
+            supabase.from('system_messages').delete().eq('id', id)
+        )
+    },
+
     async getUsers() {
         return handleRequest<any[]>(
             supabase.rpc('get_admin_users')
@@ -384,73 +548,15 @@ export const AdminService = {
     },
 
     async getAnalytics() {
-        // 1. Get current month metrics
-        const now = new Date();
-        const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
-        const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString();
+        return handleRequest(
+            supabase.rpc('get_admin_analytics')
+        )
+    },
 
-        // Fetch Current Month Revenue
-        const { data: currentMonthData } = await supabase
-            .from('subscription_history')
-            .select('amount')
-            .gte('created_at', startOfCurrentMonth);
-
-        const currentRevenue = currentMonthData?.reduce((acc, curr) => acc + (curr.amount || 0), 0) || 0;
-
-        // Fetch Last Month Revenue for Comparison
-        const { data: lastMonthData } = await supabase
-            .from('subscription_history')
-            .select('amount')
-            .gte('created_at', startOfLastMonth)
-            .lte('created_at', endOfLastMonth);
-
-        const lastRevenue = lastMonthData?.reduce((acc, curr) => acc + (curr.amount || 0), 0) || 0;
-
-        // Calculate Trend
-        let trend = "+0%";
-        let trendDir: 'up' | 'down' | 'neutral' = 'neutral';
-
-        if (lastRevenue > 0) {
-            const growth = ((currentRevenue - lastRevenue) / lastRevenue) * 100;
-            trend = `${growth > 0 ? '+' : ''}${growth.toFixed(1)}%`;
-            trendDir = growth > 0 ? 'up' : (growth < 0 ? 'down' : 'neutral');
-        } else if (currentRevenue > 0) {
-            trend = "New"; // No previous data to compare
-            trendDir = 'up';
-        }
-
-        // Get Active Subs Count
-        const { count: activeSubs } = await supabase
-            .from('subscriptions')
-            .select('id', { count: 'exact', head: true })
-            .eq('status', 'active');
-
-        // Get Total Users
-        const { count: totalUsers } = await supabase
-            .from('profiles')
-            .select('id', { count: 'exact', head: true });
-
-        return {
-            data: {
-                revenue: {
-                    total: currentRevenue,
-                    trend: trend,
-                    trendDir: trendDir
-                },
-                users: {
-                    total: totalUsers || 0,
-                    active: activeSubs || 0,
-                    trend: "+0%", // Keeping user trend simple for now or implement similar logic if needed
-                    trendDir: "neutral"
-                },
-                activity: {
-                    active_now: 0 // Realtime not implemented yet
-                }
-            },
-            error: null,
-            status: 200
-        }
+    async getUserGrowth(period: 'daily' | 'weekly' | 'monthly') {
+        return handleRequest(
+            supabase.rpc('get_user_growth', { period })
+        )
     },
 
     async uploadTemplate(file: File, title: string, code: string, category: string, description: string) {
@@ -521,16 +627,8 @@ export const AdminService = {
         // If we have real data (migration applied), use it.
         if (!error && realHistory && realHistory.length > 0) {
 
-            // Fetch users to map Emails (since we can't join auth.users directly)
-            let userMap = new Map<string, string>();
-            try {
-                const { data: users } = await supabase.rpc('get_admin_users')
-                if (users) {
-                    users.forEach((u: any) => userMap.set(u.id, u.email))
-                }
-            } catch (e) {
-                console.warn("Could not fetch admin users for email mapping", e)
-            }
+            // Fetch users to map Emails
+            const userMap = await _getAdminUserMap()
 
             // Aggregate for Graph
             const graphMap = new Map()
@@ -580,7 +678,7 @@ export const AdminService = {
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single()
 
         // 2. Docs
-        const { data: docs } = await supabase.from('company_documents').select('*').eq('profile_id', userId)
+        const { data: docs } = await supabase.from('compliance_documents').select('*').eq('user_id', userId)
 
         // 3. Tenders Stats
         const { count: tenderCount } = await supabase.from('tenders').select('*', { count: 'exact', head: true }).eq('user_id', userId)
@@ -641,19 +739,8 @@ export const AdminService = {
 
         if (error) return { data: null, error: error.message }
 
-        // Manually fetch emails if join failed or empty (similar to Revenue page logic)
-        // ideally we reuse that logic but for speed duplication here is acceptable safe guard
-        let userMap = new Map<string, string>();
-        if (realHistory && realHistory.length > 0) {
-            try {
-                const { data: users } = await supabase.rpc('get_admin_users')
-                if (users) {
-                    users.forEach((u: any) => userMap.set(u.id, u.email))
-                }
-            } catch (e) {
-                console.warn("Could not fetch admin users for email mapping", e)
-            }
-        }
+        // Fetch emails via helper if join failed or for robustness
+        const userMap = await _getAdminUserMap()
 
         const transactions = (realHistory || []).map((tx: any) => ({
             date: tx.created_at,
@@ -677,6 +764,20 @@ export const AdminService = {
             error: null
         }
     }
+}
+
+// Helper: Fetch Map of User ID -> Email
+async function _getAdminUserMap() {
+    const userMap = new Map<string, string>()
+    try {
+        const { data: users } = await supabase.rpc('get_admin_users')
+        if (users) {
+            users.forEach((u: any) => userMap.set(u.id, u.email))
+        }
+    } catch (e) {
+        console.warn("Could not fetch admin users for email mapping", e)
+    }
+    return userMap
 }
 
 /**
@@ -795,16 +896,27 @@ export const ErrorService = {
 
     async getAll() {
         return handleRequest(
-            supabase.from('error_logs')
-                .select('*, profiles(email)')
-                .order('created_at', { ascending: false })
-                .limit(1000)
+            supabase.rpc('get_admin_errors')
         )
     },
 
     async getStats() {
         return handleRequest(
             supabase.rpc('get_error_stats')
+        )
+    },
+
+    async deleteError(id: string) {
+        return handleRequest(
+            supabase.from('error_logs').delete().eq('id', id)
+        )
+    },
+
+    async clearAll() {
+        // Only deletes errors older than 7 days strictly, or all? 
+        // For now, let's allow deleting ALL for cleanup.
+        return handleRequest(
+            supabase.from('error_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000') // Delete all rows
         )
     }
 }

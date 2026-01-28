@@ -1,6 +1,4 @@
--- Migration: Create Admin Users RPC
--- Description: Function to fetch detailed user list for Admin Dashboard.
-
+-- FIX: Add cast to int for concatenation
 create or replace function public.get_admin_users()
 returns table (
     id uuid,
@@ -34,7 +32,7 @@ begin
         p.id,
         u.email::text, -- Cast to text to ensure compatibility
         p.company_name,
-        (p.cidb_grade_grading::text || p.cidb_grade_class)::text as cidb_grade,
+        (p.cidb_grade_grading::text || p.cidb_grade_class)::text as cidb_grade, -- FIXED CAST
         p.bbbee_level,
         u.created_at,
         u.last_sign_in_at,

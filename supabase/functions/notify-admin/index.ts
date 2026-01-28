@@ -73,17 +73,15 @@ Deno.serve(async (req) => {
             }
 
             const tier = profile.tier?.toLowerCase() || ''
-            console.log(`👤 User Tier: ${tier}`)
 
+            // Check Tier Threshold
             const isTier2 = tier.includes('tier 2')
             const isTier3 = tier.includes('tier 3')
 
-            if (isTier2) {
+            if (isTier2 || isTier3) {
                 shouldSend = true
-                subject = `[TIER 2 | CLIENT MESSAGE] ${profile.company_name || 'Unknown Company'} – New Feedback`
-            } else if (isTier3) {
-                shouldSend = true
-                subject = `[TIER 3 | URGENT | CLIENT MESSAGE] ${profile.company_name || 'Unknown Company'} – New Feedback`
+                const prefix = isTier3 ? '[URGENT | TIER 3]' : '[TIER 2]'
+                subject = `${prefix} Client Message: ${profile.company_name || 'Unknown Company'}`
             } else {
                 console.log(`ℹ️ Skipping notification for ${tier} client.`)
                 return new Response(JSON.stringify({ status: 'skipped', reason: 'tier_threshold' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
@@ -100,16 +98,12 @@ Summary:
 ${record.message}
 
 Rating: ${record.rating}/5
-
-Action Required:
-Review client query in Admin Feedback dashboard.
 `
         }
 
         // 4. Logic for System Errors
         if (table === 'error_logs') {
             const severity = record.severity?.toLowerCase() || ''
-            console.log(`🔎 Processing Error with Severity: ${severity}`)
 
             if (severity === 'critical' || severity === 'red') {
                 shouldSend = true
@@ -124,23 +118,66 @@ Error Summary:
 ${record.description}
 
 Page/Context: ${record.page}
-
-Action Required:
-Investigate immediately via console or Admin Errors dashboard.
 `
             } else {
-                console.log(`ℹ️ Skipping notification for ${severity} error.`)
                 return new Response(JSON.stringify({ status: 'skipped', reason: 'severity_threshold' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             }
         }
 
-        // 5. Send Email
+        // 5. Send Email (Targeted)
         if (shouldSend) {
-            console.log("🚀 Attempting to send email via Resend...")
-            const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-            const ADMIN_EMAIL = Deno.env.get('ADMIN_EMAIL')
+            console.log("🚀 Determining recipients based on preferences...")
 
-            if (!RESEND_API_KEY || !ADMIN_EMAIL) {
+            // A. Fetch all Admin Profiles
+            const { data: adminProfiles, error: adminError } = await supabaseClient
+                .from('profiles')
+                .select('id, notify_email_tier_support, notify_email_critical_errors')
+                .eq('is_admin', true)
+
+            if (adminError || !adminProfiles) {
+                console.error("❌ Failed to fetch admins:", adminError)
+                return new Response(JSON.stringify({ error: "DB Error" }), { status: 500, headers: corsHeaders })
+            }
+
+            // B. Filter Recipients
+            const recipientIds: string[] = []
+
+            for (const admin of adminProfiles) {
+                if (table === 'user_feedback' && admin.notify_email_tier_support) {
+                    recipientIds.push(admin.id)
+                }
+                else if (table === 'error_logs' && admin.notify_email_critical_errors) {
+                    recipientIds.push(admin.id)
+                }
+            }
+
+            if (recipientIds.length === 0) {
+                console.log("ℹ️ No admins have opted in for this alert type. Skipping.")
+                return new Response(JSON.stringify({ status: 'skipped', reason: 'no_subscribers' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+
+            console.log(`📧 Sending to ${recipientIds.length} admins...`)
+
+            // C. Resolve Emails (using Auth Admin API)
+            // Note: In production, better to have a materialized view or cache. 
+            // For now, we list users or iterate since admins are few.
+            const recipients: string[] = []
+
+            for (const uid of recipientIds) {
+                const { data: { user }, error: userError } = await supabaseClient.auth.admin.getUserById(uid)
+                if (user && user.email) {
+                    recipients.push(user.email)
+                }
+            }
+
+            if (recipients.length === 0) {
+                console.error("❌ No valid email addresses found for target admins.")
+                return new Response(JSON.stringify({ error: "No Recipients" }), { status: 500, headers: corsHeaders })
+            }
+
+            // D. Send via Resend
+            const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+            if (!RESEND_API_KEY) {
                 console.error("❌ Missing Resend Config")
                 return new Response(JSON.stringify({ error: "Configuration Missing" }), { status: 500, headers: corsHeaders })
             }
@@ -153,7 +190,7 @@ Investigate immediately via console or Admin Errors dashboard.
                 },
                 body: JSON.stringify({
                     from: 'Antigravity System <onboarding@resend.dev>',
-                    to: ADMIN_EMAIL,
+                    to: recipients, // Sends to all valid admins
                     subject: subject,
                     text: body
                 })
@@ -171,6 +208,7 @@ Investigate immediately via console or Admin Errors dashboard.
         }
 
         return new Response(JSON.stringify({ status: 'ok', msg: 'No conditions met' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+
 
     } catch (error) {
         console.error("💀 Uncaught Exception:", error)

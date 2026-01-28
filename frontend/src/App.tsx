@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react"
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ArrowUpRight, CheckCircle, FileText, AlertTriangle } from "lucide-react"
 import { TenderService, CompanyService } from "@/services/api"
@@ -12,7 +12,7 @@ import Tenders from "@/pages/Tenders"
 import TenderDetails from "@/pages/TenderDetails"
 import Compliance from "@/pages/Compliance"
 
-import Profile from "@/pages/Profile"
+
 import Alerts from "@/pages/Alerts"
 import Templates from "@/pages/Templates"
 import Settings from "@/pages/Settings"
@@ -30,16 +30,20 @@ import Terms from "@/pages/Terms"
 import Privacy from "@/pages/Privacy"
 
 // Simple Protected Route wrapper
+// Simple Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth()
+  const { session, loading, companyName } = useAuth()
+  const location = useLocation()
 
   if (loading) return <div className="h-screen flex items-center justify-center">Loading...</div>
   if (!session) return <Navigate to="/auth" replace />
 
+  // Profile Check: We don't force redirect anymore, but we will nag them on the Dashboard.
   return <>{children}</>
 }
 
 function Dashboard() {
+  const { companyName, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [activeTendersCount, setActiveTendersCount] = useState<number | null>(null)
   const [avgReadiness, setAvgReadiness] = useState<number | null>(null)
@@ -76,11 +80,38 @@ function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight text-gray-900">Dashboard</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-gray-900">Dashboard</h2>
         <div className="flex items-center space-x-2">
           <span className="text-sm text-gray-500">Last updated: Just now</span>
         </div>
       </div>
+
+      {/* Persuasive Profile Alert */}
+      {(!companyName || companyName === 'New Company') && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-sm relative overflow-hidden">
+          <div className="flex items-start gap-4 relative z-10">
+            <div className="p-3 bg-white rounded-full shadow-sm text-blue-600">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-bold text-gray-900">Please Complete Your Company Profile</h3>
+              <p className="text-gray-600 max-w-2xl text-sm leading-relaxed">
+                To ensure your tenders are <b>compliant</b> and generated documents are valid, we need your Company Name and Registration Number.
+                <br />
+                Without this, the Engine cannot perform automated checks effectively.
+              </p>
+              <button
+                onClick={() => navigate('/settings?tab=profile')}
+                className="mt-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors shadow-sm"
+              >
+                Complete Profile Now &rarr;
+              </button>
+            </div>
+          </div>
+          {/* Decorative Background */}
+          <div className="absolute right-0 top-0 h-full w-1/3 bg-blue-100/20 transform skew-x-12 translate-x-12" />
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-3">
@@ -180,6 +211,21 @@ function Dashboard() {
   )
 }
 
+// Role-based Home Router
+function Home() {
+  const { isAdmin, loading } = useAuth()
+
+  if (loading) return <div className="h-screen flex items-center justify-center">Loading...</div>
+
+  // If Admin, go straight to executive overview
+  if (isAdmin) {
+    return <Navigate to="/admin" replace />
+  }
+
+  // Otherwise, show standard user dashboard
+  return <Dashboard />
+}
+
 function App() {
 
   useEffect(() => {
@@ -223,13 +269,13 @@ function App() {
               <LegalModal />
             </ProtectedRoute>
           }>
-            <Route index element={<Dashboard />} />
+            <Route index element={<Home />} />
 
             <Route path="tenders" element={<Tenders />} />
             <Route path="tenders/new" element={<TenderIngest />} />
             <Route path="tenders/:id" element={<TenderDetails />} />
             <Route path="compliance" element={<Compliance />} />
-            <Route path="profile" element={<Profile />} />
+
             <Route path="alerts" element={<Alerts />} />
             <Route path="templates" element={<Templates />} />
             <Route path="settings" element={<Settings />} />

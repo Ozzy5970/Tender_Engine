@@ -7,6 +7,7 @@ type AuthContextType = {
     user: User | null
     isAdmin: boolean
     tier: "Free" | "Standard" | "Pro"
+    companyName: string | null
     loading: boolean
     signOut: () => Promise<void>
 }
@@ -16,6 +17,7 @@ const AuthContext = createContext<AuthContextType>({
     user: null,
     isAdmin: false,
     tier: "Free",
+    companyName: null,
     loading: true,
     signOut: async () => { },
 })
@@ -27,18 +29,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
     const [isAdmin, setIsAdmin] = useState(false)
     const [tier, setTier] = useState<"Free" | "Standard" | "Pro">("Free")
+    const [companyName, setCompanyName] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
 
     const checkUserRoleAndTier = async (userId: string | undefined) => {
         if (!userId) {
             setIsAdmin(false)
             setTier("Free")
+            setCompanyName(null)
             return
         }
 
-        // 1. Check Admin
-        const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', userId).single()
+        // 1. Check Profile (Admin + Company Info)
+        const { data: profile } = await supabase.from('profiles').select('is_admin, company_name').eq('id', userId).single()
         setIsAdmin(profile?.is_admin || false)
+        setCompanyName(profile?.company_name || null)
 
         // 2. Check Tier
         const { data: sub } = await supabase
@@ -46,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .select('plan_name')
             .eq('user_id', userId)
             .eq('status', 'active')
-            .single()
+            .maybeSingle()
 
         if (sub?.plan_name) {
             // Normalize plan name
@@ -83,6 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const signOut = async () => {
         await supabase.auth.signOut()
         setTier("Free")
+        setCompanyName(null)
     }
 
     const value = {
@@ -90,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         isAdmin,
         tier,
+        companyName,
         loading,
         signOut,
     }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { AdminService } from "@/services/api"
 import { Search, Loader2, ArrowUpDown, MoreHorizontal, FileText, CheckCircle, User } from "lucide-react"
 import { motion } from "framer-motion"
@@ -25,15 +25,17 @@ export default function AdminUsers() {
     }
 
     // Filter & Sort
-    const filtered = users
-        .filter(u =>
-            u.email?.toLowerCase().includes(search.toLowerCase()) ||
-            u.company_name?.toLowerCase().includes(search.toLowerCase())
-        )
-        .sort((a, b) => {
-            if (sort === "date") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-            return (a.company_name || "").localeCompare(b.company_name || "")
-        })
+    const filtered = useMemo(() => {
+        return users
+            .filter(u =>
+                u.email?.toLowerCase().includes(search.toLowerCase()) ||
+                u.company_name?.toLowerCase().includes(search.toLowerCase())
+            )
+            .sort((a, b) => {
+                if (sort === "date") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                return (a.company_name || "").localeCompare(b.company_name || "")
+            })
+    }, [users, search, sort])
 
     if (loading) return <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-gray-400" /></div>
 

@@ -1,5 +1,5 @@
--- Migration: Create Admin Users RPC
--- Description: Function to fetch detailed user list for Admin Dashboard.
+-- Migration: Fix Admin Users RPC Visibility
+-- Description: Changes JOIN logic to ensure all auth users are returned, even if missing a profile.
 
 create or replace function public.get_admin_users()
 returns table (
@@ -28,25 +28,29 @@ begin
         raise exception 'Access Denied: Admin only';
     end if;
 
-    -- 2. Return Joined Data
+    -- 2. Return Joined Data (Driving from auth.users)
     return query
     select 
-        p.id,
-        u.email::text, -- Cast to text to ensure compatibility
-        p.company_name,
-        (p.cidb_grade_grading::text || p.cidb_grade_class)::text as cidb_grade,
+        u.id,
+        u.email::text,
+        coalesce(p.company_name, 'No Profile')::text as company_name,
+        case 
+            when p.id is null then null
+            else (p.cidb_grade_grading || p.cidb_grade_class)::text 
+        end as cidb_grade,
         p.bbbee_level,
         u.created_at,
         u.last_sign_in_at,
-        (select count(*) from public.company_documents cd where cd.profile_id = p.id) as doc_count,
+        -- Count docs (handle null profile)
+        (select count(*) from public.company_documents cd where cd.profile_id = u.id) as doc_count,
         -- Subscription Info
         coalesce(s.status, 'free')::text as sub_status,
         coalesce(s.plan_name, 'Free Plan')::text as sub_plan,
-        -- Check if they ever paid (History > 0)
-        (select count(*) from public.subscription_history sh where sh.user_id = p.id) > 0 as has_history
-    from public.profiles p
-    join auth.users u on u.id = p.id
-    left join public.subscriptions s on s.user_id = p.id
+        -- History Check
+        (select count(*) from public.subscription_history sh where sh.user_id = u.id) > 0 as has_history
+    from auth.users u
+    left join public.profiles p on u.id = p.id
+    left join public.subscriptions s on s.user_id = u.id
     order by u.created_at desc;
 end;
 $$;

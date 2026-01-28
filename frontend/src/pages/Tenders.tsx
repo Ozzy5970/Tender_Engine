@@ -1,9 +1,12 @@
 import { useState, useMemo } from "react"
-import { Plus, FileText, ChevronRight, Loader2, AlertCircle, CheckCircle2, Search, Filter, Trash2 } from "lucide-react"
+import { Plus, FileText, ChevronRight, Loader2, AlertCircle, CheckCircle2, Search, Filter, Trash2, Lock } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import { useFetch } from "@/hooks/useFetch"
 import { TenderService } from "@/services/api"
+import { useAuth } from "@/context/AuthContext"
+import ConfirmationModal from "@/components/ConfirmationModal"
+import { toast } from "sonner"
 
 type TenderStatus = "processing" | "ready" | "error" | "draft"
 
@@ -18,9 +21,11 @@ interface Tender {
 
 export default function Tenders() {
     const navigate = useNavigate()
+    const { tier } = useAuth()
 
-    // const { data: apiTenders, loading, error } = useFetch(TenderService.getAll)
-    const { data: apiTenders } = useFetch(TenderService.getAll)
+    const { data: apiTenders, loading, refetch } = useFetch(TenderService.getAll)
+    const [deleteId, setDeleteId] = useState<string | null>(null)
+    const [isDeleting, setIsDeleting] = useState(false)
 
     // Using local state for now to demonstrate Filter/Search immediately
     const [tenders] = useState<Tender[]>([])
@@ -44,6 +49,35 @@ export default function Tenders() {
         })
     }, [tenders, searchQuery, statusFilter, apiTenders])
 
+    // --- TIER LIMIT LOGIC ---
+    const TENDER_LIMITS = {
+        'Free': 1,
+        'Standard': 25,
+        'Pro': Infinity
+    }
+    const currentLimit = TENDER_LIMITS[tier] || 1
+    const currentCount = (apiTenders as any[])?.length || 0
+    const isLimitReached = currentCount >= currentLimit
+    const remaining = currentLimit === Infinity ? 999 : currentLimit - currentCount
+
+    // Progress calculation (capped at 100%)
+    const progressPercent = currentLimit === Infinity ? 0 : Math.min((currentCount / currentLimit) * 100, 100)
+
+    const handleDelete = async () => {
+        if (!deleteId) return
+        setIsDeleting(true)
+        try {
+            await TenderService.deleteTender(deleteId)
+            toast.success("Tender deleted successfully")
+            refetch()
+        } catch (error) {
+            toast.error("Failed to delete tender")
+        } finally {
+            setIsDeleting(false)
+            setDeleteId(null)
+        }
+    }
+
     const getStatusBadge = (status: TenderStatus) => {
         switch (status) {
             case "ready":
@@ -57,20 +91,64 @@ export default function Tenders() {
         }
     }
 
+    if (loading) {
+        return (
+            <div className="max-w-5xl mx-auto space-y-6 pt-8">
+                <div className="flex justify-between items-center mb-8">
+                    <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
+                    <div className="h-10 w-32 bg-gray-200 rounded animate-pulse" />
+                </div>
+                <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-24 bg-gray-50 rounded-xl border border-gray-100 animate-pulse" />
+                    ))}
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div className="max-w-5xl mx-auto space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Tenders</h1>
+                    <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">Tenders</h1>
                     <p className="text-sm text-gray-500">Manage your active tender opportunities.</p>
                 </div>
-                <button
-                    onClick={() => navigate("/tenders/new")}
-                    className="flex items-center px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 shadow-sm"
-                >
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Tender
-                </button>
+
+                <div className="flex flex-col items-end gap-2">
+                    <button
+                        onClick={() => navigate("/tenders/new")}
+                        disabled={isLimitReached}
+                        className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-all
+                            ${isLimitReached
+                                ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                                : "bg-primary text-white hover:bg-primary/90"}`}
+                    >
+                        {isLimitReached ? <Lock className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                        New Tender
+                    </button>
+
+                    {/* Tier Usage Indicator */}
+                    {tier !== 'Pro' && (
+                        <div className="flex flex-col items-end w-48">
+                            <div className="flex justify-between w-full text-[10px] font-bold uppercase text-gray-500 mb-1">
+                                <span>{tier} Plan Limit</span>
+                                <span className={isLimitReached ? "text-red-500" : "text-gray-700"}>
+                                    {currentCount} / {currentLimit} Used
+                                </span>
+                            </div>
+                            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full transition-all duration-500 ${isLimitReached ? 'bg-red-500' : 'bg-blue-500'}`}
+                                    style={{ width: `${progressPercent}%` }}
+                                />
+                            </div>
+                            {isLimitReached && (
+                                <button onClick={() => navigate('/settings?tab=billing')} className="text-[10px] text-primary hover:underline mt-1">Upgrade Limit</button>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Search & Filter Bar */}
@@ -154,12 +232,7 @@ export default function Tenders() {
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation()
-                                            if (window.confirm('Are you sure you want to delete this tender?')) {
-                                                TenderService.deleteTender(tender.id).then(() => {
-                                                    // Quick refresh logic or window reload for now
-                                                    window.location.reload()
-                                                })
-                                            }
+                                            setDeleteId(tender.id)
                                         }}
                                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
                                     >
@@ -177,6 +250,17 @@ export default function Tenders() {
             <p className="text-center text-xs text-gray-400 mt-8">
                 By using this platform, you agree to our Terms of Service. All readiness scores are advisory.
             </p>
+
+            <ConfirmationModal
+                isOpen={!!deleteId}
+                onClose={() => setDeleteId(null)}
+                onConfirm={handleDelete}
+                title="Delete Tender"
+                description="Are you sure you want to delete this tender? This action cannot be undone and all associated data including analysis will be permanently removed."
+                confirmText="Delete Tender"
+                variant="danger"
+                loading={isDeleting}
+            />
         </div>
     )
 }

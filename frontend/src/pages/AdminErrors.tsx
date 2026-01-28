@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { ErrorService } from "@/services/api"
-import { ArrowLeft, AlertTriangle, CheckCircle2, Download, Copy, X } from "lucide-react"
+import { ArrowLeft, AlertTriangle, CheckCircle2, Download, Copy, X, Trash2 } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { Skeleton } from "@/components/ui/Skeleton"
@@ -23,11 +23,33 @@ export default function AdminErrors() {
         setLoading(false)
     }
 
+    const handleDelete = async (id: string) => {
+        if (!window.confirm("Delete this error log?")) return
+
+        const { error } = await ErrorService.deleteError(id)
+        if (error) {
+            alert("Failed to delete: " + error)
+        } else {
+            loadData() // Refresh
+        }
+    }
+
+    const clearAllLogs = async () => {
+        if (!window.confirm("Are you sure you want to delete ALL error logs? This cannot be undone.")) return
+
+        const { error } = await ErrorService.clearAll()
+        if (error) {
+            alert("Failed to clear logs: " + error)
+        } else {
+            loadData()
+        }
+    }
+
     const downloadCSV = () => {
         const headers = ["Timestamp", "User", "Page", "Severity", "Error Description", "Stack Trace"]
         const rows = errors.map(e => [
             new Date(e.created_at).toLocaleString(),
-            e.profiles?.email || 'Anonymous',
+            e.email || 'Anonymous',
             e.page,
             e.severity,
             e.description?.replace(/,/g, ' '), // sanitize for CSV
@@ -94,6 +116,15 @@ export default function AdminErrors() {
                     <Download className="w-4 h-4" />
                     Export Log
                 </button>
+                {errors.length > 0 && (
+                    <button
+                        onClick={clearAllLogs}
+                        className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-red-50 text-red-600 border border-red-200 hover:border-red-300 rounded-lg font-medium transition-colors ml-3"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                        Clear All
+                    </button>
+                )}
             </div>
 
             {/* Table */}
@@ -141,10 +172,20 @@ export default function AdminErrors() {
                                             {err.page}
                                         </td>
                                         <td className="px-6 py-4 text-gray-500">
-                                            {err.profiles?.email || <span className="text-gray-300 italic">Anonymous</span>}
+                                            {err.email || <span className="text-gray-300 italic">Anonymous</span>}
                                         </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <span className="text-blue-600 font-bold opacity-0 group-hover:opacity-100 transition-opacity">View Details &rarr;</span>
+                                        <td className="px-6 py-4 text-right flex items-center justify-end gap-3">
+                                            <span className="text-blue-600 font-bold opacity-0 group-hover:opacity-100 transition-opacity text-xs">View</span>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleDelete(err.id)
+                                                }}
+                                                className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                                title="Delete Log"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
                                         </td>
                                     </tr>
                                 ))
