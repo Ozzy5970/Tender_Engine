@@ -333,6 +333,33 @@ function ProfileSettings() {
         setSaving(true)
         setMessage(null)
 
+        // Validation Rules
+        const taxRegex = /^\d{10}$/
+        const regRegex = /^\d{4}\/\d{6}\/\d{2}$/
+        const phoneRegex = /^(\+27|0)[6-8][0-9]{8}$/ // Basic SA Mobile or +27 International
+
+        // 1. Tax Number Validation
+        if (formData.tax_reference_number && !taxRegex.test(formData.tax_reference_number.replace(/\s/g, ''))) {
+            setMessage("Error: Tax Reference Number must be exactly 10 digits.")
+            setSaving(false)
+            return
+        }
+
+        // 2. Registration Number Validation
+        // Allow empty if they haven't filled it yet, but if filled, must be valid
+        if (formData.registration_number && !regRegex.test(formData.registration_number.trim())) {
+            setMessage("Error: Company Registration Number must be in format YYYY/NNNNNN/NN")
+            setSaving(false)
+            return
+        }
+
+        // 3. Phone Validation (Soft check)
+        if (formData.phone && !phoneRegex.test(formData.phone.replace(/\s/g, ''))) {
+            setMessage("Error: Please enter a valid SA mobile number (e.g. 082 123 4567)")
+            setSaving(false)
+            return
+        }
+
         const { error } = await supabase
             .from('profiles')
             .update({
