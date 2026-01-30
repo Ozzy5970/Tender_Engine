@@ -346,6 +346,9 @@ export default function AdminDashboard() {
                                         <td className="py-3 text-right">
                                             <div className="flex flex-col items-end">
                                                 <div className="flex items-center gap-1.5">
+                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${u.sub_status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                        {u.sub_status === 'active' ? 'Active' : 'Not Active'}
+                                                    </span>
                                                     <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${u.sub_plan?.toLowerCase().includes('pro') ? 'bg-indigo-600 text-white' :
                                                         u.sub_plan?.toLowerCase().includes('standard') ? 'bg-blue-500 text-white' :
                                                             'bg-gray-100 text-gray-500'

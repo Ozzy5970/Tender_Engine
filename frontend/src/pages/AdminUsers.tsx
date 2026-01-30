@@ -123,6 +123,9 @@ export default function AdminUsers() {
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col gap-1.5">
                                             <div className="flex items-center gap-2">
+                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${user.sub_status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                    {user.sub_status === 'active' ? 'Active' : 'Not Active'}
+                                                </span>
                                                 <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${user.sub_plan?.toLowerCase().includes('pro') ? 'bg-indigo-600 text-white' :
                                                     user.sub_plan?.toLowerCase().includes('standard') ? 'bg-blue-500 text-white' :
                                                         'bg-gray-100 text-gray-500'
