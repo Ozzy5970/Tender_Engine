@@ -106,15 +106,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const initialize = async () => {
             setLoading(true)
             try {
-                const { data: { session: initialSession } } = await supabase.auth.getSession()
+                // Set a safety timeout - if auth takes > 10s, something is wrong
+                const timeoutId = setTimeout(() => {
+                    if (loading && isMounted) {
+                        console.error("Auth initialization timed out.")
+                        setLoading(false)
+                    }
+                }, 10000)
+
+                const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession()
 
                 if (!isMounted) return
+                clearTimeout(timeoutId)
+
+                if (sessionError) throw sessionError
 
                 if (initialSession) {
                     setSession(initialSession)
                     setUser(initialSession.user)
+                    // If this hangs (recursive RLS), the catch block or timeout will handle it
                     const ok = await checkUserRoleAndTier(initialSession.user.id)
                     if (!ok && isMounted) {
+                        console.warn("User role check returned false, signing out.")
                         await signOut()
                     }
                 } else {
@@ -124,6 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
             } catch (err) {
                 console.error("Auth init error:", err)
+                setIsVerified(false)
             } finally {
                 if (isMounted) setLoading(false)
             }

@@ -37,35 +37,41 @@ export default function AdminDashboard() {
     }, [growthPeriod])
 
     const loadAnalytics = async () => {
-        const { data, error } = await AdminService.getAnalytics()
-        const { data: feedbackStats } = await FeedbackService.getStats()
-        const { data: errorStats } = await ErrorService.getStats()
+        try {
+            const { data, error } = await AdminService.getAnalytics()
+            const { data: feedbackStats } = await FeedbackService.getStats()
+            const { data: errorStats } = await ErrorService.getStats()
 
-        if (data) {
-            const d = data as any
-            setAnalytics({
-                revenue: {
-                    total: d.revenue,
-                    trend: null,
-                    trendDir: 'neutral'
-                },
-                users: {
-                    total: d.total_users,
-                    active: d.active_subscriptions,
-                    trend: "+0%",
-                    trendDir: "neutral"
-                },
-                user_growth: d.user_growth,
-                feedback: feedbackStats,
-                errors: errorStats,
-                compliance: d.compliance_split
-            })
+            if (data) {
+                const d = data as any
+                setAnalytics({
+                    revenue: {
+                        total: d.revenue,
+                        trend: null,
+                        trendDir: 'neutral'
+                    },
+                    users: {
+                        total: d.total_users,
+                        active: d.active_subscriptions,
+                        trend: "+0%",
+                        trendDir: "neutral"
+                    },
+                    user_growth: d.user_growth,
+                    feedback: feedbackStats,
+                    errors: errorStats,
+                    compliance: d.compliance_split
+                })
+            }
+            else {
+                console.error(error)
+                setErrorMsg(typeof error === 'string' ? error : JSON.stringify(error))
+            }
+        } catch (err) {
+            console.error("Dashboard: Critical loading error", err)
+            setErrorMsg("A database synchronization error occurred. Please refresh or check the console.")
+        } finally {
+            setLoading(false)
         }
-        else {
-            console.error(error)
-            setErrorMsg(typeof error === 'string' ? error : JSON.stringify(error))
-        }
-        setLoading(false)
     }
 
     const loadRecentUsers = async () => {

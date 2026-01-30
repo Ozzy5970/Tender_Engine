@@ -1,17 +1,27 @@
 -- 1. SECURITY & POPIA COMPLIANCE (Admin Access)
 -- Clean up any existing policies first to avoid "already exists" errors
 
+-- Helper function to break recursion in profiles RLS
+CREATE OR REPLACE FUNCTION public.check_is_admin()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid()
+    AND is_admin = true
+  );
+$$;
+
 -- Subscriptions Policy
 DO $$ 
 BEGIN
     DROP POLICY IF EXISTS "admins_view_all_subscriptions" ON public.subscriptions;
     CREATE POLICY "admins_view_all_subscriptions" ON public.subscriptions
         FOR SELECT USING (
-            EXISTS (
-                SELECT 1 FROM public.profiles
-                WHERE profiles.id = auth.uid()
-                AND profiles.is_admin = true
-            )
+            public.check_is_admin()
         );
 END $$;
 
@@ -21,11 +31,7 @@ BEGIN
     DROP POLICY IF EXISTS "admins_view_all_history" ON public.subscription_history;
     CREATE POLICY "admins_view_all_history" ON public.subscription_history
         FOR SELECT USING (
-            EXISTS (
-                SELECT 1 FROM public.profiles
-                WHERE profiles.id = auth.uid()
-                AND profiles.is_admin = true
-            )
+            public.check_is_admin()
         );
 END $$;
 
@@ -35,11 +41,7 @@ BEGIN
     DROP POLICY IF EXISTS "admins_view_all_profiles" ON public.profiles;
     CREATE POLICY "admins_view_all_profiles" ON public.profiles
         FOR SELECT USING (
-            EXISTS (
-                SELECT 1 FROM public.profiles admin
-                WHERE admin.id = auth.uid()
-                AND admin.is_admin = true
-            )
+            auth.uid() = id OR public.check_is_admin()
         );
 END $$;
 
