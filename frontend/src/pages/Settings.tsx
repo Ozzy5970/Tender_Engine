@@ -284,7 +284,7 @@ function BillingSettings({ navigate }: any) {
 }
 
 function ProfileSettings() {
-    const { session } = useAuth()
+    const { session, refreshProfile } = useAuth()
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
     const [formData, setFormData] = useState({
@@ -360,23 +360,39 @@ function ProfileSettings() {
             return
         }
 
-        const { error } = await supabase
-            .from('profiles')
-            .update({
-                full_name: formData.full_name,
-                phone: formData.phone,
-                address: formData.address,
-                location: formData.location,
-                company_name: formData.company_name,
-                registration_number: formData.registration_number,
-                tax_reference_number: formData.tax_reference_number
+        // DUAL-SYNC: Update both public profile and internal Auth metadata
+        const [profileResult, authResult] = await Promise.all([
+            supabase
+                .from('profiles')
+                .update({
+                    full_name: formData.full_name,
+                    phone: formData.phone,
+                    address: formData.address,
+                    location: formData.location,
+                    company_name: formData.company_name,
+                    registration_number: formData.registration_number,
+                    tax_reference_number: formData.tax_reference_number
+                })
+                .eq('id', session?.user.id),
+
+            supabase.auth.updateUser({
+                data: {
+                    full_name: formData.full_name,
+                    company_name: formData.company_name
+                }
             })
-            .eq('id', session?.user.id)
+        ])
+
+        const error = profileResult.error || authResult.error
 
         if (error) {
             setMessage("Error updating profile")
+            toast.error("Failed to update profile")
         } else {
             setMessage("Profile updated successfully")
+            // REFRESH APP CONTEXT
+            await refreshProfile()
+            toast.success("Profile saved and app updated!")
         }
         setSaving(false)
     }

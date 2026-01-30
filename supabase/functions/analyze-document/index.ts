@@ -52,10 +52,16 @@ Deno.serve(async (req) => {
             global: { headers: { Authorization: authHeader } }
         })
 
-        // 2. Download File from Storage
-        // Try 'compliance' bucket first (default), maybe 'templates' if checking there?
-        // Note: The frontend code uploads to 'compliance' bucket in 'temp/...' path for analysis.
-        // So we look in 'compliance'.
+        // 2. FETCH PROFILE (For Cross-Referencing)
+        const { data: profile, error: profileError } = await supabaseClient
+            .from('profiles')
+            .select('company_name, registration_number, tax_reference_number, full_name')
+            .single()
+
+        const profileData = profile || {}
+        console.log(`[AI] Cross-referencing against profile: ${JSON.stringify(profileData)}`)
+
+        // 3. Download File from Storage
         const { data: fileData, error: downloadError } = await supabaseClient
             .storage
             .from('compliance')
@@ -66,63 +72,60 @@ Deno.serve(async (req) => {
             throw new Error(`Failed to download file: ${downloadError.message}`)
         }
 
-        // 3. Prepare for Gemini
+        // 4. Prepare for Gemini
         const arrayBuffer = await fileData.arrayBuffer()
         const base64Data = btoa(
             new Uint8Array(arrayBuffer)
                 .reduce((data, byte) => data + String.fromCharCode(byte), '')
         );
 
-        // 4. Define Prompt
-        // 4. Define Prompt with Strict Validation
-        let promptText = "";
-
+        // 5. Define Prompt with CROSS-REFERENCING
         // Extract validation rules if provided in the body
         // @ts-ignore
         const validationRules = body.validationRules || {};
 
-        promptText = `
+        const promptText = `
         You are a STRICTOR Compliance Officer for South African Construction Tenders.
-        Your GOAL: Validate if this document is EXACTLY what is claimed and extract data.
+        Your GOAL: Validate if this document is EXACTLY what is claimed and CROSS-REFERENCE it against the user's profile.
 
         CLAIMED DOCUMENT TYPE: "${doc_type}"
+        USER PROFILE DATA (FOR COMPARISON):
+        - Company Name: "${profileData.company_name}"
+        - Full Name: "${profileData.full_name}"
+        - Registration No: "${profileData.registration_number}"
+        - Tax Reference No: "${profileData.tax_reference_number}"
+
         VALIDATION RULES: ${JSON.stringify(validationRules)}
 
         INSTRUCTIONS:
         1. **CLASSIFY**: Does this document match the claimed type? 
-           - If it is a generic invoice but claimed to be a "Tax Clearance", it is INVALID.
-           - If it is a blank form but claimed to be a "Certificate", it is INVALID.
-           - If it is readable but wrong type, return "valid": false.
+        2. **CROSS-REFERENCE**: 
+           - Does the Company Name on the document match "${profileData.company_name}"?
+           - Does the Registration Number match "${profileData.registration_number}"?
+           - Does the Tax Number match "${profileData.tax_reference_number}"?
+           - If there is a SIGNIFICANT mismatch (e.g. different company name), return "valid": false and state "Mismatched Company Identity" in reason.
 
-        2. **EXTRACT**: Extract fields as per standard requirements for this doc type.
+        3. **EXTRACT**: Extract fields.
            - Look for Expiry Dates.
-           - Look for Reference Numbers (Tax PIN, CSD MAAA, CIDB CRS).
+           - Look for Reference Numbers.
 
-        3. **VALIDATE**: 
-           - Check if extracted numbers match the regex rules provided (if any).
-           - If a "required" field is missing (e.g. Expiry Date on a Tax Clearance), mark as "valid": false (or warning if it might be valid but just missing data).
-           - "valid" should be boolean. TRUE = Definite match. FALSE = Definite mismatch or critical missing info.
+        4. **VALIDATE**: 
+           - If a "required" field is missing or expired, mark as "valid": false.
+           - "valid" should be boolean.
 
         RETURN JSON FORMAT ONLY:
         {
           "valid": boolean,
           "confidence": number, // 0-100
-          "reason": "Short explanation of validity judgment",
+          "reason": "Short explanation of validity/mismatch judgment",
           "doc_type_detected": "What you think it is",
           "expiry_date": "YYYY-MM-DD" or null,
           "reference_number": "Main extracted ID" or null,
-          "min_bbbee_level": "number e.g. 1",
-          "summary": "Brief 2 sentence summary of scope",
+          "summary": "Brief 2 sentence summary",
           "risks": ["Risk 1", "Risk 2"],
           "strategic_value": "High/Medium/Low",
-          "strategy_tips": "One key tip to win this bid"
+          "strategy_tips": "One key tip"
         }
-
-        Rules:
-        - If CIDB is not found, guess based on scope or null.
-        - 'risks': Look for high penalties, short deadlines, or complex requirements.
-        - 'strategy_tips': Based on the scope, what should the bidder focus on?
-        - 'strategic_value': High if budget seems >R10m, Low if <R1m. Guess based on scope.
         `
 
 

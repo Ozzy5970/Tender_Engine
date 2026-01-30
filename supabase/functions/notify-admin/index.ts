@@ -189,7 +189,7 @@ Page/Context: ${record.page}
                     'Authorization': `Bearer ${RESEND_API_KEY}`
                 },
                 body: JSON.stringify({
-                    from: 'Antigravity System <onboarding@resend.dev>',
+                    from: 'Tender Engine System <system@tenderengine.co.za>',
                     to: recipients, // Sends to all valid admins
                     subject: subject,
                     text: body

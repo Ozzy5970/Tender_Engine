@@ -74,8 +74,8 @@ export default function AdminUsers() {
                 <table className="w-full text-left text-sm">
                     <thead className="bg-gray-50/50 border-b border-gray-200 text-gray-500 uppercase text-xs font-semibold">
                         <tr>
-                            <th className="px-6 py-4">Company / Identity</th>
-                            <th className="px-6 py-4">Status Update</th>
+                            <th className="px-6 py-4">Identity & Profile</th>
+                            <th className="px-6 py-4">Tier & Verification</th>
                             <th className="px-6 py-4">Engagement</th>
                             <th className="px-6 py-4 text-right">Actions</th>
                         </tr>
@@ -98,29 +98,43 @@ export default function AdminUsers() {
                                 >
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold shrink-0">
-                                                {user.company_name?.charAt(0).toUpperCase() || <User className="w-5 h-5" />}
+                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold shrink-0 shadow-sm">
+                                                {(user.company_name?.[0] || 'U').toUpperCase()}
                                             </div>
-                                            <div>
-                                                <p className="font-bold text-gray-900">{user.company_name || "Unnamed Company"}</p>
-                                                <p className="text-gray-500 text-xs font-mono mt-0.5">{user.email}</p>
+                                            <div className="overflow-hidden">
+                                                <p className="font-bold text-gray-900 truncate">{user.company_name || "New Company"}</p>
+                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                    <p className="text-gray-500 text-[11px] truncate">{user.full_name || user.email}</p>
+                                                    {user.profile_complete ? (
+                                                        <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-green-500" title="Profile Complete" />
+                                                    ) : (
+                                                        <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" title="Profile Incomplete" />
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </td>
 
                                     <td className="px-6 py-4">
-                                        <div className="space-y-1.5">
+                                        <div className="flex flex-col gap-1.5">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-gray-400 w-16 text-xs">CIDB:</span>
-                                                <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-bold font-mono">
-                                                    {user.cidb_grade || "N/A"}
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${user.sub_plan?.toLowerCase().includes('pro') ? 'bg-indigo-600 text-white shadow-sm' :
+                                                    user.sub_plan?.toLowerCase().includes('standard') ? 'bg-blue-500 text-white' :
+                                                        'bg-gray-100 text-gray-500'
+                                                    }`}>
+                                                    {user.sub_plan || 'Free'}
+                                                </span>
+                                                <span className={`text-[10px] font-medium ${user.sub_status === 'active' ? 'text-green-600' : 'text-gray-400'}`}>
+                                                    {user.sub_status === 'active' ? '● Active' : '○ Inactive'}
                                                 </span>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-gray-400 w-16 text-xs">B-BBEE:</span>
-                                                <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs font-bold">
-                                                    Level {user.bbbee_level || "?"}
-                                                </span>
+                                            <div className="flex items-center gap-3 text-[11px] text-gray-400">
+                                                <div className="flex items-center gap-1">
+                                                    <span className="font-semibold text-gray-600">Reg:</span> {user.registration_number ? '✓' : '×'}
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="font-semibold text-gray-600">Tax:</span> {user.tax_reference_number ? '✓' : '×'}
+                                                </div>
                                             </div>
                                         </div>
                                     </td>
@@ -128,12 +142,12 @@ export default function AdminUsers() {
                                     <td className="px-6 py-4">
                                         <div className="space-y-1">
                                             <div className="flex items-center gap-2 text-xs text-gray-600">
-                                                <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-                                                Joined: {new Date(user.created_at).toLocaleDateString()}
+                                                <CheckCircle className={`w-3.5 h-3.5 ${user.profile_complete ? 'text-green-500' : 'text-gray-300'}`} />
+                                                {user.profile_complete ? 'Profile Verified' : 'Awaiting Details'}
                                             </div>
                                             <div className="flex items-center gap-2 text-xs text-gray-600">
-                                                <FileText className="w-3.5 h-3.5 text-orange-500" />
-                                                Docs: {user.doc_count || 0}
+                                                <FileText className="w-3.5 h-3.5 text-blue-500" />
+                                                Documents: {user.doc_count || 0}
                                             </div>
                                         </div>
                                     </td>

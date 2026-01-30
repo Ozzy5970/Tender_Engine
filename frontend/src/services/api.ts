@@ -9,6 +9,12 @@ async function handleRequest<T>(request: PromiseLike<any>): Promise<ApiResponse<
         const { data, error, status } = await request
 
         if (error) {
+            // Self-healing: If we hit a missing profile (PGRST116) on any authenticated query,
+            // something is wrong with the session/profile sync.
+            if (error.code === 'PGRST116') {
+                console.error("Authenticated request failed because profile is missing. Forcing logout.")
+                supabase.auth.signOut()
+            }
             return { data: null, error: error.message, status: status || 500 }
         }
 
@@ -628,6 +634,7 @@ export const AdminService = {
         if (!error && realHistory && realHistory.length > 0) {
 
             // Fetch users to map Emails
+            // Fetch users to map Emails
             const userMap = await _getAdminUserMap()
 
             // Aggregate for Graph
@@ -645,15 +652,17 @@ export const AdminService = {
                 .map(([date, amount]) => ({ date, amount }))
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
-            const transactions = realHistory.map((tx: any) => ({
-                date: tx.created_at,
-                // Use Map lookup -> Profile Join -> Fallback
-                user_email: userMap.get(tx.user_id) || tx.user?.email || "Unknown Email",
-                company_name: tx.profile?.company_name || "Unknown Company",
-                plan: tx.plan_name,
-                amount: Number(tx.amount || 0),
-                status: tx.status
-            }))
+            const transactions = realHistory.map((tx: any) => {
+                const mappedUser = userMap.get(tx.user_id)
+                return {
+                    date: tx.created_at,
+                    user_email: mappedUser?.email || tx.user?.email || "Unknown Email",
+                    company_name: mappedUser?.company_name || tx.profile?.company_name || "Unknown Company",
+                    plan: tx.plan_name,
+                    amount: Number(tx.amount || 0),
+                    status: tx.status
+                }
+            })
 
             return { data: { totalRevenue, graphData, transactions }, error: null, status: 200 }
         }
@@ -768,11 +777,14 @@ export const AdminService = {
 
 // Helper: Fetch Map of User ID -> Email
 async function _getAdminUserMap() {
-    const userMap = new Map<string, string>()
+    const userMap = new Map<string, any>()
     try {
         const { data: users } = await supabase.rpc('get_admin_users')
         if (users) {
-            users.forEach((u: any) => userMap.set(u.id, u.email))
+            users.forEach((u: any) => userMap.set(u.id, {
+                email: u.email,
+                company_name: u.company_name
+            }))
         }
     } catch (e) {
         console.warn("Could not fetch admin users for email mapping", e)
@@ -793,10 +805,10 @@ export const LegalService = {
             .single()
 
         if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-            return { accepted: false, error: error.message }
+            return { accepted: false, error: error.message, status: status || 500 }
         }
 
-        return { accepted: !!data, error: null }
+        return { accepted: !!data, error: null, status: status || 200 }
     },
 
     async acceptTerms(version: string) {

@@ -3,6 +3,7 @@ import { useAuth } from "@/context/AuthContext"
 import { Toaster } from "sonner"
 import { useEffect, useState } from "react"
 import { CompanyService } from "@/services/api"
+import LegalModal from "./LegalModal"
 import {
     LayoutDashboard,
     FileText,
@@ -14,7 +15,7 @@ import {
 } from "lucide-react"
 
 export default function Layout() {
-    const { signOut, user, isAdmin, tier, companyName } = useAuth()
+    const { signOut, user, isAdmin, tier, companyName, fullName } = useAuth()
     const navigate = useNavigate()
     const location = useLocation()
     const [unreadCount, setUnreadCount] = useState(0)
@@ -136,10 +137,11 @@ export default function Layout() {
                 <div className={`mt-auto p-4 border-t transition-colors duration-500 ${tier === 'Free' ? 'border-gray-100' : 'border-white/5'}`}>
                     <div className={`flex items-center p-2 rounded-lg border ${tier === 'Free' ? 'bg-gray-50 border-gray-100' : 'bg-white/5 border-white/10'}`}>
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-medium text-sm shadow-sm shrink-0">
-                            {(user?.email?.[0] || 'U').toUpperCase()}
+                            {(fullName?.[0] || user?.email?.[0] || 'U').toUpperCase()}
                         </div>
                         <div className="ml-3 overflow-hidden">
-                            <p className="text-sm font-medium truncate opacity-90 leading-tight">{user?.email}</p>
+                            <p className="text-sm font-medium truncate opacity-90 leading-tight">{fullName || user?.email}</p>
+                            {fullName && <p className="text-[10px] opacity-50 truncate leading-tight mt-0.5">{user?.email}</p>}
                             <div className="flex items-center gap-2 mt-1">
                                 {isAdmin ? (
                                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase bg-amber-500/20 text-amber-500 border border-amber-500/30">Admin</span>
@@ -207,6 +209,7 @@ export default function Layout() {
                 </main>
             </div>
             <Toaster position="top-right" richColors />
+            <LegalModal />
         </div>
     )
 }

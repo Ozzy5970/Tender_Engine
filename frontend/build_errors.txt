@@ -1,0 +1,13 @@
+﻿src/App.tsx(35,29): error TS6133: 'companyName' is declared but its value is never read.
+src/App.tsx(36,9): error TS6133: 'location' is declared but its value is never read.
+src/App.tsx(46,24): error TS6133: 'isAdmin' is declared but its value is never read.
+src/components/Layout.tsx(13,5): error TS6133: 'CreditCard' is declared but its value is never read.
+src/pages/AdminDashboard.tsx(4,10): error TS6133: 'ArrowUpRight' is declared but its value is never read.
+src/pages/AdminDashboard.tsx(4,36): error TS6133: 'CreditCard' is declared but its value is never read.
+src/pages/Alerts.tsx(1,20): error TS6133: 'useEffect' is declared but its value is never read.
+src/pages/Alerts.tsx(8,6): error TS6196: 'AlertSeverity' is declared but never used.
+src/pages/Settings.tsx(7,5): error TS6133: 'Lock' is declared but its value is never read.
+src/pages/Settings.tsx(8,5): error TS6133: 'Smartphone' is declared but its value is never read.
+src/pages/Settings.tsx(171,15): error TS6133: 'newCancelStatus' is declared but its value is never read.
+src/pages/Settings.tsx(557,11): error TS6133: 'canUsePro' is declared but its value is never read.
+src/pages/Tenders.tsx(61,11): error TS6133: 'remaining' is declared but its value is never read.

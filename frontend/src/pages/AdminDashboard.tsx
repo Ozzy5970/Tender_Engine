@@ -325,16 +325,26 @@ export default function AdminDashboard() {
                         <table className="w-full text-left text-sm">
                             <tbody className="divide-y divide-gray-50">
                                 {recentUsers.map((u: any) => (
-                                    <tr key={u.id} className="hover:bg-gray-50/50">
+                                    <tr key={u.id} className="hover:bg-gray-50/50 group">
                                         <td className="py-3">
-                                            <p className="font-bold text-gray-900 text-xs">{u.company_name}</p>
-                                            <p className="text-[10px] text-gray-400">{u.email}</p>
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-1.5 h-1.5 rounded-full ${u.profile_complete ? 'bg-green-500' : 'bg-amber-400 animate-pulse'}`} />
+                                                <p className="font-bold text-gray-900 text-xs truncate max-w-[120px]">{u.company_name}</p>
+                                            </div>
+                                            <p className="text-[10px] text-gray-500 ml-3.5 truncate max-w-[150px]">{u.full_name || u.email}</p>
                                         </td>
                                         <td className="py-3 text-right">
-                                            <p className="text-[10px] font-mono text-gray-500">
-                                                {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Never'}
-                                            </p>
-                                            <p className="text-[10px] text-green-600 font-bold">Online</p>
+                                            <div className="flex flex-col items-end gap-1">
+                                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${u.sub_plan?.toLowerCase().includes('pro') ? 'bg-indigo-600 text-white' :
+                                                        u.sub_plan?.toLowerCase().includes('standard') ? 'bg-blue-500 text-white' :
+                                                            'bg-gray-100 text-gray-500'
+                                                    }`}>
+                                                    {u.sub_plan || 'Free'}
+                                                </span>
+                                                <p className="text-[9px] text-gray-400">
+                                                    {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Never'}
+                                                </p>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

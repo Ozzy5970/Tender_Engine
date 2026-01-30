@@ -6,7 +6,6 @@ import { TenderService, CompanyService } from "@/services/api"
 import { AuthProvider, useAuth } from "@/context/AuthContext"
 import Layout from "@/components/Layout"
 import AuthPage from "@/pages/Auth"
-import LegalModal from "@/components/LegalModal"
 import TenderIngest from "@/pages/TenderIngest"
 import Tenders from "@/pages/Tenders"
 import TenderDetails from "@/pages/TenderDetails"
@@ -32,13 +31,13 @@ import Privacy from "@/pages/Privacy"
 // Simple Protected Route wrapper
 // Simple Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth()
-
+  const { isVerified, loading, session } = useAuth()
 
   if (loading) return <div className="h-screen flex items-center justify-center">Loading...</div>
-  if (!session) return <Navigate to="/auth" replace />
 
-  // Profile Check: We don't force redirect anymore, but we will nag them on the Dashboard.
+  // If no session or session is not verified (ghost), kick to auth
+  if (!session || !isVerified) return <Navigate to="/auth" replace />
+
   return <>{children}</>
 }
 
@@ -266,7 +265,6 @@ function App() {
           <Route path="/" element={
             <ProtectedRoute>
               <Layout />
-              <LegalModal />
             </ProtectedRoute>
           }>
             <Route index element={<Home />} />

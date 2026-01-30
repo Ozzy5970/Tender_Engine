@@ -3,18 +3,31 @@ import { ShieldCheck, AlertCircle, Loader2 } from "lucide-react"
 import { LegalService } from "@/services/api"
 import { TERMS_OF_SERVICE_TEXT, LEGAL_VERSION } from "@/lib/legal"
 import ReactMarkdown from "react-markdown"
+import { toast } from "sonner"
+import { useAuth } from "@/context/AuthContext"
 
 export default function LegalModal() {
+    const { signOut, isVerified } = useAuth()
     const [isOpen, setIsOpen] = useState(false)
     const [loading, setLoading] = useState(true)
     const [accepting, setAccepting] = useState(false)
 
     useEffect(() => {
-        checkStatus()
-    }, [])
+        if (isVerified) {
+            checkStatus()
+        }
+    }, [isVerified])
 
     const checkStatus = async () => {
-        const { accepted } = await LegalService.hasAccepted(LEGAL_VERSION)
+        const { accepted, status } = await LegalService.hasAccepted(LEGAL_VERSION)
+
+        // If we get an unauthorized status, the ghost check likely triggered or failed.
+        // AuthProvider should handle the logout, but we close modal just in case.
+        if (status === 401) {
+            setIsOpen(false)
+            return
+        }
+
         if (!accepted) {
             setIsOpen(true)
         }
@@ -23,12 +36,19 @@ export default function LegalModal() {
 
     const handleAccept = async () => {
         setAccepting(true)
-        const { error } = await LegalService.acceptTerms(LEGAL_VERSION)
+        const { error, status } = await LegalService.acceptTerms(LEGAL_VERSION)
+
         if (!error) {
             setIsOpen(false)
+            toast.success("Terms accepted successfully")
         } else {
             console.error("Failed to accept terms:", error)
-            // Ideally show a toast here
+            toast.error(`Failed to record acceptance: ${error}`)
+
+            // If it failed because user is gone, force it.
+            if (status === 401) {
+                await signOut()
+            }
         }
         setAccepting(false)
     }

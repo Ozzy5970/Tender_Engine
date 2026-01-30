@@ -1,0 +1,11 @@
+Manual cleanup for: itskylanie@gmail.com
+User ID: c0eac8d3-4343-4c57-8cd5-2fe8d72fa7f6
+Clearing audit_logs... OK
+Clearing subscription_history... OK
+Clearing subscriptions... OK
+Clearing compliance_documents... OK
+Clearing user_feedback... OK
+Clearing error_logs... OK
+Clearing alerts... OK
+Clearing profiles... OK
+Finally, deleting from auth.users... FAILED: Database error deleting user

@@ -8,8 +8,11 @@ type AuthContextType = {
     isAdmin: boolean
     tier: "Free" | "Standard" | "Pro"
     companyName: string | null
+    fullName: string | null
     loading: boolean
+    isVerified: boolean // Flag indicating server-side verification is complete
     signOut: () => Promise<void>
+    refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,8 +21,11 @@ const AuthContext = createContext<AuthContextType>({
     isAdmin: false,
     tier: "Free",
     companyName: null,
+    fullName: null,
     loading: true,
+    isVerified: false,
     signOut: async () => { },
+    refreshProfile: async () => { },
 })
 
 export const useAuth = () => useContext(AuthContext)
@@ -30,65 +36,144 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [isAdmin, setIsAdmin] = useState(false)
     const [tier, setTier] = useState<"Free" | "Standard" | "Pro">("Free")
     const [companyName, setCompanyName] = useState<string | null>(null)
+    const [fullName, setFullName] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
+    const [isVerified, setIsVerified] = useState(false)
 
-    const checkUserRoleAndTier = async (userId: string | undefined) => {
+    const checkUserRoleAndTier = async (userId: string | undefined): Promise<boolean> => {
+        setIsVerified(false)
         if (!userId) {
             setIsAdmin(false)
             setTier("Free")
             setCompanyName(null)
-            return
+            return false
         }
 
-        // 1. Check Profile (Admin + Company Info)
-        const { data: profile } = await supabase.from('profiles').select('is_admin, company_name').eq('id', userId).single()
-        setIsAdmin(profile?.is_admin || false)
-        setCompanyName(profile?.company_name || null)
+        try {
+            // 0. SERVER-SIDE VERIFICATION
+            const { data: { user: verifiedUser }, error: authError } = await supabase.auth.getUser()
+            if (authError || !verifiedUser) {
+                console.warn("Server-side auth verification failed.")
+                return false
+            }
 
-        // 2. Check Tier
-        const { data: sub } = await supabase
-            .from('subscriptions')
-            .select('plan_name')
-            .eq('user_id', userId)
-            .eq('status', 'active')
-            .maybeSingle()
+            // 1. Check Profile
+            const { data: profile, error: profileError } = await supabase.from('profiles').select('is_admin, company_name, full_name').eq('id', userId).single()
 
-        if (sub?.plan_name) {
-            // Normalize plan name
-            const p = sub.plan_name.toLowerCase()
-            if (p.includes('enterprise') || p.includes('pro')) setTier("Pro")
-            else if (p.includes('standard')) setTier("Standard")
-            else setTier("Free")
-        } else {
-            setTier("Free")
+            if (profileError && profileError.code === 'PGRST116') {
+                console.warn("Ghost session detected (missing profile).")
+                return false
+            }
+
+            setIsAdmin(profile?.is_admin || false)
+            setCompanyName(profile?.company_name || null)
+            setFullName(profile?.full_name || null)
+
+            // 2. Check Tier
+            const { data: sub } = await supabase
+                .from('subscriptions')
+                .select('plan_name')
+                .eq('user_id', userId)
+                .eq('status', 'active')
+                .maybeSingle()
+
+            if (sub?.plan_name) {
+                const p = sub.plan_name.toLowerCase()
+                if (p.includes('enterprise') || p.includes('pro')) setTier("Pro")
+                else if (p.includes('standard')) setTier("Standard")
+                else setTier("Free")
+            } else {
+                setTier("Free")
+            }
+
+            setIsVerified(true)
+            return true
+        } catch (e) {
+            console.error("Auth check failed:", e)
+            return false
+        }
+    }
+
+    const refreshProfile = async () => {
+        if (user?.id) {
+            await checkUserRoleAndTier(user.id)
         }
     }
 
     useEffect(() => {
-        // Check active sessions and sets the user
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session)
-            setUser(session?.user ?? null)
-            checkUserRoleAndTier(session?.user?.id)
-            setLoading(false)
+        let isMounted = true
+
+        const initialize = async () => {
+            setLoading(true)
+            try {
+                const { data: { session: initialSession } } = await supabase.auth.getSession()
+
+                if (!isMounted) return
+
+                if (initialSession) {
+                    setSession(initialSession)
+                    setUser(initialSession.user)
+                    const ok = await checkUserRoleAndTier(initialSession.user.id)
+                    if (!ok && isMounted) {
+                        await signOut()
+                    }
+                } else {
+                    setSession(null)
+                    setUser(null)
+                    setIsVerified(false)
+                }
+            } catch (err) {
+                console.error("Auth init error:", err)
+            } finally {
+                if (isMounted) setLoading(false)
+            }
+        }
+
+        initialize()
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+            if (!isMounted) return
+
+            if (event === 'SIGNED_OUT') {
+                setSession(null)
+                setUser(null)
+                setIsAdmin(false)
+                setTier("Free")
+                setCompanyName(null)
+                setFullName(null)
+                setIsVerified(false)
+                setLoading(false)
+                return
+            }
+
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                setSession(currentSession)
+                setUser(currentSession?.user ?? null)
+                if (currentSession?.user?.id) {
+                    const ok = await checkUserRoleAndTier(currentSession.user.id)
+                    if (!ok && isMounted) await signOut()
+                }
+                setLoading(false)
+            }
         })
 
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session)
-            setUser(session?.user ?? null)
-            checkUserRoleAndTier(session?.user?.id)
-            setLoading(false)
-        })
-
-        return () => subscription.unsubscribe()
+        return () => {
+            isMounted = false
+            subscription.unsubscribe()
+        }
     }, [])
 
     const signOut = async () => {
+        setLoading(true)
         await supabase.auth.signOut()
+        setSession(null)
+        setUser(null)
+        setIsAdmin(false)
         setTier("Free")
         setCompanyName(null)
+        setFullName(null)
+        setIsVerified(false)
+        setLoading(false)
     }
 
     const value = {
@@ -97,8 +182,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAdmin,
         tier,
         companyName,
+        fullName,
         loading,
+        isVerified,
         signOut,
+        refreshProfile,
     }
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
