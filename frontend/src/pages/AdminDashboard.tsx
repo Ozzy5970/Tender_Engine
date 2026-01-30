@@ -334,16 +334,23 @@ export default function AdminDashboard() {
                                             <p className="text-[10px] text-gray-500 ml-3.5 truncate max-w-[150px]">{u.full_name || u.email}</p>
                                         </td>
                                         <td className="py-3 text-right">
-                                            <div className="flex flex-col items-end gap-1">
-                                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${u.sub_plan?.toLowerCase().includes('pro') ? 'bg-indigo-600 text-white' :
+                                            <div className="flex flex-col items-end">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${u.sub_plan?.toLowerCase().includes('pro') ? 'bg-indigo-600 text-white' :
                                                         u.sub_plan?.toLowerCase().includes('standard') ? 'bg-blue-500 text-white' :
                                                             'bg-gray-100 text-gray-500'
-                                                    }`}>
-                                                    {u.sub_plan || 'Free'}
-                                                </span>
-                                                <p className="text-[9px] text-gray-400">
-                                                    {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Never'}
-                                                </p>
+                                                        }`}>
+                                                        {u.sub_plan || 'Free'}
+                                                    </span>
+                                                </div>
+                                                <div className="mt-1 flex flex-col items-end leading-tight">
+                                                    <p className="text-[9px] text-gray-500 font-medium">
+                                                        Login: {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Never'}
+                                                    </p>
+                                                    <p className="text-[8px] text-gray-400">
+                                                        Active: {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '-'}
+                                                    </p>
+                                                </div>
                                             </div>
                                         </td>
                                     </tr>
