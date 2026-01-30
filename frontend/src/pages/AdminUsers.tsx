@@ -14,14 +14,19 @@ export default function AdminUsers() {
     }, [])
 
     const loadUsers = async () => {
-        const { data } = await AdminService.getUsers()
-        if (data) {
+        try {
+            const { data } = await AdminService.getUsers()
+            if (data) {
 
-            setUsers(data)
-        } else {
-            console.warn("AdminUsers: No users returned")
+                setUsers(data)
+            } else {
+                console.warn("AdminUsers: No users returned")
+            }
+        } catch (err) {
+            console.error("AdminUsers: Failed to load users", err)
+        } finally {
+            setLoading(false)
         }
-        setLoading(false)
     }
 
     // Filter & Sort

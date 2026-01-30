@@ -69,15 +69,19 @@ export default function AdminDashboard() {
     }
 
     const loadRecentUsers = async () => {
-        const { data } = await AdminService.getUsers()
-        if (data) {
-            // Sort by last active (sign in) or created if null
-            const sorted = data.sort((a: any, b: any) => {
-                const dateA = new Date(a.last_sign_in_at || a.created_at).getTime()
-                const dateB = new Date(b.last_sign_in_at || b.created_at).getTime()
-                return dateB - dateA
-            }).slice(0, 5) // Show top 5
-            setRecentUsers(sorted)
+        try {
+            const { data } = await AdminService.getUsers()
+            if (data) {
+                // Sort by last active (sign in) or created if null
+                const sorted = (data as any[]).sort((a: any, b: any) => {
+                    const dateA = new Date(a.last_sign_in_at || a.created_at).getTime()
+                    const dateB = new Date(b.last_sign_in_at || b.created_at).getTime()
+                    return dateB - dateA
+                }).slice(0, 5) // Show top 5
+                setRecentUsers(sorted)
+            }
+        } catch (err) {
+            console.error("Dashboard: Failed to load recent users", err)
         }
     }
 
