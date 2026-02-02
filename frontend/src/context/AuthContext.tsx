@@ -130,6 +130,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         let isMounted = true
         console.log("🚀 AuthProvider MOUNTED - App has started/restarted")
 
+        // 1. SAFETY NET: If everything hangs, release the UI after 5 seconds.
+        const safetyTimer = setTimeout(() => {
+            if (isMounted) {
+                console.warn("⚠️ Auth Init Safety Timeout (5s). Forcing UI load.")
+                setLoading(false)
+            }
+        }, 5000)
+
         const initialize = async () => {
             setLoading(true)
             try {
@@ -139,15 +147,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 if (!isMounted) return
 
                 if (initialSession) {
+                    console.log("✅ Session found. Loading UI immediately (Optimistic).")
                     setSession(initialSession)
                     setUser(initialSession.user)
-                    // Optimistic verification
-                    await checkUserRoleAndTier(initialSession.user.id)
+
+                    // 2. NON-BLOCKING VERIFICATION
+                    // We do NOT await this. We let the UI load while this checks roles in the background.
+                    checkUserRoleAndTier(initialSession.user.id).then(ok => {
+                        if (isMounted) console.log(`🔍 Background Verification Complete: ${ok ? 'OK' : 'Failed'}`)
+                    })
                 }
             } catch (err) {
                 console.error("Auth init error:", err)
             } finally {
-                if (isMounted) setLoading(false)
+                if (isMounted) {
+                    setLoading(false)
+                    clearTimeout(safetyTimer) // Clear safety net if we finished successfully
+                }
             }
         }
 
