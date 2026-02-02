@@ -64,8 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 if (profileError) {
                     if (profileError.code === 'PGRST116') {
-                        console.warn("Ghost session detected (missing profile).")
-                        return 'GHOST'
+                        console.warn("Ghost session detected (missing profile). Downgrading to partial session instead of logging out.")
+                        // return 'GHOST' // <--- DISABLED: Don't kill the session.
                     }
                     console.warn("Profile fetch error (non-fatal):", profileError)
                 }
