@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react"
 import type { Session, User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
+import { toast } from "sonner"
 
 type AuthContextType = {
     session: Session | null
@@ -173,10 +174,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         initialize()
 
+
+
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
             if (!isMounted) return
 
+            console.log(`Auth Event: ${event}`) // Debug log
+
             if (event === 'SIGNED_OUT') {
+                console.warn("Supabase Client fired SIGNED_OUT event.")
+                toast.error("Session Ended", {
+                    description: "You have been logged out. Please log in again.",
+                    duration: 5000,
+                })
                 setSession(null)
                 setUser(null)
                 setIsAdmin(false)
@@ -189,6 +199,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
             if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                // ... rest is same
                 setSession(currentSession)
                 setUser(currentSession?.user ?? null)
                 if (currentSession?.user?.id) {
