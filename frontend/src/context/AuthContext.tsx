@@ -172,11 +172,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     const localKeys = Object.keys(localStorage)
                     const hasToken = localKeys.some(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
                     if (hasToken) {
-                        console.log("⚠️ Token exists in storage. Deferring to onAuthStateChange event...")
-                        // CRITICAL FIX: Do NOT set session to null or loading to false here.
-                        // We wait for the 'SIGNED_IN' event to handle it.
-                        // If that event never comes, the Global Safety Valve (8s) will eventually unlock the UI.
-                        return
+                        try {
+                            console.log("⚠️ Token exists. Attempting 'Defibrillator' (Manual Hydration)...")
+                            // Find the exact key
+                            const sbKey = localKeys.find(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
+                            if (sbKey) {
+                                const rawToken = localStorage.getItem(sbKey)
+                                if (rawToken) {
+                                    const parsed = JSON.parse(rawToken)
+                                    const { access_token, refresh_token } = parsed
+
+                                    if (access_token && refresh_token) {
+                                        const { data: { session: manualSession }, error: manualError } = await supabase.auth.setSession({
+                                            access_token,
+                                            refresh_token
+                                        })
+
+                                        if (manualSession) {
+                                            console.log("✅ 'Defibrillator' Success! Session restored manually.")
+                                            activeSession = manualSession
+                                        } else {
+                                            console.warn("❌ 'Defibrillator' Failed:", manualError)
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (err) {
+                            console.error("❌ Failed to parse local token for hydration:", err)
+                        }
+
+                        // If defibrillator failed, we still have a token, so we can defer to listener as a last resort
+                        if (!activeSession) {
+                            console.log("⚠️ Defibrillator failed or incomplete. Deferring to onAuthStateChange...")
+                            return
+                        }
                     }
                 }
 
