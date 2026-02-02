@@ -183,10 +183,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                                     const { access_token, refresh_token } = parsed
 
                                     if (access_token && refresh_token) {
-                                        const { data: { session: manualSession }, error: manualError } = await supabase.auth.setSession({
+                                        // Wrap setSession in a timeout so it doesn't block the world if it hangs
+                                        const setSessionPromise = supabase.auth.setSession({
                                             access_token,
                                             refresh_token
                                         })
+                                        const quickTimeout = new Promise<{ data: { session: null }, error: any }>((resolve) =>
+                                            setTimeout(() => resolve({ data: { session: null }, error: 'TIMEOUT' }), 1000)
+                                        )
+
+                                        const { data: { session: manualSession }, error: manualError } = await Promise.race([setSessionPromise, quickTimeout])
+
+                                        if (manualError === 'TIMEOUT') {
+                                            console.warn("⚠️ 'Defibrillator' passed 1s safety limit. Releasing block to allow background sync.")
+                                            return // Exit initialize, let onAuthStateChange or Global Timer handle the rest
+                                        }
 
                                         if (manualSession) {
                                             console.log("✅ 'Defibrillator' Success! Session restored manually.")
