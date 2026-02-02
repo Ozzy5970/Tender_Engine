@@ -51,22 +51,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         try {
+            console.time("AuthVerify")
             // 0. SERVER-SIDE VERIFICATION
             const { data: { user: verifiedUser }, error: authError } = await supabase.auth.getUser()
+
+            console.timeLog("AuthVerify", "getUser complete")
+
             if (authError || !verifiedUser) {
                 console.warn("Server-side auth verification failed (non-fatal):", authError)
-                // return false // <--- DISABLED: Trust local session to prevent tab-switch logouts
             }
 
             // 1. Check Profile (with timeout)
-            // We use a simple race to prevent hanging indefinitely
             const dbPromise = (async () => {
+                console.time("ProfileFetch")
                 const { data: profile, error: profileError } = await supabase.from('profiles').select('is_admin, company_name, full_name').eq('id', userId).single()
+                console.timeEnd("ProfileFetch")
 
                 if (profileError) {
                     if (profileError.code === 'PGRST116') {
-                        console.warn("Ghost session detected (missing profile). Downgrading to partial session instead of logging out.")
-                        // return 'GHOST' // <--- DISABLED: Don't kill the session.
+                        // Ghost session logic
                     }
                     console.warn("Profile fetch error (non-fatal):", profileError)
                 }
@@ -98,6 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const timeoutPromise = new Promise<'TIMEOUT'>(resolve => setTimeout(() => resolve('TIMEOUT'), 5000))
 
             const result = await Promise.race([dbPromise, timeoutPromise])
+            console.timeEnd("AuthVerify")
 
             if (result === 'TIMEOUT') {
                 console.warn("Auth check timed out - assuming Free/Non-Admin to unblock UI")
@@ -111,8 +115,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return true
         } catch (e) {
             console.error("Auth check failed (non-fatal):", e)
-            // Safety: If an unexpected error occurs, don't kill the session.
-            // Allow access as base user.
             setIsVerified(true)
             return true
         }
@@ -151,10 +153,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const initialize = async () => {
             setLoading(true)
             try {
-                // race getSession against a 5s timeout
+                // race getSession against a 2s timeout (Faster failure is better here)
                 const sessionPromise = supabase.auth.getSession()
                 const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
-                    setTimeout(() => resolve({ data: { session: null } }), 5000)
+                    setTimeout(() => resolve({ data: { session: null } }), 2000)
                 )
 
                 const { data: { session: initialSession } } = await Promise.race([sessionPromise, timeoutPromise])
@@ -170,8 +172,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     const localKeys = Object.keys(localStorage)
                     const hasToken = localKeys.some(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
                     if (hasToken) {
-                        console.log("⚠️ Token exists in storage. Waiting for onAuthStateChange explicitly...")
-                        // Do not force session null here, let the event listener handle it.
+                        console.log("⚠️ Token exists in storage. Deferring to onAuthStateChange event...")
+                        // CRITICAL FIX: Do NOT set session to null or loading to false here.
+                        // We wait for the 'SIGNED_IN' event to handle it.
+                        // If that event never comes, the Global Safety Valve (8s) will eventually unlock the UI.
                         return
                     }
                 }
