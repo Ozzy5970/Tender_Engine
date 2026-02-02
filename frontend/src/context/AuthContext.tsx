@@ -139,6 +139,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
         }, 8000)
 
+        const keys = Object.keys(localStorage)
+        console.log(`🚀 [DIAGNOSTIC] Storage Keys Found (${keys.length}):`, keys)
+        const sbKey = keys.find(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
+        if (sbKey) {
+            console.log(`✅ Supabase Token Found in Storage: ${sbKey}`)
+        } else {
+            console.warn("❌ NO Supabase Token Found in Storage!")
+        }
+
         const initialize = async () => {
             setLoading(true)
             try {
