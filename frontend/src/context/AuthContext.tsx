@@ -140,9 +140,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const initialize = async () => {
             setLoading(true)
+            let initialSession = null
             try {
                 // 1. Get initial session based on storage
-                const { data: { session: initialSession } } = await supabase.auth.getSession()
+                const { data } = await supabase.auth.getSession()
+                initialSession = data.session
 
                 if (!isMounted) return
 
@@ -152,7 +154,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     setUser(initialSession.user)
 
                     // 2. NON-BLOCKING VERIFICATION
-                    // We do NOT await this. We let the UI load while this checks roles in the background.
                     checkUserRoleAndTier(initialSession.user.id).then(ok => {
                         if (isMounted) console.log(`🔍 Background Verification Complete: ${ok ? 'OK' : 'Failed'}`)
                     })
@@ -161,8 +162,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 console.error("Auth init error:", err)
             } finally {
                 if (isMounted) {
-                    setLoading(false)
-                    clearTimeout(safetyTimer) // Clear safety net if we finished successfully
+                    // CRITICAL FIX: Do NOT release UI if we are processing a Magic Link
+                    // If we do, ProtectedRoute will redirect to /auth before Supabase verifies the token
+                    const isMagicLink = window.location.hash.includes('access_token') ||
+                        window.location.hash.includes('type=recovery') ||
+                        window.location.hash.includes('type=magiclink') ||
+                        window.location.hash.includes('error_description');
+
+                    if (!initialSession && isMagicLink) {
+                        console.log("🔗 Magic Link detected. Holding UI for verification...")
+                        // We do NOT set loading(false) here. 
+                        // We rely on the 'SIGNED_IN' event (or the Safety Timer) to unlock the UI.
+                    } else {
+                        setLoading(false)
+                        clearTimeout(safetyTimer) // Clear safety net if we finished successfully
+                    }
                 }
             }
         }
