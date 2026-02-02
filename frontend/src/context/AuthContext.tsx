@@ -155,7 +155,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     setUser(initialSession.user)
                     const ok = await checkUserRoleAndTier(initialSession.user.id)
                     if (!ok && isMounted) {
-                        await signOut()
+                        console.warn("User role verification failed, but keeping session active (downgraded access).")
+                        // await signOut() // <--- PREVENT AUTO-LOGOUT
                     }
                 } else {
                     setSession(null)
@@ -192,7 +193,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setUser(currentSession?.user ?? null)
                 if (currentSession?.user?.id) {
                     const ok = await checkUserRoleAndTier(currentSession.user.id)
-                    if (!ok && isMounted) await signOut()
+                    if (!ok && isMounted) {
+                        console.warn("Re-verification failed, but keeping session active.")
+                        // await signOut() // <--- PREVENT AUTO-LOGOUT
+                    }
                 }
                 setLoading(false)
             }
