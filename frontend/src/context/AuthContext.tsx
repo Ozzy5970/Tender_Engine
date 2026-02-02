@@ -126,6 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         let isMounted = true
+        console.log("🚀 AuthProvider MOUNTED - App has started/restarted")
 
         // GLOBAL SAFETY VALVE: Force loading to false after 8 seconds no matter what
         const safetyTimer = setTimeout(() => {
