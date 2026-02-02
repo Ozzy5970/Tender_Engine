@@ -1,0 +1,13 @@
+﻿[dotenv@17.2.3] injecting env (2) from frontend\.env -- tip: ­ƒøá´©Å  run anywhere with `dotenvx run -- yourcommand`
+­ƒÅÑ STARTING SYSTEM HEALTH CHECK...
+Target: https://hhkmbwlfbonsafrwkqnc.supabase.co
+
+1. Checking 'admins' table...
+Ô£à 'admins' table is accessible. Count: 1
+
+2. Checking 'profiles' admin sync... (SKIPPED: Requires Service Key)
+
+3. Checking 'get_admin_users' RPC...
+   (This might be expected if the service role call signature differs, but usually implies function is missing or broken)
+
+­ƒÅü HEALTH CHECK COMPLETE.

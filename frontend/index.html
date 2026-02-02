@@ -7,6 +7,20 @@
     <title>frontend</title>
   </head>
   <body>
+    <!-- CRITICAL FIX: Prevent Crypto Extensions from crashing the app -->
+    <script>
+      window.addEventListener('error', function(e) {
+        if (e.message.includes('Cannot redefine property: ethereum') || 
+            e.message.includes('permission to access')) {
+          // Ignore these errors. They are caused by browser extensions fighting React.
+          // We don't use crypto, so we don't care.
+          e.stopImmediatePropagation();
+          e.preventDefault();
+          console.warn("🛡️ Ignored Browser Extension Crash:", e.message);
+          return true;
+        }
+      }, true); 
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
