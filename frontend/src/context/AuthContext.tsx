@@ -163,19 +163,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 let activeSession = initialSession
 
-                // RETRY LOGIC: If getSession failed but we have a token, try to REFRESH it.
+                // RETRY LOGIC: Removed to prevent deadlock. 
+                // We rely on onAuthStateChange to pick up the token from localStorage.
+                // If the token is valid, SIGNED_IN will fire. 
                 if (!activeSession) {
                     const localKeys = Object.keys(localStorage)
                     const hasToken = localKeys.some(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
                     if (hasToken) {
-                        console.warn("⚠️ No session found, but token exists in storage. Attempting refresh recovery...")
-                        const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession()
-                        if (refreshedSession) {
-                            console.log("✅ Session recovered via refresh!")
-                            activeSession = refreshedSession
-                        } else {
-                            console.warn("❌ Refresh recovery failed:", refreshError)
-                        }
+                        console.log("⚠️ Token exists in storage. Waiting for onAuthStateChange explicitly...")
+                        // Do not force session null here, let the event listener handle it.
+                        return
                     }
                 }
 
