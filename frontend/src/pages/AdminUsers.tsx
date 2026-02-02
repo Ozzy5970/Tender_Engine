@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react"
 import { AdminService } from "@/services/api"
-import { Search, Loader2, ArrowUpDown, MoreHorizontal, Clock, CheckCircle } from "lucide-react"
+import { Search, Loader2, ArrowUpDown, MoreHorizontal, FileText, CheckCircle, User } from "lucide-react"
 import { motion } from "framer-motion"
 
 export default function AdminUsers() {
@@ -14,19 +14,14 @@ export default function AdminUsers() {
     }, [])
 
     const loadUsers = async () => {
-        try {
-            const { data } = await AdminService.getUsers()
-            if (data) {
+        const { data } = await AdminService.getUsers()
+        if (data) {
 
-                setUsers(data)
-            } else {
-                console.warn("AdminUsers: No users returned")
-            }
-        } catch (err) {
-            console.error("AdminUsers: Failed to load users", err)
-        } finally {
-            setLoading(false)
+            setUsers(data)
+        } else {
+            console.warn("AdminUsers: No users returned")
         }
+        setLoading(false)
     }
 
     // Filter & Sort
@@ -123,14 +118,14 @@ export default function AdminUsers() {
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col gap-1.5">
                                             <div className="flex items-center gap-2">
-                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${user.sub_status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                    {user.sub_status === 'active' ? 'Active' : 'Not Active'}
-                                                </span>
-                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${user.sub_plan?.toLowerCase().includes('pro') ? 'bg-indigo-600 text-white' :
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${user.sub_plan?.toLowerCase().includes('pro') ? 'bg-indigo-600 text-white shadow-sm' :
                                                     user.sub_plan?.toLowerCase().includes('standard') ? 'bg-blue-500 text-white' :
                                                         'bg-gray-100 text-gray-500'
                                                     }`}>
                                                     {user.sub_plan || 'Free'}
+                                                </span>
+                                                <span className={`text-[10px] font-medium ${user.sub_status === 'active' ? 'text-green-600' : 'text-gray-400'}`}>
+                                                    {user.sub_status === 'active' ? '● Active' : '○ Inactive'}
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-3 text-[11px] text-gray-400">
@@ -147,12 +142,12 @@ export default function AdminUsers() {
                                     <td className="px-6 py-4">
                                         <div className="space-y-1">
                                             <div className="flex items-center gap-2 text-xs text-gray-600">
-                                                <Clock className="w-3.5 h-3.5 text-blue-500" />
-                                                Seen: {user.last_seen_at ? new Date(user.last_seen_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never'}
+                                                <CheckCircle className={`w-3.5 h-3.5 ${user.profile_complete ? 'text-green-500' : 'text-gray-300'}`} />
+                                                {user.profile_complete ? 'Profile Verified' : 'Awaiting Details'}
                                             </div>
-                                            <div className="flex items-center gap-2 text-[10px] text-gray-400">
-                                                <CheckCircle className={`w-3 h-3 ${user.profile_complete ? 'text-green-500' : 'text-gray-300'}`} />
-                                                {user.profile_complete ? 'Verified' : 'Awaiting Details'}
+                                            <div className="flex items-center gap-2 text-xs text-gray-600">
+                                                <FileText className="w-3.5 h-3.5 text-blue-500" />
+                                                Documents: {user.doc_count || 0}
                                             </div>
                                         </div>
                                     </td>

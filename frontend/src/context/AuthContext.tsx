@@ -60,9 +60,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // 1. Check Profile
             const { data: profile, error: profileError } = await supabase.from('profiles').select('is_admin, company_name, full_name').eq('id', userId).single()
 
-            if (profileError && profileError.code === 'PGRST116') {
-                console.warn("Ghost session detected (missing profile).")
-                return false
+            if (profileError) {
+                if (profileError.code === 'PGRST116') {
+                    console.warn("Ghost session detected (missing profile).")
+                    return false
+                }
+                console.warn("Profile fetch error (non-fatal):", profileError)
+                // Do not sign out on transient DB errors; just degrade to non-admin/free
             }
 
             setIsAdmin(profile?.is_admin || false)
@@ -89,8 +93,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setIsVerified(true)
             return true
         } catch (e) {
-            console.error("Auth check failed:", e)
-            return false
+            console.error("Auth check failed (non-fatal):", e)
+            // Safety: If an unexpected error occurs, don't kill the session, 
+            // but the user might have limited access (Free/Non-Admin).
+            return true
         }
     }
 
@@ -106,28 +112,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const initialize = async () => {
             setLoading(true)
             try {
-                // Set a safety timeout - if auth takes > 10s, something is wrong
-                const timeoutId = setTimeout(() => {
-                    if (loading && isMounted) {
-                        console.error("Auth initialization timed out.")
-                        setLoading(false)
-                    }
-                }, 10000)
-
-                const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession()
+                const { data: { session: initialSession } } = await supabase.auth.getSession()
 
                 if (!isMounted) return
-                clearTimeout(timeoutId)
-
-                if (sessionError) throw sessionError
 
                 if (initialSession) {
                     setSession(initialSession)
                     setUser(initialSession.user)
-                    // If this hangs (recursive RLS), the catch block or timeout will handle it
                     const ok = await checkUserRoleAndTier(initialSession.user.id)
                     if (!ok && isMounted) {
-                        console.warn("User role check returned false, signing out.")
                         await signOut()
                     }
                 } else {
@@ -136,8 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     setIsVerified(false)
                 }
             } catch (err) {
-                console.error("AuthContext: Auth init error:", err)
-                setIsVerified(false)
+                console.error("Auth init error:", err)
             } finally {
                 if (isMounted) setLoading(false)
             }
@@ -146,11 +138,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         initialize()
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-            console.log("AuthContext: Auth State Change:", event, currentSession?.user?.id);
             if (!isMounted) return
 
             if (event === 'SIGNED_OUT') {
-                console.log("AuthContext: Handling SIGNED_OUT");
                 setSession(null)
                 setUser(null)
                 setIsAdmin(false)
@@ -166,12 +156,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setSession(currentSession)
                 setUser(currentSession?.user ?? null)
                 if (currentSession?.user?.id) {
-                    console.log("AuthContext: Verifying role for user", currentSession.user.id);
                     const ok = await checkUserRoleAndTier(currentSession.user.id)
-                    if (!ok && isMounted) {
-                        console.error("AuthContext: Role check failed after sign in, signing out.");
-                        await signOut()
-                    }
+                    if (!ok && isMounted) await signOut()
                 }
                 setLoading(false)
             }

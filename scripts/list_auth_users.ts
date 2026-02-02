@@ -15,13 +15,9 @@ async function listAuthUsers() {
         console.error('Error:', error)
         return
     }
-    const filtered = data.users.filter(u => [
-        'reubenjacobs123@gmail.com',
-        'itskylanie@gmail.com',
-        'austin.simonsps4@gmail.com'
-    ].includes(u.email || ''))
-
-    console.log(JSON.stringify(filtered.map(u => ({ id: u.id, email: u.email })), null, 2))
+    const user = data.users.find(u => u.email === 'austin.simonsps@gmail.com')
+    if (user) console.log(user.id)
+    else console.log('User not found')
 }
 
 listAuthUsers()

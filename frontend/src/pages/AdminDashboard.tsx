@@ -37,57 +37,47 @@ export default function AdminDashboard() {
     }, [growthPeriod])
 
     const loadAnalytics = async () => {
-        try {
-            const { data, error } = await AdminService.getAnalytics()
-            const { data: feedbackStats } = await FeedbackService.getStats()
-            const { data: errorStats } = await ErrorService.getStats()
+        const { data, error } = await AdminService.getAnalytics()
+        const { data: feedbackStats } = await FeedbackService.getStats()
+        const { data: errorStats } = await ErrorService.getStats()
 
-            if (data) {
-                const d = data as any
-                setAnalytics({
-                    revenue: {
-                        total: d.revenue,
-                        trend: null,
-                        trendDir: 'neutral'
-                    },
-                    users: {
-                        total: d.total_users,
-                        active: d.active_subscriptions,
-                        trend: "+0%",
-                        trendDir: "neutral"
-                    },
-                    user_growth: d.user_growth,
-                    feedback: feedbackStats,
-                    errors: errorStats,
-                    compliance: d.compliance_split
-                })
-            }
-            else {
-                console.error(error)
-                setErrorMsg(typeof error === 'string' ? error : JSON.stringify(error))
-            }
-        } catch (err) {
-            console.error("Dashboard: Critical loading error", err)
-            setErrorMsg("A database synchronization error occurred. Please refresh or check the console.")
-        } finally {
-            setLoading(false)
+        if (data) {
+            const d = data as any
+            setAnalytics({
+                revenue: {
+                    total: d.revenue,
+                    trend: null,
+                    trendDir: 'neutral'
+                },
+                users: {
+                    total: d.total_users,
+                    active: d.active_subscriptions,
+                    trend: "+0%",
+                    trendDir: "neutral"
+                },
+                user_growth: d.user_growth,
+                feedback: feedbackStats,
+                errors: errorStats,
+                compliance: d.compliance_split
+            })
         }
+        else {
+            console.error(error)
+            setErrorMsg(typeof error === 'string' ? error : JSON.stringify(error))
+        }
+        setLoading(false)
     }
 
     const loadRecentUsers = async () => {
-        try {
-            const { data } = await AdminService.getUsers()
-            if (data) {
-                // Sort by last active (sign in) or created if null
-                const sorted = (data as any[]).sort((a: any, b: any) => {
-                    const dateA = new Date(a.last_sign_in_at || a.created_at).getTime()
-                    const dateB = new Date(b.last_sign_in_at || b.created_at).getTime()
-                    return dateB - dateA
-                }).slice(0, 5) // Show top 5
-                setRecentUsers(sorted)
-            }
-        } catch (err) {
-            console.error("Dashboard: Failed to load recent users", err)
+        const { data } = await AdminService.getUsers()
+        if (data) {
+            // Sort by last active (sign in) or created if null
+            const sorted = data.sort((a: any, b: any) => {
+                const dateA = new Date(a.last_sign_in_at || a.created_at).getTime()
+                const dateB = new Date(b.last_sign_in_at || b.created_at).getTime()
+                return dateB - dateA
+            }).slice(0, 5) // Show top 5
+            setRecentUsers(sorted)
         }
     }
 
@@ -344,26 +334,16 @@ export default function AdminDashboard() {
                                             <p className="text-[10px] text-gray-500 ml-3.5 truncate max-w-[150px]">{u.full_name || u.email}</p>
                                         </td>
                                         <td className="py-3 text-right">
-                                            <div className="flex flex-col items-end">
-                                                <div className="flex items-center gap-1.5">
-                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${u.sub_status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                        {u.sub_status === 'active' ? 'Active' : 'Not Active'}
-                                                    </span>
-                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${u.sub_plan?.toLowerCase().includes('pro') ? 'bg-indigo-600 text-white' :
-                                                        u.sub_plan?.toLowerCase().includes('standard') ? 'bg-blue-500 text-white' :
-                                                            'bg-gray-100 text-gray-500'
-                                                        }`}>
-                                                        {u.sub_plan || 'Free'}
-                                                    </span>
-                                                </div>
-                                                <div className="mt-1 flex flex-col items-end leading-tight">
-                                                    <p className="text-[9px] text-gray-500 font-medium">
-                                                        Login: {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Never'}
-                                                    </p>
-                                                    <p className="text-[8px] text-gray-400">
-                                                        Active: {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '-'}
-                                                    </p>
-                                                </div>
+                                            <div className="flex flex-col items-end gap-1">
+                                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${u.sub_plan?.toLowerCase().includes('pro') ? 'bg-indigo-600 text-white' :
+                                                    u.sub_plan?.toLowerCase().includes('standard') ? 'bg-blue-500 text-white' :
+                                                        'bg-gray-100 text-gray-500'
+                                                    }`}>
+                                                    {u.sub_plan || 'Free'}
+                                                </span>
+                                                <p className="text-[9px] text-gray-400">
+                                                    {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Never'}
+                                                </p>
                                             </div>
                                         </td>
                                     </tr>
