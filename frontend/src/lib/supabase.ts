@@ -13,5 +13,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         autoRefreshToken: true,
         detectSessionInUrl: true,
         storage: window.localStorage, // Explicitly key to localStorage
+        // @ts-expect-error - navigator.locks type mismatch but valid at runtime
+        lock: typeof navigator !== 'undefined' ? navigator.locks : undefined
     }
 })
