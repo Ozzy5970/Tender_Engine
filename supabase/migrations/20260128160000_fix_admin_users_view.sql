@@ -1,6 +1,8 @@
 -- Migration: Fix Admin Users View Visibility
 -- Description: Use LEFT JOINs to ensure all Auth Users match, even if Profile or Subscription is missing.
 
+DROP FUNCTION IF EXISTS public.get_admin_users();
+
 create or replace function public.get_admin_users()
 returns table (
     id uuid,

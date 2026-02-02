@@ -136,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     setIsVerified(false)
                 }
             } catch (err) {
-                console.error("Auth init error:", err)
+                console.error("AuthContext: Auth init error:", err)
                 setIsVerified(false)
             } finally {
                 if (isMounted) setLoading(false)
@@ -146,9 +146,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         initialize()
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+            console.log("AuthContext: Auth State Change:", event, currentSession?.user?.id);
             if (!isMounted) return
 
             if (event === 'SIGNED_OUT') {
+                console.log("AuthContext: Handling SIGNED_OUT");
                 setSession(null)
                 setUser(null)
                 setIsAdmin(false)
@@ -164,8 +166,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setSession(currentSession)
                 setUser(currentSession?.user ?? null)
                 if (currentSession?.user?.id) {
+                    console.log("AuthContext: Verifying role for user", currentSession.user.id);
                     const ok = await checkUserRoleAndTier(currentSession.user.id)
-                    if (!ok && isMounted) await signOut()
+                    if (!ok && isMounted) {
+                        console.error("AuthContext: Role check failed after sign in, signing out.");
+                        await signOut()
+                    }
                 }
                 setLoading(false)
             }

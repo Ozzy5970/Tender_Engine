@@ -1,0 +1,7 @@
+Connecting to local database...
+Skipping migration 20260128160000_fix_admin_users_view.sql.bak... (file name must match pattern "<timestamp>_name.sql")
+Found local migration files to be inserted before the last migration on remote database.
+
+Rerun the command with --include-all flag to apply these migrations:
+supabase\migrations\20260127010000_fix_admin_view.sql
+

@@ -1,0 +1,6 @@
+Connecting to local database...
+Found local migration files to be inserted before the last migration on remote database.
+
+Rerun the command with --include-all flag to apply these migrations:
+supabase\migrations\20260127010000_fix_admin_view.sql
+
