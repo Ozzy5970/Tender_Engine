@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react"
 import { AdminService } from "@/services/api"
-import { Search, Loader2, ArrowUpDown, MoreHorizontal, FileText, CheckCircle, User } from "lucide-react"
+import { Search, Loader2, ArrowUpDown, MoreHorizontal, FileText, CheckCircle } from "lucide-react"
 import { motion } from "framer-motion"
 
 export default function AdminUsers() {
