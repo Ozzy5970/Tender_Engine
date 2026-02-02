@@ -161,10 +161,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 if (!isMounted) return
 
-                if (initialSession) {
-                    setSession(initialSession)
-                    setUser(initialSession.user)
-                    const ok = await checkUserRoleAndTier(initialSession.user.id)
+                let activeSession = initialSession
+
+                // RETRY LOGIC: If getSession failed but we have a token, try to REFRESH it.
+                if (!activeSession) {
+                    const localKeys = Object.keys(localStorage)
+                    const hasToken = localKeys.some(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
+                    if (hasToken) {
+                        console.warn("⚠️ No session found, but token exists in storage. Attempting refresh recovery...")
+                        const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession()
+                        if (refreshedSession) {
+                            console.log("✅ Session recovered via refresh!")
+                            activeSession = refreshedSession
+                        } else {
+                            console.warn("❌ Refresh recovery failed:", refreshError)
+                        }
+                    }
+                }
+
+                if (activeSession) {
+                    setSession(activeSession)
+                    setUser(activeSession.user)
+                    const ok = await checkUserRoleAndTier(activeSession.user.id)
                     if (!ok && isMounted) {
                         console.warn("User role verification failed, but keeping session active (downgraded access).")
                         // await signOut() // <--- PREVENT AUTO-LOGOUT
