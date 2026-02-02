@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [isVerified, setIsVerified] = useState(false)
 
     const checkUserRoleAndTier = async (userId: string | undefined): Promise<boolean> => {
-        setIsVerified(false)
+        // setIsVerified(false) // <--- DISABLED: Don't invalidate session during background checks
         if (!userId) {
             setIsAdmin(false)
             setTier("Free")
