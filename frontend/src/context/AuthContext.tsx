@@ -53,8 +53,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // 0. SERVER-SIDE VERIFICATION
             const { data: { user: verifiedUser }, error: authError } = await supabase.auth.getUser()
             if (authError || !verifiedUser) {
-                console.warn("Server-side auth verification failed.")
-                return false
+                console.warn("Server-side auth verification failed (non-fatal):", authError)
+                // return false // <--- DISABLED: Trust local session to prevent tab-switch logouts
             }
 
             // 1. Check Profile (with timeout)
