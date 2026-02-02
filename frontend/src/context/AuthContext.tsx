@@ -57,45 +57,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 return false
             }
 
-            // 1. Check Profile
-            const { data: profile, error: profileError } = await supabase.from('profiles').select('is_admin, company_name, full_name').eq('id', userId).single()
+            // 1. Check Profile (with timeout)
+            // We use a simple race to prevent hanging indefinitely
+            const dbPromise = (async () => {
+                const { data: profile, error: profileError } = await supabase.from('profiles').select('is_admin, company_name, full_name').eq('id', userId).single()
 
-            if (profileError) {
-                if (profileError.code === 'PGRST116') {
-                    console.warn("Ghost session detected (missing profile).")
-                    return false
+                if (profileError) {
+                    if (profileError.code === 'PGRST116') {
+                        console.warn("Ghost session detected (missing profile).")
+                        return 'GHOST'
+                    }
+                    console.warn("Profile fetch error (non-fatal):", profileError)
                 }
-                console.warn("Profile fetch error (non-fatal):", profileError)
-                // Do not sign out on transient DB errors; just degrade to non-admin/free
-            }
 
-            setIsAdmin(profile?.is_admin || false)
-            setCompanyName(profile?.company_name || null)
-            setFullName(profile?.full_name || null)
+                setIsAdmin(profile?.is_admin || false)
+                setCompanyName(profile?.company_name || null)
+                setFullName(profile?.full_name || null)
 
-            // 2. Check Tier
-            const { data: sub } = await supabase
-                .from('subscriptions')
-                .select('plan_name')
-                .eq('user_id', userId)
-                .eq('status', 'active')
-                .maybeSingle()
+                // 2. Check Tier
+                const { data: sub } = await supabase
+                    .from('subscriptions')
+                    .select('plan_name')
+                    .eq('user_id', userId)
+                    .eq('status', 'active')
+                    .maybeSingle()
 
-            if (sub?.plan_name) {
-                const p = sub.plan_name.toLowerCase()
-                if (p.includes('enterprise') || p.includes('pro')) setTier("Pro")
-                else if (p.includes('standard')) setTier("Standard")
-                else setTier("Free")
-            } else {
+                if (sub?.plan_name) {
+                    const p = sub.plan_name.toLowerCase()
+                    if (p.includes('enterprise') || p.includes('pro')) setTier("Pro")
+                    else if (p.includes('standard')) setTier("Standard")
+                    else setTier("Free")
+                } else {
+                    setTier("Free")
+                }
+
+                return 'OK'
+            })()
+
+            const timeoutPromise = new Promise<'TIMEOUT'>(resolve => setTimeout(() => resolve('TIMEOUT'), 5000))
+
+            const result = await Promise.race([dbPromise, timeoutPromise])
+
+            if (result === 'TIMEOUT') {
+                console.warn("Auth check timed out - assuming Free/Non-Admin to unblock UI")
+                setIsAdmin(false)
                 setTier("Free")
+            } else if (result === 'GHOST') {
+                return false
             }
 
             setIsVerified(true)
             return true
         } catch (e) {
             console.error("Auth check failed (non-fatal):", e)
-            // Safety: If an unexpected error occurs, don't kill the session, 
-            // but the user might have limited access (Free/Non-Admin).
+            // Safety: If an unexpected error occurs, don't kill the session.
+            // Allow access as base user.
+            setIsVerified(true)
             return true
         }
     }
