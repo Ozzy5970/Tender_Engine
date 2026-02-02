@@ -126,10 +126,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         let isMounted = true
 
+        // GLOBAL SAFETY VALVE: Force loading to false after 8 seconds no matter what
+        const safetyTimer = setTimeout(() => {
+            if (isMounted) {
+                console.warn("Auth initialization timed out (Global Safety). Forcing UI release.")
+                setLoading((prev) => {
+                    if (prev) return false
+                    return prev
+                })
+            }
+        }, 8000)
+
         const initialize = async () => {
             setLoading(true)
             try {
-                const { data: { session: initialSession } } = await supabase.auth.getSession()
+                // race getSession against a 5s timeout
+                const sessionPromise = supabase.auth.getSession()
+                const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
+                    setTimeout(() => resolve({ data: { session: null } }), 5000)
+                )
+
+                const { data: { session: initialSession } } = await Promise.race([sessionPromise, timeoutPromise])
 
                 if (!isMounted) return
 
@@ -149,6 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 console.error("Auth init error:", err)
             } finally {
                 if (isMounted) setLoading(false)
+                clearTimeout(safetyTimer)
             }
         }
 
