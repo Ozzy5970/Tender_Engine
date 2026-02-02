@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react"
 import type { Session, User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
-import { toast } from "sonner"
+
 
 type AuthContextType = {
     session: Session | null
@@ -130,132 +130,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         let isMounted = true
         console.log("🚀 AuthProvider MOUNTED - App has started/restarted")
 
-        // GLOBAL SAFETY VALVE: Force loading to false after 8 seconds no matter what
-        const safetyTimer = setTimeout(() => {
-            if (isMounted) {
-                console.warn("Auth initialization timed out (Global Safety). Forcing UI release.")
-                setLoading((prev) => {
-                    if (prev) return false
-                    return prev
-                })
-            }
-        }, 8000)
-
-        const keys = Object.keys(localStorage)
-        console.log(`🚀 [DIAGNOSTIC] Storage Keys Found (${keys.length}):`, keys)
-        const sbKey = keys.find(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
-        if (sbKey) {
-            console.log(`✅ Supabase Token Found in Storage: ${sbKey}`)
-        } else {
-            console.warn("❌ NO Supabase Token Found in Storage!")
-        }
-
         const initialize = async () => {
             setLoading(true)
             try {
-                // race getSession against a 2s timeout (Faster failure is better here)
-                const sessionPromise = supabase.auth.getSession()
-                const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
-                    setTimeout(() => resolve({ data: { session: null } }), 2000)
-                )
-
-                const { data: { session: initialSession } } = await Promise.race([sessionPromise, timeoutPromise])
+                // 1. Get initial session based on storage
+                const { data: { session: initialSession } } = await supabase.auth.getSession()
 
                 if (!isMounted) return
 
-                let activeSession = initialSession
-
-                // RETRY LOGIC: Removed to prevent deadlock. 
-                // We rely on onAuthStateChange to pick up the token from localStorage.
-                // If the token is valid, SIGNED_IN will fire. 
-                if (!activeSession) {
-                    const localKeys = Object.keys(localStorage)
-                    const hasToken = localKeys.some(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
-                    if (hasToken) {
-                        try {
-                            console.log("⚠️ Token exists. Attempting 'Defibrillator' (Manual Hydration)...")
-                            // Find the exact key
-                            const sbKey = localKeys.find(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
-                            if (sbKey) {
-                                const rawToken = localStorage.getItem(sbKey)
-                                if (rawToken) {
-                                    const parsed = JSON.parse(rawToken)
-                                    const { access_token, refresh_token } = parsed
-
-                                    if (access_token && refresh_token) {
-                                        // Wrap setSession in a timeout so it doesn't block the world if it hangs
-                                        const setSessionPromise = supabase.auth.setSession({
-                                            access_token,
-                                            refresh_token
-                                        })
-                                        const quickTimeout = new Promise<{ data: { session: null }, error: any }>((resolve) =>
-                                            setTimeout(() => resolve({ data: { session: null }, error: 'TIMEOUT' }), 1000)
-                                        )
-
-                                        const { data: { session: manualSession }, error: manualError } = await Promise.race([setSessionPromise, quickTimeout])
-
-                                        if (manualError === 'TIMEOUT') {
-                                            console.warn("⚠️ 'Defibrillator' passed 1s safety limit. Releasing block to allow background sync.")
-                                            return // Exit initialize, let onAuthStateChange or Global Timer handle the rest
-                                        }
-
-                                        if (manualSession) {
-                                            console.log("✅ 'Defibrillator' Success! Session restored manually.")
-                                            activeSession = manualSession
-                                        } else {
-                                            console.warn("❌ 'Defibrillator' Failed:", manualError)
-                                        }
-                                    }
-                                }
-                            }
-                        } catch (err) {
-                            console.error("❌ Failed to parse local token for hydration:", err)
-                        }
-
-                        // If defibrillator failed, we still have a token, so we can defer to listener as a last resort
-                        if (!activeSession) {
-                            console.log("⚠️ Defibrillator failed or incomplete. Deferring to onAuthStateChange...")
-                            return
-                        }
-                    }
-                }
-
-                if (activeSession) {
-                    setSession(activeSession)
-                    setUser(activeSession.user)
-                    const ok = await checkUserRoleAndTier(activeSession.user.id)
-                    if (!ok && isMounted) {
-                        console.warn("User role verification failed, but keeping session active (downgraded access).")
-                        // await signOut() // <--- PREVENT AUTO-LOGOUT
-                    }
-                } else {
-                    setSession(null)
-                    setUser(null)
-                    setIsVerified(false)
+                if (initialSession) {
+                    setSession(initialSession)
+                    setUser(initialSession.user)
+                    // Optimistic verification
+                    await checkUserRoleAndTier(initialSession.user.id)
                 }
             } catch (err) {
                 console.error("Auth init error:", err)
             } finally {
                 if (isMounted) setLoading(false)
-                clearTimeout(safetyTimer)
             }
         }
 
         initialize()
 
-
-
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
             if (!isMounted) return
 
-            console.log(`Auth Event: ${event}`) // Debug log
+            console.log(`Auth Event: ${event}`)
 
             if (event === 'SIGNED_OUT') {
-                console.warn("Supabase Client fired SIGNED_OUT event.")
-                toast.error("Session Ended", {
-                    description: "You have been logged out. Please log in again.",
-                    duration: 5000,
-                })
                 setSession(null)
                 setUser(null)
                 setIsAdmin(false)
@@ -267,16 +170,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 return
             }
 
-            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                // ... rest is same
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
                 setSession(currentSession)
                 setUser(currentSession?.user ?? null)
                 if (currentSession?.user?.id) {
-                    const ok = await checkUserRoleAndTier(currentSession.user.id)
-                    if (!ok && isMounted) {
-                        console.warn("Re-verification failed, but keeping session active.")
-                        // await signOut() // <--- PREVENT AUTO-LOGOUT
-                    }
+                    // Update Role/Tier in background
+                    await checkUserRoleAndTier(currentSession.user.id)
                 }
                 setLoading(false)
             }
@@ -287,6 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             subscription.unsubscribe()
         }
     }, [])
+
 
     const signOut = async () => {
         setLoading(true)
