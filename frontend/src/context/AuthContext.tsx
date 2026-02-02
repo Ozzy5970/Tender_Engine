@@ -190,8 +190,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setSession(currentSession)
                 setUser(currentSession?.user ?? null)
                 if (currentSession?.user?.id) {
-                    // Update Role/Tier in background
-                    await checkUserRoleAndTier(currentSession.user.id)
+                    // Update Role/Tier in background (Optimistic - don't block login)
+                    checkUserRoleAndTier(currentSession.user.id).then(ok => {
+                        console.log(`🔍 Listener Verification Complete: ${ok ? 'OK' : 'Failed'}`)
+                    })
                 }
                 setLoading(false)
             }
