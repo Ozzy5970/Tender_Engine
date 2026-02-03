@@ -74,10 +74,22 @@ export const useAuth = () => useContext(AuthContext)
                          * We don't just trust the token. We ask the server.
                          * BUT: We don't punish network/extension failures with logout.
                          */
-                        const checkUserRoleAndTier = async (userId: string | undefined): Promise<boolean> => {
+                        const checkUserRoleAndTier = async (userId: string | undefined, currentUser?: User | null): Promise<boolean> => {
         if (!userId) {
                                 setStatus('UNAUTHENTICATED')
             return false
+        }
+
+                            // --- 0. SUPER ADMIN WHITELIST (NETWORK BYPASS) ---
+                            // Critical for "Perfect Refresh" when Extensions block DB calls.
+                            // We trust the email from the restored session (which is signed by Supabase).
+                            // This only controls UI routing. Real data is RLS protected.
+                            const ADMIN_WHITELIST = ['austin.simonsps@gmail.com', 'austin.simonsps+test@gmail.com'];
+                            let forcedAdmin = false;
+                            if (currentUser?.email && ADMIN_WHITELIST.includes(currentUser.email)) {
+                                console.log("👑 Super Admin Detected (Whitelist). Forcing Admin UI.");
+                            forcedAdmin = true;
+                            setIsAdmin(true); // Immediate UI Update
         }
 
                             if (verificationInProgress.current) return true
@@ -159,13 +171,19 @@ export const useAuth = () => useContext(AuthContext)
             }
 
                             if (profile) {
-                                setIsAdmin(profile.is_admin || false)
+                                setIsAdmin(profile.is_admin || forcedAdmin) // Trust DB OR Whitelist
                 setCompanyName(profile.company_name || null)
                             setFullName(profile.full_name || null)
             } else {
                                 // RLS or specific table block shouldn't kill the session
+                                if (forcedAdmin) {
+                                // If DB completely failed but we are Whitelisted, ensure we stay Admin
+                                setIsAdmin(true);
+                            console.log("👑 DB Failed, but Whitelist sustained Admin Status.");
+                                } else {
                                 console.warn("⚠️ Profile not found or RLS blocked. User stays authenticated.")
-                setIsAdmin(false)
+                                    setIsAdmin(false)
+                                }
                             setCompanyName(null)
             }
 
@@ -203,7 +221,7 @@ export const useAuth = () => useContext(AuthContext)
 
     const refreshProfile = async () => {
         if (user?.id) {
-                                await checkUserRoleAndTier(user.id)
+                                await checkUserRoleAndTier(user.id, user)
                             }
     }
 
@@ -245,7 +263,7 @@ export const useAuth = () => useContext(AuthContext)
                     setSession(initialSession)
                             setUser(initialSession.user)
                             // Verify (Status updated inside)
-                            await checkUserRoleAndTier(initialSession.user.id)
+                            await checkUserRoleAndTier(initialSession.user.id, initialSession.user)
                 } else if (!isMagicLink) {
                                 // Only declare UNAUTHENTICATED if we are purely empty and not waiting for a swap
                                 setStatus('UNAUTHENTICATED')
@@ -289,7 +307,7 @@ export const useAuth = () => useContext(AuthContext)
                                 setSession(currentSession)
                     setUser(currentSession.user)
                             // Optimistic Update? No, stick to LOADING -> VERIFIED flow for robust UI
-                            await checkUserRoleAndTier(currentSession.user.id)
+                            await checkUserRoleAndTier(currentSession.user.id, currentSession.user)
                 }
             }
         })
