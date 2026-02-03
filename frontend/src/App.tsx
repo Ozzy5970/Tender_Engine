@@ -225,6 +225,36 @@ function Home() {
   return <Dashboard />
 }
 
+// Safe Mode Banner Component
+function SafeModeBanner() {
+  const { safeMode } = useAuth()
+
+  if (!safeMode) return null
+
+  return (
+    <div className="bg-amber-100 border-b border-amber-200 px-4 py-3 sticky top-0 z-[100]">
+      <div className="flex items-center justify-between max-w-7xl mx-auto">
+        <div className="flex items-center gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600" />
+          <div>
+            <p className="text-sm font-bold text-amber-800">Connection Stability Issue Detected</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              We detected a login loop or storage blockage. We've enabled <b>Safe Mode</b> to keep you logged in.
+              If you experience issues, please disable ad-blockers or privacy extensions for this site.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-3 py-1.5 bg-white border border-amber-300 rounded text-xs font-bold text-amber-700 hover:bg-amber-50"
+        >
+          Reload
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function App() {
 
   useEffect(() => {
@@ -259,6 +289,7 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <SafeModeBanner />
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
 

@@ -19,5 +19,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         // We rely on ResilientStorage and Server-Side validation instead of client locks.
         // @ts-expect-error - Supabase types are strict, but false is supported at runtime to disable locking.
         lock: false,
+        // SAFETY: Robust cookie settings to survive redirects and strict privacy settings
+        storageKey: 'sb-session',
     }
 })
