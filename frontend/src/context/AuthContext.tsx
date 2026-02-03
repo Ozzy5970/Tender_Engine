@@ -12,6 +12,7 @@ type AuthContextType = {
     fullName: string | null
     loading: boolean
     isVerified: boolean // Flag indicating server-side verification is complete
+    safeMode: boolean // Flag indicating we are in a degraded state due to network/extension interference
     signOut: () => Promise<void>
     refreshProfile: () => Promise<void>
 }
@@ -25,6 +26,7 @@ const AuthContext = createContext<AuthContextType>({
     fullName: null,
     loading: true,
     isVerified: false,
+    safeMode: false,
     signOut: async () => { },
     refreshProfile: async () => { },
 })
@@ -40,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [fullName, setFullName] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
     const [isVerified, setIsVerified] = useState(false)
+    const [safeMode, setSafeMode] = useState(false)
 
     // Concurrency Guard: Prevent overlapping verifications
     const verificationInProgress = useRef(false)
@@ -54,7 +57,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Prevent double-checking if we are already busy verifying this same user
         if (verificationInProgress.current) {
-            console.log("⏳ Verification already in progress, skipping duplicate call.")
             return true
         }
 
@@ -69,19 +71,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (authError || !verifiedUser) {
                 console.warn("Server-side auth verification failed (non-fatal):", authError)
+                // If getUser fails, we might have a stale token. Try ONE refresh.
+                const { error: refreshError } = await supabase.auth.refreshSession()
+                if (refreshError) {
+                    console.error("Session refresh failed:", refreshError)
+                    return false
+                }
             }
 
-            // 1. Check Profile (with timeout)
+            // 1. Check Profile (with retry and timeout)
             const dbPromise = (async () => {
+                let profileData = null
+
+                // First Attempt
                 const { data: profile, error: profileError } = await supabase.from('profiles').select('is_admin, company_name, full_name').eq('id', userId).single()
 
                 if (profileError) {
-                    console.warn("Profile fetch error (non-fatal):", profileError)
+                    console.warn("Profile fetch error (Attempt 1):", profileError)
+                    // RETRY LOGIC: Wait 1s and try again (helps with race conditions/extensions)
+                    await new Promise(r => setTimeout(r, 1000))
+                    const { data: profileRetry, error: retryError } = await supabase.from('profiles').select('is_admin, company_name, full_name').eq('id', userId).single()
+
+                    if (retryError) {
+                        console.error("Profile fetch error (Attempt 2 - Give Up):", retryError)
+                    } else {
+                        profileData = profileRetry
+                    }
+                } else {
+                    profileData = profile
                 }
 
-                setIsAdmin(profile?.is_admin || false)
-                setCompanyName(profile?.company_name || null)
-                setFullName(profile?.full_name || null)
+                setIsAdmin(profileData?.is_admin || false)
+                setCompanyName(profileData?.company_name || null)
+                setFullName(profileData?.full_name || null)
 
                 // 2. Check Tier
                 const { data: sub } = await supabase
@@ -103,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 return 'OK'
             })()
 
-            const timeoutPromise = new Promise<'TIMEOUT'>(resolve => setTimeout(() => resolve('TIMEOUT'), 5000))
+            const timeoutPromise = new Promise<'TIMEOUT'>(resolve => setTimeout(() => resolve('TIMEOUT'), 8000)) // Bumped to 8s for retry
 
             const result = await Promise.race([dbPromise, timeoutPromise])
             const duration = Math.round(performance.now() - start)
@@ -113,8 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 console.warn("Auth check timed out - assuming Free/Non-Admin to unblock UI")
                 setIsAdmin(false)
                 setTier("Free")
-            } else if (result === 'GHOST') {
-                return false
+                // Don't fully fail, just let them in as free user
             }
 
             setIsVerified(true)
@@ -157,14 +178,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 if (!isMounted) return
 
                 if (initialSession) {
-                    console.log("✅ Session found. Loading UI immediately (Optimistic).")
+                    console.log("✅ Session found. Verifying profile...")
                     setSession(initialSession)
                     setUser(initialSession.user)
 
-                    // 2. NON-BLOCKING VERIFICATION
-                    checkUserRoleAndTier(initialSession.user.id).then(ok => {
-                        if (isMounted) console.log(`🔍 Background Verification Complete: ${ok ? 'OK' : 'Failed'}`)
-                    })
+                    // 2. BLOCKING VERIFICATION (Production Safety)
+                    // We await this to ensure 'isVerified' is true before releasing the UI.
+                    // This prevents ProtectedRoute from bouncing the user back to login.
+                    await checkUserRoleAndTier(initialSession.user.id)
+                    console.log("✅ Verification finished. Releasing UI.")
                 }
             } catch (err) {
                 console.error("Auth init error:", err)
@@ -203,7 +225,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // Check if last 10 events happened in < 2 seconds (Infinite Loop)
             if (eventTimestamps.length >= 10 && (now - eventTimestamps[0] < 2000)) {
-                console.error(`🚨 [AuthContext] INFINITE LOOP DETECTED. Unsubscribing from Supabase Auth to save browser. Last event: ${event}`)
+                console.error(`🚨 [AuthContext] INFINITE LOOP DETECTED. Unsubscribing to save browser.`)
+                // Enable SAFE MODE - This is the "Graceful Fallback"
+                setSafeMode(true)
                 subscription.unsubscribe()
                 return
             }
@@ -275,6 +299,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fullName,
         loading,
         isVerified,
+        safeMode,
         signOut,
         refreshProfile,
     }
