@@ -1,51 +1,79 @@
 /**
  * resilientStorage.ts
  * 
- * Purpose: "Defensive Persistence".
+ * Purpose: "Defensive Persistence" with Tiered Fallback.
  * Strategy:
- * 1. Try LocalStorage (Preferred).
- * 2. If blocked (Extension/SecurityError) -> Fallback to Memory.
- * 
- * "Hard Truth" Alignment:
- * - Extensions break LocalStorage.
- * - We do NOT try to detect extensions.
- * - We just catch the error and move on.
- * - We do NOT use Cookies (risk of size limits/truncation).
- * - Implication: If LS is restricted, session is lost on refresh. This is acceptable vs the alternative (Crash/Loop).
+ * 1. Try LocalStorage (Preferred, Standard).
+ * 2. If blocked, try Cookies (Persistent Backup).
+ * 3. If blocked, use Memory (Volatile Last Resort).
  */
 
 const memoryStore = new Map<string, string>();
 
+// Simple Cookie Helper (No external deps)
+const CookieJar = {
+    set: (name: string, value: string) => {
+        try {
+            const d = new Date();
+            d.setTime(d.getTime() + (365 * 24 * 60 * 60 * 1000));
+            // SameSite=Lax allows auth across redirects (OAuth)
+            document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/;SameSite=Lax;Secure`;
+        } catch (e) { /* Ignore cookie errors */ }
+    },
+    get: (name: string): string | null => {
+        try {
+            const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+            return match ? decodeURIComponent(match[2]) : null;
+        } catch (e) { return null }
+    },
+    remove: (name: string) => {
+        try {
+            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:01 GMT;path=/;SameSite=Lax;Secure`;
+        } catch (e) { /* Ignore */ }
+    }
+}
+
 export const resilientStorage = {
     getItem: (key: string): string | null => {
+        // 1. Try LocalStorage
         try {
             const val = localStorage.getItem(key);
-            // If we have a value, return it.
-            // If val is null, it typically means "not found", BUT if we were blocked from writing to LS earlier,
-            // it might exist in memoryStore. So we fallback to memory check.
-            return val ?? memoryStore.get(key) ?? null;
-        } catch (error) {
-            // Extension blocked read? Return memory
-            console.warn(`⚠️ Storage Read Blocked (${key}). Using Memory.`);
-            return memoryStore.get(key) || null;
-        }
+            if (val) return val;
+        } catch (e) { /* LS Blocked */ }
+
+        // 2. Try Cookie (Backup)
+        const cookieVal = CookieJar.get(key);
+        if (cookieVal) return cookieVal;
+
+        // 3. Try Memory
+        return memoryStore.get(key) || null;
     },
+
     setItem: (key: string, value: string): void => {
+        let wroteToDisk = false;
+
+        // 1. Try LocalStorage
         try {
             localStorage.setItem(key, value);
-        } catch (error) {
-            // Extension blocked write? Use memory
-            console.warn(`⚠️ Storage Write Blocked (${key}). Using Memory.`);
-            memoryStore.set(key, value);
+            wroteToDisk = true;
+        } catch (e) {
+            console.warn(`⚠️ LocalStorage blocked (${key}). Falling back to Cookie.`);
         }
+
+        // 2. Try Cookie (Always write to cookie if LS failed, or as backup?)
+        // Strategy: If LS failed, definitely write cookie.
+        if (!wroteToDisk) {
+            CookieJar.set(key, value);
+        }
+
+        // 3. Always update Memory for speed
+        memoryStore.set(key, value);
     },
+
     removeItem: (key: string): void => {
-        try {
-            localStorage.removeItem(key);
-        } catch (error) {
-            // Extension blocked delete? Clear memory
-            console.warn(`⚠️ Storage Delete Blocked (${key}). Clearing Memory.`);
-            memoryStore.delete(key);
-        }
+        // Nuke everything to be safe
+        try { localStorage.removeItem(key); } catch (e) { }
+        CookieJar.remove(key);
+        memoryStore.delete(key);
     },
 }
