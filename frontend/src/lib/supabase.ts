@@ -16,10 +16,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         // SAFETY: Use ResilientStorage to handle blocked localStorage (e.g. by extensions)
         storage: resilientStorage,
         // SAFETY: Disable "Navigator Lock" which is frequently broken by privacy extensions.
-        // We provide a "No-Op" lock that always succeeds immediately.
-        lock: {
-            // @ts-expect-error - Supabase types are strict, but this works at runtime to disable locking checks
-            process: () => Promise.resolve(() => { })
-        },
+        // We rely on ResilientStorage and Server-Side validation instead of client locks.
+        // @ts-expect-error - Supabase types are strict, but false is supported at runtime to disable locking.
+        lock: false,
     }
 })

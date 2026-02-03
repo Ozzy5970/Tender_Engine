@@ -183,7 +183,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         initialize()
 
+        // FLOOD PROTECTION START
+        // Track last 10 event timestamps to detect infinite loops
+        const eventTimestamps: number[] = []
+
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+            const now = Date.now()
+            eventTimestamps.push(now)
+            // Keep only last 10
+            if (eventTimestamps.length > 10) eventTimestamps.shift()
+
+            // Check if last 10 events happened in < 2 seconds (Infinite Loop)
+            if (eventTimestamps.length >= 10 && (now - eventTimestamps[0] < 2000)) {
+                console.error(`🚨 [AuthContext] INFINITE LOOP DETECTED. Unsubscribing from Supabase Auth to save browser. Last event: ${event}`)
+                subscription.unsubscribe()
+                return
+            }
+            // FLOOD PROTECTION END
+
             if (!isMounted) return
 
             console.log(`Auth Event: ${event}`)
@@ -201,7 +218,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 return
             }
 
-            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+            if (event === 'TOKEN_REFRESHED') {
+                // SAFETY: Just update the session. Do NOT re-verify (calls getUser which might refresh again -> loop)
+                setSession(currentSession)
+                setUser(currentSession?.user ?? null)
+                setLoading(false)
+            }
+
+            if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
                 setSession(currentSession)
                 setUser(currentSession?.user ?? null)
                 if (currentSession?.user?.id) {
