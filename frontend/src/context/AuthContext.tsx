@@ -197,7 +197,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     const isMagicLink = window.location.hash.includes('access_token') ||
                         window.location.hash.includes('type=recovery') ||
                         window.location.hash.includes('type=magiclink') ||
-                        window.location.hash.includes('error_description');
+                        window.location.hash.includes('error_description') ||
+                        window.location.search.includes('code=');
 
                     if (!initialSession && isMagicLink) {
                         console.log("🔗 Magic Link detected. Holding UI for verification...")
