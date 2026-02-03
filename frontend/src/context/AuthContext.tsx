@@ -90,10 +90,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 if (isCriticalAuthError) {
                     console.error("⛔ Critical Auth Failure. Session Invalid. Logging out.")
-                    // FIX: signOut is defined above now, or hoisted?
-                    // To be safe, we just call the logic directly or rely on React hoisting (const isn't hoisted).
-                    // We moved signOut DEFINITION above this function to fix "used before declaration".
-                    await signOut()
+                    // FIX: Disable logout for "Ghost Logout" debugging
+                    console.warn("🛑 DEBUG: Would have logged out here, but blocked for testing.")
+                    // await signOut()
                     return false
                 } else {
                     console.log("🛡️ Extension/Network Block Detected. Entering LIMITED mode (Cushioned).")

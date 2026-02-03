@@ -79,8 +79,8 @@ const CookieJar = {
             const secure = window.location.protocol === 'https:' ? ';Secure' : '';
             const baseOptions = `;expires=${d.toUTCString()};path=/;SameSite=Lax${secure}`;
 
-            // Chunking Logic (Limit 3000 chars per cookie to be safe)
-            const CHUNK_SIZE = 3000;
+            // Chunking Logic (Limit 2000 chars per cookie to be safe)
+            const CHUNK_SIZE = 2000;
             if (value.length <= CHUNK_SIZE) {
                 document.cookie = `${name}=${encodeURIComponent(value)}${baseOptions}`;
                 // Clean up chunks if they existed smoothly
@@ -146,6 +146,14 @@ const CookieJar = {
 
 const memoryStore = new Map<string, string>();
 
+// --- Timeout Helper (Prevents SES Hangs) ---
+const timeoutPromise = <T>(promise: Promise<T>, ms: number, fallbackValue: T): Promise<T> => {
+    return Promise.race([
+        promise,
+        new Promise<T>((resolve) => setTimeout(() => resolve(fallbackValue), ms))
+    ]);
+};
+
 export const resilientStorage = {
     // Supabase allows async storage adapters
     getItem: async (key: string): Promise<string | null> => {
@@ -155,8 +163,9 @@ export const resilientStorage = {
             if (val) return val;
         } catch (e) { /* LS Blocked */ }
 
-        // 2. Try IndexedDB
-        const dbVal = await idb.get(key);
+        // 2. Try IndexedDB (Robust Fallback)
+        // CRITICAL FIX: Wrap in 500ms timeout to prevent SES hangs
+        const dbVal = await timeoutPromise(idb.get(key), 500, null);
         if (dbVal) {
             console.log(`💾 Restored from IndexedDB: ${key}`);
             return dbVal;
@@ -184,7 +193,8 @@ export const resilientStorage = {
 
         // 2. IndexedDB (Always write as backup)
         try {
-            await idb.set(key, value);
+            // CRITICAL FIX: Wrap in 500ms timeout
+            await timeoutPromise(idb.set(key, value), 500, undefined);
             if (!wroteToDisk) console.log(`💾 Scsved to IDB: ${key}`);
         } catch (e) { console.error("IDB Fail", e); }
 
@@ -201,7 +211,7 @@ export const resilientStorage = {
 
     removeItem: async (key: string): Promise<void> => {
         try { localStorage.removeItem(key); } catch (e) { }
-        await idb.remove(key);
+        await timeoutPromise(idb.remove(key), 500, undefined);
         CookieJar.remove(key);
         memoryStore.delete(key);
     },
