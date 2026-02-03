@@ -1,13 +1,21 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
-// import { useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { Loader2 } from "lucide-react"
+import { useAuth } from "@/context/AuthContext"
 
 export default function AuthPage() {
     const [loading, setLoading] = useState(false)
     const [email, setEmail] = useState("")
     const [message, setMessage] = useState("")
-    // const navigate = useNavigate()
+    const navigate = useNavigate()
+    const { session } = useAuth()
+
+    useEffect(() => {
+        if (session) {
+            navigate("/")
+        }
+    }, [session, navigate])
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -38,6 +46,7 @@ export default function AuthPage() {
                     access_type: "offline",
                     prompt: "consent",
                 },
+                redirectTo: `${window.location.origin}/`,
             },
         })
 

@@ -49,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setIsAdmin(false)
             setTier("Free")
             setCompanyName(null)
+            setIsVerified(true) // Verified as GUEST
             return false
         }
 
@@ -61,19 +62,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         try {
             // 0. SERVER-SIDE VERIFICATION
-            // This is the "Gold Standard" check. We ask Supabase Auth API (not local cache) if the token is valid.
             const { data: { user: verifiedUser }, error: authError } = await supabase.auth.getUser()
 
             if (authError || !verifiedUser) {
-                console.warn("Server-side auth verification failed:", authError)
-                return false
+                console.warn("Server-side auth verification warning:", authError)
+
+                // CRITICAL FIX: Only logout if it is definitely an AUTH error (401/Bad JWT).
+                // If it is a network error (extensions blocking), we trust the local session (Soft Fallback).
+                const isAuthError = authError?.status === 401 || authError?.message?.includes("token")
+
+                if (isAuthError) {
+                    console.error("⛔ Critical Auth Error. Logging out.")
+                    setSession(null)
+                    setUser(null)
+                    setIsVerified(true)
+                    return false
+                }
+
+                // If we are here, it might be a network glitch or extension block.
+                // We proceed with the optimistic user from getSession().
+                console.log("⚠️ Allowing access despite verification failure (Network/Extension resilience)")
+            }
+
+            // If we have no verified user but we passed the check above (resilience), use the optimistic user
+            const targetId = verifiedUser?.id || userId
+            if (!targetId) {
+                // Should be impossible if userId was passed, but safe guard
+                return false;
             }
 
             // 1. Check Profile (Simple fetch, no retries needed if auth is solid)
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('is_admin, company_name, full_name')
-                .eq('id', userId)
+                .eq('id', targetId)
                 .maybeSingle()
 
             // If profile is missing (RLS error or just not created), we DO NOT logout.
@@ -125,7 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         let isMounted = true
-        console.log("🚀 AuthProvider MOUNTED - Senior Mode")
+        console.log("🚀 AuthProvider MOUNTED - Senior Mode V2")
 
         // 1. Initial Load Logic
         const initialize = async () => {
@@ -154,16 +176,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     setUser(initialSession.user)
                     // Verify with server to be sure
                     await checkUserRoleAndTier(initialSession.user.id)
+                    // Release loading logic after verification
+                    if (isMounted) setLoading(false)
                 }
 
                 // If we are NOT in a magic link flow, and result is null, we are done.
                 if (!initialSession && !isMagicLink) {
-                    setLoading(false)
+                    if (isMounted) setLoading(false)
                 }
 
             } catch (err) {
                 console.error("Auth init error:", err)
-                setLoading(false)
+                if (isMounted) setLoading(false)
             }
         }
 
@@ -191,6 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setIsAdmin(false)
                 setTier("Free")
                 setCompanyName(null)
+                setFullName(null)
                 setIsVerified(false)
                 setLoading(false)
                 return
