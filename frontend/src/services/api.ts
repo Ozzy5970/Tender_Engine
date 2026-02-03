@@ -12,8 +12,8 @@ async function handleRequest<T>(request: PromiseLike<any>): Promise<ApiResponse<
             // Self-healing: If we hit a missing profile (PGRST116) on any authenticated query,
             // something is wrong with the session/profile sync.
             if (error.code === 'PGRST116') {
-                console.error("Authenticated request failed because profile is missing. Forcing logout.")
-                supabase.auth.signOut()
+                console.warn("Authenticated request failed (Profile Missing). User remains logged in.")
+                // Do NOT logout. Just let the UI handle the missing data (e.g. show "Complete Profile").
             }
             return { data: null, error: error.message, status: status || 500 }
         }
