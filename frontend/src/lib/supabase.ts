@@ -8,13 +8,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error('Missing Supabase environment variables')
 }
 
-import { resultientStorage } from './safeStorage'
+import { resilientStorage } from './resilientStorage'
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storage: resultientStorage
+        storage: resilientStorage
     }
 })

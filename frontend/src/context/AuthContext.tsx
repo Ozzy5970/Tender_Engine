@@ -3,15 +3,18 @@ import type { Session, User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
 
 
+type AuthStatus = 'LOADING' | 'AUTHENTICATED' | 'UNAUTHENTICATED' | 'LIMITED'
+
 type AuthContextType = {
     session: Session | null
     user: User | null
+    status: AuthStatus
     isAdmin: boolean
     tier: "Free" | "Standard" | "Pro"
     companyName: string | null
     fullName: string | null
-    loading: boolean
-    isVerified: boolean // Flag indicating server-side verification is complete
+    isVerified: boolean
+    loading: boolean // <--- Added for compatibility
     signOut: () => Promise<void>
     refreshProfile: () => Promise<void>
 }
@@ -19,12 +22,13 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType>({
     session: null,
     user: null,
+    status: 'LOADING',
     isAdmin: false,
     tier: "Free",
     companyName: null,
     fullName: null,
-    loading: true,
     isVerified: false,
+    loading: true, // <--- Added default
     signOut: async () => { },
     refreshProfile: async () => { },
 })
@@ -34,78 +38,78 @@ export const useAuth = () => useContext(AuthContext)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [session, setSession] = useState<Session | null>(null)
     const [user, setUser] = useState<User | null>(null)
+    const [status, setStatus] = useState<AuthStatus>('LOADING')
+
+    // Profile Data
     const [isAdmin, setIsAdmin] = useState(false)
     const [tier, setTier] = useState<"Free" | "Standard" | "Pro">("Free")
     const [companyName, setCompanyName] = useState<string | null>(null)
     const [fullName, setFullName] = useState<string | null>(null)
-    const [loading, setLoading] = useState(true)
-    const [isVerified, setIsVerified] = useState(false)
 
-    // Concurrency Guard: Prevent overlapping verifications
+    // Legacy flag for compatibility, equivalent to (status === 'AUTHENTICATED' || status === 'LIMITED')
+    const isVerified = status === 'AUTHENTICATED' || status === 'LIMITED'
+
+    // Concurrency Guard
     const verificationInProgress = useRef(false)
 
+    /**
+     * SENIOR PRINCIPLE 2: "Reconcile server + client state"
+     * We don't just trust the token. We ask the server.
+     * BUT: We don't punish network/extension failures with logout.
+     */
     const checkUserRoleAndTier = async (userId: string | undefined): Promise<boolean> => {
         if (!userId) {
-            setIsAdmin(false)
-            setTier("Free")
-            setCompanyName(null)
-            setIsVerified(true) // Verified as GUEST
+            setStatus('UNAUTHENTICATED')
             return false
         }
 
-        // Prevent double-checking if we are already busy verifying this same user
-        if (verificationInProgress.current) {
-            return true
-        }
-
+        if (verificationInProgress.current) return true
         verificationInProgress.current = true
 
         try {
-            // 0. SERVER-SIDE VERIFICATION
+            // 0. GOLD STANDARD VERIFICATION
             const { data: { user: verifiedUser }, error: authError } = await supabase.auth.getUser()
 
+            // Extension Resilience:
+            // If authError is 401/403 -> Invalid Token -> Logout
+            // If authError is Network/Unknown -> Assume Extension Block -> LIMITED Mode (Stay logged in)
             if (authError || !verifiedUser) {
-                console.warn("Server-side auth verification warning:", authError)
+                console.warn("⚠️ Server verification warning:", authError)
 
-                // CRITICAL FIX: Only logout if it is definitely an AUTH error (401/Bad JWT).
-                // If it is a network error (extensions blocking), we trust the local session (Soft Fallback).
-                const isAuthError = authError?.status === 401 || authError?.message?.includes("token")
+                const isCriticalAuthError = authError?.status === 401 ||
+                    authError?.message?.includes("token") ||
+                    authError?.message?.includes("JWT")
 
-                if (isAuthError) {
-                    console.error("⛔ Critical Auth Error. Logging out.")
-                    setSession(null)
-                    setUser(null)
-                    setIsVerified(true)
+                if (isCriticalAuthError) {
+                    console.error("⛔ Critical Auth Failure. Session Invalid. Logging out.")
+                    await signOut()
                     return false
+                } else {
+                    console.log("🛡️ Extension/Network Block Detected. Entering LIMITED mode (Cushioned).")
+                    // We trust the optimistic session because the server is unreachable/blocked
+                    setStatus('LIMITED')
+                    // We can still try to fetch profile if RLS allows
                 }
-
-                // If we are here, it might be a network glitch or extension block.
-                // We proceed with the optimistic user from getSession().
-                console.log("⚠️ Allowing access despite verification failure (Network/Extension resilience)")
+            } else {
+                // Happy Path
+                if (status !== 'AUTHENTICATED') setStatus('AUTHENTICATED')
             }
 
-            // If we have no verified user but we passed the check above (resilience), use the optimistic user
-            const targetId = verifiedUser?.id || userId
-            if (!targetId) {
-                // Should be impossible if userId was passed, but safe guard
-                return false;
-            }
-
-            // 1. Check Profile (Simple fetch, no retries needed if auth is solid)
+            // 1. Fetch Profile (Decoupled from Auth)
+            // If this fails, we effectively degrade to LIMITED mode features (UI handles missing profile)
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('is_admin, company_name, full_name')
-                .eq('id', targetId)
+                .eq('id', userId)
                 .maybeSingle()
 
-            // If profile is missing (RLS error or just not created), we DO NOT logout.
-            // We just set nulls and let the UI handle the empty state.
             if (profile) {
                 setIsAdmin(profile.is_admin || false)
                 setCompanyName(profile.company_name || null)
                 setFullName(profile.full_name || null)
             } else {
-                console.warn("Profile not found or access denied via RLS. Rendering in limited mode.")
+                // RLS or specific table block shouldn't kill the session
+                console.warn("⚠️ Profile not found or RLS blocked. User stays authenticated.")
                 setIsAdmin(false)
                 setCompanyName(null)
             }
@@ -127,12 +131,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setTier("Free")
             }
 
-            setIsVerified(true)
             return true
         } catch (e) {
-            console.error("Auth check failed (non-fatal):", e)
-            // Even on error, we mark verified so we don't block the UI forever
-            setIsVerified(true)
+            console.error("Auth check unexpected error:", e)
+            // Safety Net: Don't logout on crash
+            setStatus('LIMITED')
             return true
         } finally {
             verificationInProgress.current = false
@@ -147,68 +150,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         let isMounted = true
-        console.log("🚀 AuthProvider MOUNTED - Senior Mode V2")
+        console.log("🚀 AuthProvider MOUNTED - Senior Resilience Mode")
 
-        // 1. Initial Load Logic
         const initialize = async () => {
-            setLoading(true)
+            // SENIOR PRINCIPLE 1: "Delay decisions"
+            // We start LOADING.
+            // We check session.
+            // We wait for verification.
             try {
-                // Determine if we are in a Magic Link / PKCE flow
+                // 1. Check for Magic Link / OAuth Code
                 const isMagicLink = window.location.hash.includes('access_token') ||
                     window.location.hash.includes('type=recovery') ||
                     window.location.hash.includes('type=magiclink') ||
                     window.location.search.includes('code=');
 
-                // Get current session from storage (optimistic)
+                // 2. Get Session (Optimistic)
                 const { data } = await supabase.auth.getSession()
                 let initialSession = data.session
 
-                // If no session but we see a magic link code, wait a bit for the auto-exchange
-                if (!initialSession && isMagicLink) {
-                    console.log("🔗 PKCE/Magic Link detected. Waiting for auto-session exchange...")
-                    // We don't force false yet. We rely on the listener.
-                    // But we DO verify if we *have* a session.
-                }
-
                 if (initialSession) {
-                    console.log("✅ Optimistic Session found. Verifying...")
+                    console.log("✅ Optimistic Session Restored.")
                     setSession(initialSession)
                     setUser(initialSession.user)
-                    // Verify with server to be sure
+                    // Verify (Status updated inside)
                     await checkUserRoleAndTier(initialSession.user.id)
-                    // Release loading logic after verification
-                    if (isMounted) setLoading(false)
+                } else if (!isMagicLink) {
+                    // Only declare UNAUTHENTICATED if we are purely empty and not waiting for a swap
+                    setStatus('UNAUTHENTICATED')
                 }
-
-                // If we are NOT in a magic link flow, and result is null, we are done.
-                if (!initialSession && !isMagicLink) {
-                    if (isMounted) setLoading(false)
-                }
+                // If isMagicLink, we stay LOADING and let onAuthStateChange handle the event
 
             } catch (err) {
                 console.error("Auth init error:", err)
-                if (isMounted) setLoading(false)
+                setStatus('UNAUTHENTICATED')
             }
         }
 
         initialize()
 
-        // 2. Auth State Listener
+        // 3. Auth Listener (The Source of Truth)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
             if (!isMounted) return
             console.log(`Auth Event: ${event}`)
 
             if (event === 'SIGNED_OUT') {
-                // Ignore SIGNED_OUT if magic link is updating
+                // SENIOR PRINCIPLE 4: "Reconile state"
+                // Ignore SIGNED_OUT if we are actually swapping tokens (PKCE)
                 const isMagicLink = window.location.hash.includes('access_token') ||
-                    window.location.hash.includes('type=recovery') ||
-                    window.location.hash.includes('type=magiclink') ||
                     window.location.search.includes('code=');
 
-                if (isMagicLink) {
-                    // console.log("🔒 Keeping UI Clean during PKCE swap")
-                    return;
-                }
+                if (isMagicLink) return;
 
                 setSession(null)
                 setUser(null)
@@ -216,22 +207,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setTier("Free")
                 setCompanyName(null)
                 setFullName(null)
-                setIsVerified(false)
-                setLoading(false)
+                setStatus('UNAUTHENTICATED')
                 return
             }
 
-            if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
-                setSession(currentSession)
-                setUser(currentSession?.user ?? null)
-
-                if (currentSession?.user) {
-                    // Update Role/Tier (Optimistic)
-                    checkUserRoleAndTier(currentSession.user.id).then(() => {
-                        if (isMounted) setLoading(false)
-                    })
-                } else {
-                    if (isMounted) setLoading(false)
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+                if (currentSession) {
+                    setSession(currentSession)
+                    setUser(currentSession.user)
+                    // Optimistic Update? No, stick to LOADING -> VERIFIED flow for robust UI
+                    await checkUserRoleAndTier(currentSession.user.id)
                 }
             }
         })
@@ -244,26 +229,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 
     const signOut = async () => {
-        setLoading(true)
-        await supabase.auth.signOut()
+        // Optimistic Logout
         setSession(null)
         setUser(null)
-        setIsAdmin(false)
-        setTier("Free")
-        setCompanyName(null)
-        setFullName(null)
-        setIsVerified(false)
-        setLoading(false)
+        setStatus('UNAUTHENTICATED')
+        await supabase.auth.signOut()
     }
 
     const value = {
         session,
         user,
+        status,
         isAdmin,
         tier,
         companyName,
         fullName,
-        loading,
+        // Helper accessors for legacy compatibility
+        loading: status === 'LOADING',
         isVerified,
         signOut,
         refreshProfile,

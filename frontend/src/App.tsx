@@ -31,12 +31,13 @@ import Privacy from "@/pages/Privacy"
 // Simple Protected Route wrapper
 // Simple Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isVerified, loading, session } = useAuth()
+  const { status } = useAuth()
 
-  if (loading) return <div className="h-screen flex items-center justify-center">Loading...</div>
+  if (status === 'LOADING') return <div className="h-screen flex items-center justify-center">Loading...</div>
 
-  // If no session or session is not verified (ghost), kick to auth
-  if (!session || !isVerified) return <Navigate to="/auth" replace />
+  // "Senior" Principle 4: No redirects during boot. Only when definitely UNAUTHENTICATED.
+  // LIMITED status implies we are Authenticated but maybe offline/limited.
+  if (status === 'UNAUTHENTICATED') return <Navigate to="/auth" replace />
 
   return <>{children}</>
 }
