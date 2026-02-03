@@ -17,7 +17,9 @@ const CookieJar = {
             const d = new Date();
             d.setTime(d.getTime() + (365 * 24 * 60 * 60 * 1000));
             // SameSite=Lax allows auth across redirects (OAuth)
-            document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/;SameSite=Lax;Secure`;
+            // Fix: Only use Secure if actually on HTTPS to allow localhost testing
+            const secure = window.location.protocol === 'https:' ? ';Secure' : '';
+            document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/;SameSite=Lax${secure}`;
         } catch (e) { /* Ignore cookie errors */ }
     },
     get: (name: string): string | null => {
