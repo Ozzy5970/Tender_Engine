@@ -12,7 +12,11 @@ export default function AuthPage() {
     const { session } = useAuth()
 
     useEffect(() => {
-        if (session) {
+        // Only redirect if session exists AND we are not handling a callback
+        const isAuthCallback = window.location.hash.includes('access_token') ||
+            window.location.search.includes('code=');
+
+        if (session && !isAuthCallback) {
             navigate("/")
         }
     }, [session, navigate])
