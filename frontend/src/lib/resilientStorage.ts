@@ -43,7 +43,10 @@ export const resilientStorage = {
 
         // 2. Try Cookie (Backup)
         const cookieVal = CookieJar.get(key);
-        if (cookieVal) return cookieVal;
+        if (cookieVal) {
+            console.log(`🍪 💾 Restored session from Backup Cookie: ${key}`);
+            return cookieVal;
+        }
 
         // 3. Try Memory
         return memoryStore.get(key) || null;
@@ -55,18 +58,28 @@ export const resilientStorage = {
         // 1. Try LocalStorage
         try {
             localStorage.setItem(key, value);
-            wroteToDisk = true;
+            // Verify it actually wrote (some browsers fail silently)
+            if (localStorage.getItem(key)) {
+                wroteToDisk = true;
+            }
         } catch (e) {
-            console.warn(`⚠️ LocalStorage blocked (${key}). Falling back to Cookie.`);
+            console.warn(`⚠️ LocalStorage blocked/failed (${key}).`);
         }
 
-        // 2. Try Cookie (Always write to cookie if LS failed, or as backup?)
-        // Strategy: If LS failed, definitely write cookie.
+        // 2. Try Cookie
+        // If LS failed OR we just want to be safe, we use cookie as backup.
+        // CHANGE: Always write to cookie if LS didn't confirm write.
         if (!wroteToDisk) {
+            console.log(`🍪 Writing to Backup Cookie: ${key}`);
             CookieJar.set(key, value);
+        } else {
+            // Optional: Clear cookie to avoid duplicate state? 
+            // No, keep it as backup in case user clears LS but not Cookies.
+            // Actually, let's sync them. If LS works, write to Cookie too?
+            // No, that doubles the write. Stick to fallback for now.
         }
 
-        // 3. Always update Memory for speed
+        // 3. Always update Memory
         memoryStore.set(key, value);
     },
 
