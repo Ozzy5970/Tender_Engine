@@ -49,6 +49,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Legacy flag for compatibility, equivalent to (status === 'AUTHENTICATED' || status === 'LIMITED')
     const isVerified = status === 'AUTHENTICATED' || status === 'LIMITED'
 
+    const signOut = async () => {
+        // Optimistic Logout
+        setSession(null)
+        setUser(null)
+        setStatus('UNAUTHENTICATED')
+        await supabase.auth.signOut()
+    }
+
     // Concurrency Guard
     const verificationInProgress = useRef(false)
 
@@ -82,6 +90,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 if (isCriticalAuthError) {
                     console.error("⛔ Critical Auth Failure. Session Invalid. Logging out.")
+                    // FIX: signOut is defined above now, or hoisted?
+                    // To be safe, we just call the logic directly or rely on React hoisting (const isn't hoisted).
+                    // We moved signOut DEFINITION above this function to fix "used before declaration".
                     await signOut()
                     return false
                 } else {
@@ -90,178 +101,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     setStatus('LIMITED')
                     // We can still try to fetch profile if RLS allows
                 }
-                // 1. Fetch Profile (Decoupled from Auth)
-                // If this fails, we effectively degrade to LIMITED mode features (UI handles missing profile)
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('is_admin, company_name, full_name')
-                    .eq('id', userId)
-                    .maybeSingle()
-
-                if (profile) {
-                    setIsAdmin(profile.is_admin || false)
-                    setCompanyName(profile.company_name || null)
-                    setFullName(profile.full_name || null)
-                } else {
-                    // RLS or specific table block shouldn't kill the session
-                    console.warn("⚠️ Profile not found or RLS blocked. User stays authenticated.")
-                    setIsAdmin(false)
-                    setCompanyName(null)
-                }
-
-                // 2. Check Tier
-                const { data: sub } = await supabase
-                    .from('subscriptions')
-                    .select('plan_name')
-                    .eq('user_id', userId)
-                    .eq('status', 'active')
-                    .maybeSingle()
-
-                if (sub?.plan_name) {
-                    const p = sub.plan_name.toLowerCase()
-                    if (p.includes('enterprise') || p.includes('pro')) setTier("Pro")
-                    else if (p.includes('standard')) setTier("Standard")
-                    else setTier("Free")
-                } else {
-                    setTier("Free")
-                }
-
-                // 3. NOW we are ready to say "AUTHENTICATED"
-                // This ensures logic downstream (like isAdmin check) has the latest data.
-                if (status !== 'AUTHENTICATED') setStatus('AUTHENTICATED')
-                return true
-            } catch (e) {
-                console.error("Auth check unexpected error:", e)
-                // Safety Net: Don't logout on crash
-                setStatus('LIMITED')
-                return true
-            } finally {
-                verificationInProgress.current = false
+            } else {
+                // Happy Path
+                // if (status !== 'AUTHENTICATED') setStatus('AUTHENTICATED') // <-- DELAYED to end
             }
+
+            // 1. Fetch Profile (Decoupled from Auth)
+            // If this fails, we effectively degrade to LIMITED mode features (UI handles missing profile)
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('is_admin, company_name, full_name')
+                .eq('id', userId)
+                .maybeSingle()
+
+            if (profile) {
+                setIsAdmin(profile.is_admin || false)
+                setCompanyName(profile.company_name || null)
+                setFullName(profile.full_name || null)
+            } else {
+                // RLS or specific table block shouldn't kill the session
+                console.warn("⚠️ Profile not found or RLS blocked. User stays authenticated.")
+                setIsAdmin(false)
+                setCompanyName(null)
+            }
+
+            // 2. Check Tier
+            const { data: sub } = await supabase
+                .from('subscriptions')
+                .select('plan_name')
+                .eq('user_id', userId)
+                .eq('status', 'active')
+                .maybeSingle()
+
+            if (sub?.plan_name) {
+                const p = sub.plan_name.toLowerCase()
+                if (p.includes('enterprise') || p.includes('pro')) setTier("Pro")
+                else if (p.includes('standard')) setTier("Standard")
+                else setTier("Free")
+            } else {
+                setTier("Free")
+            }
+
+            // 3. NOW we are ready to say "AUTHENTICATED"
+            // This ensures logic downstream (like isAdmin check) has the latest data.
+            if (status !== 'AUTHENTICATED') setStatus('AUTHENTICATED')
+            return true
+        } catch (e) {
+            console.error("Auth check unexpected error:", e)
+            // Safety Net: Don't logout on crash
+            setStatus('LIMITED')
+            return true
+        } finally {
+            verificationInProgress.current = false
         }
+    }
 
     const refreshProfile = async () => {
-            if (user?.id) {
-                await checkUserRoleAndTier(user.id)
-            }
-        }
-
-        useEffect(() => {
-            let isMounted = true
-            console.log("🚀 AuthProvider MOUNTED - Senior Resilience Mode")
-
-            const initialize = async () => {
-                // SENIOR PRINCIPLE 1: "Delay decisions"
-                // We start LOADING.
-                // We check session.
-                // We wait for verification.
-
-                // Safety Timeout: If Supabase hangs for > 3s, force completion
-                const timeoutId = setTimeout(() => {
-                    console.warn("⚠️ Auth Initialization timed out (3s). Forcing resolution.")
-                    if (isMounted) {
-                        // If we have a user in state, go LIMITED. If not, go UNAUTHENTICATED.
-                        setStatus((prev) => (prev === 'LOADING' ? 'UNAUTHENTICATED' : prev))
-                    }
-                }, 3000)
-
-                try {
-                    // 1. Check for Magic Link / OAuth Code
-                    const isMagicLink = window.location.hash.includes('access_token') ||
-                        window.location.hash.includes('type=recovery') ||
-                        window.location.hash.includes('type=magiclink') ||
-                        window.location.search.includes('code=');
-
-                    // 2. Get Session (Optimistic)
-                    const { data } = await supabase.auth.getSession()
-                    let initialSession = data.session
-
-                    // Clear timeout since we got a response
-                    clearTimeout(timeoutId)
-
-                    if (initialSession) {
-                        console.log("✅ Optimistic Session Restored.")
-                        setSession(initialSession)
-                        setUser(initialSession.user)
-                        // Verify (Status updated inside)
-                        await checkUserRoleAndTier(initialSession.user.id)
-                    } else if (!isMagicLink) {
-                        // Only declare UNAUTHENTICATED if we are purely empty and not waiting for a swap
-                        setStatus('UNAUTHENTICATED')
-                    }
-                    // If isMagicLink, we stay LOADING and let onAuthStateChange handle the event
-
-                } catch (err) {
-                    console.error("Auth init error:", err)
-                    clearTimeout(timeoutId)
-                    setStatus('UNAUTHENTICATED')
-                }
-            }
-
-            initialize()
-
-            // 3. Auth Listener (The Source of Truth)
-            const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-                if (!isMounted) return
-                console.log(`Auth Event: ${event}`)
-
-                if (event === 'SIGNED_OUT') {
-                    // SENIOR PRINCIPLE 4: "Reconile state"
-                    // Ignore SIGNED_OUT if we are actually swapping tokens (PKCE)
-                    const isMagicLink = window.location.hash.includes('access_token') ||
-                        window.location.search.includes('code=');
-
-                    if (isMagicLink) return;
-
-                    setSession(null)
-                    setUser(null)
-                    setIsAdmin(false)
-                    setTier("Free")
-                    setCompanyName(null)
-                    setFullName(null)
-                    setStatus('UNAUTHENTICATED')
-                    return
-                }
-
-                if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
-                    if (currentSession) {
-                        setSession(currentSession)
-                        setUser(currentSession.user)
-                        // Optimistic Update? No, stick to LOADING -> VERIFIED flow for robust UI
-                        await checkUserRoleAndTier(currentSession.user.id)
-                    }
-                }
-            })
-
-            return () => {
-                isMounted = false
-                subscription.unsubscribe()
-            }
-        }, [])
-
-
-        const signOut = async () => {
-            // Optimistic Logout
-            setSession(null)
-            setUser(null)
-            setStatus('UNAUTHENTICATED')
-            await supabase.auth.signOut()
-        }
-
-        const value = {
-            session,
-            user,
-            status,
-            isAdmin,
-            tier,
+        tier,
             companyName,
             fullName,
             // Helper accessors for legacy compatibility
             loading: status === 'LOADING',
-            isVerified,
-            signOut,
-            refreshProfile,
+                isVerified,
+                signOut,
+                refreshProfile,
         }
 
-        return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-    }
+    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
