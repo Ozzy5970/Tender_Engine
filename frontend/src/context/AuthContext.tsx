@@ -75,12 +75,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         verificationInProgress.current = true
 
         try {
-            // 0. GOLD STANDARD VERIFICATION
-            const { data: { user: verifiedUser }, error: authError } = await supabase.auth.getUser()
+            // 0. GOLD STANDARD VERIFICATION with TIMEOUT
+            // FIX: SES/Metamask can freeze getUser() indefinitely. We enforce a 2s timeout.
+            const verifiedUserPromise = supabase.auth.getUser()
+            const timeoutPromise = new Promise<{ data: { user: null }, error: any }>((resolve) =>
+                setTimeout(() => resolve({ data: { user: null }, error: { message: "Verification Timed Out" } }), 2000)
+            )
+
+            const { data: { user: verifiedUser }, error: authError } = await Promise.race([
+                verifiedUserPromise,
+                timeoutPromise
+            ])
 
             // Extension Resilience:
             // If authError is 401/403 -> Invalid Token -> Logout
-            // If authError is Network/Unknown -> Assume Extension Block -> LIMITED Mode (Stay logged in)
+            // If authError is Network/Unknown/Timeout -> Assume Extension Block -> LIMITED Mode (Stay logged in)
             if (authError || !verifiedUser) {
                 console.warn("⚠️ Server verification warning:", authError)
 
