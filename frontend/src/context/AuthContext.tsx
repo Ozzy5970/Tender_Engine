@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState, useRef } from "react"
 import type { Session, User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
 
@@ -41,8 +41,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true)
     const [isVerified, setIsVerified] = useState(false)
 
+    // Concurrency Guard: Prevent overlapping verifications
+    const verificationInProgress = useRef(false)
+
     const checkUserRoleAndTier = async (userId: string | undefined): Promise<boolean> => {
-        // setIsVerified(false) // <--- DISABLED: Don't invalidate session during background checks
         if (!userId) {
             setIsAdmin(false)
             setTier("Free")
@@ -50,12 +52,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return false
         }
 
+        // Prevent double-checking if we are already busy verifying this same user
+        if (verificationInProgress.current) {
+            console.log("⏳ Verification already in progress, skipping duplicate call.")
+            return true
+        }
+
+        verificationInProgress.current = true
+        const start = performance.now()
+
         try {
-            console.time("AuthVerify")
             // 0. SERVER-SIDE VERIFICATION
             const { data: { user: verifiedUser }, error: authError } = await supabase.auth.getUser()
 
-            console.timeLog("AuthVerify", "getUser complete")
+            // console.log(`AuthVerify Step 1: ${Math.round(performance.now() - start)}ms`)
 
             if (authError || !verifiedUser) {
                 console.warn("Server-side auth verification failed (non-fatal):", authError)
@@ -63,14 +73,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // 1. Check Profile (with timeout)
             const dbPromise = (async () => {
-                console.time("ProfileFetch")
                 const { data: profile, error: profileError } = await supabase.from('profiles').select('is_admin, company_name, full_name').eq('id', userId).single()
-                console.timeEnd("ProfileFetch")
 
                 if (profileError) {
-                    if (profileError.code === 'PGRST116') {
-                        // Ghost session logic
-                    }
                     console.warn("Profile fetch error (non-fatal):", profileError)
                 }
 
@@ -101,7 +106,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const timeoutPromise = new Promise<'TIMEOUT'>(resolve => setTimeout(() => resolve('TIMEOUT'), 5000))
 
             const result = await Promise.race([dbPromise, timeoutPromise])
-            console.timeEnd("AuthVerify")
+            const duration = Math.round(performance.now() - start)
+            console.log(`✅ Auth Verification Complete in ${duration}ms`)
 
             if (result === 'TIMEOUT') {
                 console.warn("Auth check timed out - assuming Free/Non-Admin to unblock UI")
@@ -117,6 +123,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error("Auth check failed (non-fatal):", e)
             setIsVerified(true)
             return true
+        } finally {
+            verificationInProgress.current = false
         }
     }
 
