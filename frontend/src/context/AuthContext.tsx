@@ -157,15 +157,118 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const refreshProfile = async () => {
-        tier,
-            companyName,
-            fullName,
-            // Helper accessors for legacy compatibility
-            loading: status === 'LOADING',
-                isVerified,
-                signOut,
-                refreshProfile,
+        if (user?.id) {
+            await checkUserRoleAndTier(user.id)
         }
+    }
+
+    useEffect(() => {
+        let isMounted = true
+        console.log("🚀 AuthProvider MOUNTED - Senior Resilience Mode")
+
+        const initialize = async () => {
+            // SENIOR PRINCIPLE 1: "Delay decisions"
+            // We start LOADING.
+            // We check session.
+            // We wait for verification.
+
+            // Safety Timeout: If Supabase hangs for > 3s, force completion
+            const timeoutId = setTimeout(() => {
+                console.warn("⚠️ Auth Initialization timed out (3s). Forcing resolution.")
+                if (isMounted) {
+                    // If we have a user in state, go LIMITED. If not, go UNAUTHENTICATED.
+                    setStatus((prev) => (prev === 'LOADING' ? 'UNAUTHENTICATED' : prev))
+                }
+            }, 3000)
+
+            try {
+                // 1. Check for Magic Link / OAuth Code
+                const isMagicLink = window.location.hash.includes('access_token') ||
+                    window.location.hash.includes('type=recovery') ||
+                    window.location.hash.includes('type=magiclink') ||
+                    window.location.search.includes('code=');
+
+                // 2. Get Session (Optimistic)
+                const { data } = await supabase.auth.getSession()
+                let initialSession = data.session
+
+                // Clear timeout since we got a response
+                clearTimeout(timeoutId)
+
+                if (initialSession) {
+                    console.log("✅ Optimistic Session Restored.")
+                    setSession(initialSession)
+                    setUser(initialSession.user)
+                    // Verify (Status updated inside)
+                    await checkUserRoleAndTier(initialSession.user.id)
+                } else if (!isMagicLink) {
+                    // Only declare UNAUTHENTICATED if we are purely empty and not waiting for a swap
+                    setStatus('UNAUTHENTICATED')
+                }
+                // If isMagicLink, we stay LOADING and let onAuthStateChange handle the event
+
+            } catch (err) {
+                console.error("Auth init error:", err)
+                clearTimeout(timeoutId)
+                setStatus('UNAUTHENTICATED')
+            }
+        }
+
+        initialize()
+
+        // 3. Auth Listener (The Source of Truth)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+            if (!isMounted) return
+            console.log(`Auth Event: ${event}`)
+
+            if (event === 'SIGNED_OUT') {
+                // SENIOR PRINCIPLE 4: "Reconile state"
+                // Ignore SIGNED_OUT if we are actually swapping tokens (PKCE)
+                const isMagicLink = window.location.hash.includes('access_token') ||
+                    window.location.search.includes('code=');
+
+                if (isMagicLink) return;
+
+                setSession(null)
+                setUser(null)
+                setIsAdmin(false)
+                setTier("Free")
+                setCompanyName(null)
+                setFullName(null)
+                setStatus('UNAUTHENTICATED')
+                return
+            }
+
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+                if (currentSession) {
+                    setSession(currentSession)
+                    setUser(currentSession.user)
+                    // Optimistic Update? No, stick to LOADING -> VERIFIED flow for robust UI
+                    await checkUserRoleAndTier(currentSession.user.id)
+                }
+            }
+        })
+
+        return () => {
+            isMounted = false
+            subscription.unsubscribe()
+        }
+    }, [])
+
+    const value = {
+        session,
+        user,
+        status,
+        isAdmin,
+        tier,
+        companyName,
+        fullName,
+        // Helper accessors for legacy compatibility
+        loading: status === 'LOADING',
+        isVerified,
+        signOut,
+        refreshProfile,
+    }
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
