@@ -189,6 +189,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log(`Auth Event: ${event}`)
 
             if (event === 'SIGNED_OUT') {
+                // SAFETY: Double-check if this is a real logout or a "glitch" (extension interference).
+                // If we can still retrieve a valid user from the server, we ignore the local event.
+                const { data: verifyData } = await supabase.auth.getUser()
+
+                if (verifyData?.user) {
+                    console.warn(`⚠️ [AuthContext] intercepted false 'SIGNED_OUT' event. Session is valid. ignoring.`)
+                    // Optionally refresh the session in context just to be sure
+                    setSession(previousSession => previousSession)
+                    return
+                }
+
+                console.log("🔒 [AuthContext] Verified Logout. Clearing state.")
                 setSession(null)
                 setUser(null)
                 setIsAdmin(false)

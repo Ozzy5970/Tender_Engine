@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { resilientStorage } from './auth/ResilientStorage'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -12,6 +13,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storage: window.localStorage // Explicitly key to localStorage
+        // SAFETY: Use ResilientStorage to handle blocked localStorage (e.g. by extensions)
+        storage: resilientStorage,
+        // SAFETY: Disable "Navigator Lock" which is frequently broken by privacy extensions.
+        // We provide a "No-Op" lock that always succeeds immediately.
+        lock: {
+            // @ts-expect-error - Supabase types are strict, but this works at runtime to disable locking checks
+            process: () => Promise.resolve(() => { })
+        },
     }
 })
