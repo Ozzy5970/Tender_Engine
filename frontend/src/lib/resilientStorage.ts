@@ -1,20 +1,19 @@
 /**
  * resilientStorage.ts
  * 
- * Purpose: "Platinum Standard" Persistence.
- * Strategy:
- * 1. Try LocalStorage (Fast, Standard).
- * 2. If Blocked or Failed, use IndexedDB ( robust, unlimited size).
- * 3. Memory as last resort.
+ * Purpose: "Platinum Standard" Persistence for Hostile Environments.
  * 
- * Note: IndexedDB is Async. We convert this adapter to be fully Async, 
- * which Supabase supports.
+ * Strategy (Tiered Fallback):
+ * 1. Try LocalStorage (Fast, Standard).
+ * 2. If Blocked/Failed -> Try IndexedDB (Robust, Unlimited Size).
+ * 3. If Blocked/Unknown -> Try Chunked Cookies (Bypass 4KB Limit).
+ * 4. Last Resort -> Memory (Session only).
  */
 
 const DB_NAME = 'auth-db';
 const STORE_NAME = 'session-store';
 
-// --- Internal IDB Helper ---
+// --- 1. IndexedDB Helper (Async, Large Storage) ---
 const idb = {
     getDB: async (): Promise<IDBDatabase> => {
         return new Promise((resolve, reject) => {
@@ -40,10 +39,7 @@ const idb = {
                 req.onsuccess = () => resolve(req.result || null);
                 req.onerror = () => reject(req.error);
             });
-        } catch (e) {
-            console.warn("IDB Get Error:", e);
-            return null;
-        }
+        } catch (e) { return null; }
     },
 
     set: async (key: string, value: string): Promise<void> => {
@@ -56,9 +52,7 @@ const idb = {
                 req.onsuccess = () => resolve();
                 req.onerror = () => reject(req.error);
             });
-        } catch (e) {
-            console.warn("IDB Set Error:", e);
-        }
+        } catch (e) { /* Ignore */ }
     },
 
     remove: async (key: string): Promise<void> => {
@@ -71,66 +65,144 @@ const idb = {
                 req.onsuccess = () => resolve();
                 req.onerror = () => reject(req.error);
             });
-        } catch (e) {
-            console.warn("IDB Remove Error:", e);
-        }
+        } catch (e) { /* Ignore */ }
     }
 };
+
+// --- 2. Cookie Helper with CHUNKING (Bypass 4KB Limit) ---
+const CookieJar = {
+    set: (name: string, value: string) => {
+        try {
+            const d = new Date();
+            d.setTime(d.getTime() + (365 * 24 * 60 * 60 * 1000));
+            // Only Secure if HTTPS (for localhost compat)
+            const secure = window.location.protocol === 'https:' ? ';Secure' : '';
+            const baseOptions = `;expires=${d.toUTCString()};path=/;SameSite=Lax${secure}`;
+
+            // Chunking Logic (Limit 3000 chars per cookie to be safe)
+            const CHUNK_SIZE = 3000;
+            if (value.length <= CHUNK_SIZE) {
+                document.cookie = `${name}=${encodeURIComponent(value)}${baseOptions}`;
+                // Clean up chunks if they existed smoothly
+                CookieJar.removeChunks(name);
+            } else {
+                // Split it up
+                let i = 0;
+                while (value.length > 0) {
+                    const chunk = value.substring(0, CHUNK_SIZE);
+                    value = value.substring(CHUNK_SIZE);
+                    document.cookie = `${name}.${i}=${encodeURIComponent(chunk)}${baseOptions}`;
+                    i++;
+                }
+                // Mark main cookie as "chunked"
+                document.cookie = `${name}=CHUNKED${baseOptions}`;
+            }
+        } catch (e) { console.warn("Cookie Write Failed", e) }
+    },
+
+    get: (name: string): string | null => {
+        try {
+            const getCookie = (n: string) => {
+                const match = document.cookie.match(new RegExp('(^| )' + n.replace(/\./g, '\\.') + '=([^;]+)'));
+                return match ? decodeURIComponent(match[2]) : null;
+            };
+
+            const val = getCookie(name);
+            if (!val) return null;
+
+            if (val === 'CHUNKED') {
+                // Reassemble
+                let fullVal = '';
+                let i = 0;
+                while (true) {
+                    const chunk = getCookie(`${name}.${i}`);
+                    if (!chunk) break;
+                    fullVal += chunk;
+                    i++;
+                }
+                return fullVal || null;
+            }
+            return val;
+        } catch (e) { return null }
+    },
+
+    remove: (name: string) => {
+        const expire = ";expires=Thu, 01 Jan 1970 00:00:01 GMT;path=/";
+        document.cookie = `${name}=${expire}`;
+        CookieJar.removeChunks(name);
+    },
+
+    removeChunks: (name: string) => {
+        const expire = ";expires=Thu, 01 Jan 1970 00:00:01 GMT;path=/";
+        let i = 0;
+        // blindly try to remove up to 10 chunks
+        while (i < 10) {
+            document.cookie = `${name}.${i}=${expire}`;
+            i++;
+        }
+    }
+}
+
 
 const memoryStore = new Map<string, string>();
 
 export const resilientStorage = {
     // Supabase allows async storage adapters
     getItem: async (key: string): Promise<string | null> => {
-        // 1. Try LocalStorage (Fastest)
+        // 1. Try LocalStorage
         try {
             const val = localStorage.getItem(key);
             if (val) return val;
         } catch (e) { /* LS Blocked */ }
 
-        // 2. Try IndexedDB (Robust Fallback)
+        // 2. Try IndexedDB
         const dbVal = await idb.get(key);
         if (dbVal) {
-            console.log(`💾 Restored session from IndexedDB: ${key}`);
+            console.log(`💾 Restored from IndexedDB: ${key}`);
             return dbVal;
         }
 
-        // 3. Try Memory
+        // 3. Try Cookie (Chunked)
+        const cookieVal = CookieJar.get(key);
+        if (cookieVal) {
+            console.log(`🍪 Restored from Chunked Cookie: ${key}`);
+            return cookieVal;
+        }
+
+        // 4. Memory
         return memoryStore.get(key) || null;
     },
 
     setItem: async (key: string, value: string): Promise<void> => {
         let wroteToDisk = false;
 
-        // 1. Try LocalStorage
+        // 1. LocalStorage
         try {
             localStorage.setItem(key, value);
-            // Verify
-            if (localStorage.getItem(key)) {
-                wroteToDisk = true;
-            }
-        } catch (e) {
-            console.warn(`⚠️ LocalStorage blocked (${key}).`);
-        }
+            if (localStorage.getItem(key)) wroteToDisk = true;
+        } catch (e) { console.warn(`⚠️ LS blocked: ${key}`); }
 
-        // 2. Always backup to IndexedDB if LS failed OR just to be safe?
-        // Let's always write to IDB as a true persistent backup.
-        // It's non-blocking (async) to the main thread logic mostly, but we await it here.
-        // If LS failed, we rely on it. If LS worked, it's a backup.
+        // 2. IndexedDB (Always write as backup)
         try {
             await idb.set(key, value);
-            if (!wroteToDisk) {
-                console.log(`💾 Saved session to IndexedDB (Backup): ${key}`);
-            }
-        } catch (e) { console.error("IDB Write Failed", e); }
+            if (!wroteToDisk) console.log(`💾 Scsved to IDB: ${key}`);
+        } catch (e) { console.error("IDB Fail", e); }
 
-        // 3. Memory
+        // 3. Cookies (Fallback if LS failed)
+        // If LS failed, we MUST write to cookie to ensure survival across tabs/restarts
+        if (!wroteToDisk) {
+            CookieJar.set(key, value);
+            console.log(`🍪 Saved to Chunked Cookie: ${key}`);
+        }
+
+        // 4. Memory
         memoryStore.set(key, value);
     },
 
     removeItem: async (key: string): Promise<void> => {
         try { localStorage.removeItem(key); } catch (e) { }
         await idb.remove(key);
+        CookieJar.remove(key);
         memoryStore.delete(key);
     },
 }
