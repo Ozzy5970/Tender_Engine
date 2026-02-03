@@ -239,6 +239,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log(`Auth Event: ${event}`)
 
             if (event === 'SIGNED_OUT') {
+                // CRITICAL FIX: Ignore SIGNED_OUT if we are in the middle of a PKCE flow (Google OAuth)
+                // Supabase fires SIGNED_OUT *before* processing the 'code' param, causing premature redirect.
+                const isMagicLink = window.location.hash.includes('access_token') ||
+                    window.location.hash.includes('type=recovery') ||
+                    window.location.hash.includes('type=magiclink') ||
+                    window.location.hash.includes('error_description') ||
+                    window.location.search.includes('code=');
+
+                if (isMagicLink) {
+                    console.log("🔒 [AuthContext] Ignoring SIGNED_OUT (Pending PKCE/MagicLink Flow)")
+                    return
+                }
+
                 console.log("🔒 [AuthContext] Signed Out Event Received.")
                 setSession(null)
                 setUser(null)
