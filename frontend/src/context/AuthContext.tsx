@@ -157,6 +157,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // We start LOADING.
             // We check session.
             // We wait for verification.
+
+            // Safety Timeout: If Supabase hangs for > 3s, force completion
+            const timeoutId = setTimeout(() => {
+                console.warn("⚠️ Auth Initialization timed out (3s). Forcing resolution.")
+                if (isMounted) {
+                    // If we have a user in state, go LIMITED. If not, go UNAUTHENTICATED.
+                    setStatus((prev) => (prev === 'LOADING' ? 'UNAUTHENTICATED' : prev))
+                }
+            }, 3000)
+
             try {
                 // 1. Check for Magic Link / OAuth Code
                 const isMagicLink = window.location.hash.includes('access_token') ||
@@ -167,6 +177,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // 2. Get Session (Optimistic)
                 const { data } = await supabase.auth.getSession()
                 let initialSession = data.session
+
+                // Clear timeout since we got a response
+                clearTimeout(timeoutId)
 
                 if (initialSession) {
                     console.log("✅ Optimistic Session Restored.")
@@ -182,6 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             } catch (err) {
                 console.error("Auth init error:", err)
+                clearTimeout(timeoutId)
                 setStatus('UNAUTHENTICATED')
             }
         }

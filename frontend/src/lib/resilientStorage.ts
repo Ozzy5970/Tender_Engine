@@ -19,7 +19,11 @@ const memoryStore = new Map<string, string>();
 export const resilientStorage = {
     getItem: (key: string): string | null => {
         try {
-            return localStorage.getItem(key);
+            const val = localStorage.getItem(key);
+            // If we have a value, return it.
+            // If val is null, it typically means "not found", BUT if we were blocked from writing to LS earlier,
+            // it might exist in memoryStore. So we fallback to memory check.
+            return val ?? memoryStore.get(key) ?? null;
         } catch (error) {
             // Extension blocked read? Return memory
             console.warn(`⚠️ Storage Read Blocked (${key}). Using Memory.`);
