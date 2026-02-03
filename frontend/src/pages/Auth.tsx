@@ -8,18 +8,20 @@ export default function AuthPage() {
     const [loading, setLoading] = useState(false)
     const [email, setEmail] = useState("")
     const [message, setMessage] = useState("")
+    const { session, status } = useAuth()
     const navigate = useNavigate()
-    const { session } = useAuth()
 
     useEffect(() => {
         // Only redirect if session exists AND we are not handling a callback
         const isAuthCallback = window.location.hash.includes('access_token') ||
             window.location.search.includes('code=');
 
-        if (session && !isAuthCallback) {
+        // Only redirect if we are fully AUTHENTICATED.
+        // If we are LIMITED or LOADING, wait.
+        if (session && status === 'AUTHENTICATED' && !isAuthCallback) {
             navigate("/")
         }
-    }, [session, navigate])
+    }, [session, status, navigate])
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
