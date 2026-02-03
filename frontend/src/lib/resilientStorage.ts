@@ -215,4 +215,19 @@ export const resilientStorage = {
         CookieJar.remove(key);
         memoryStore.delete(key);
     },
+
+    // --- Profile Caching (UI Resilience) ---
+    // Persist non-sensitive UI flags (isAdmin, Tier) so we don't downgrade users
+    // if the DB is momentarily unreachable/blocked.
+    setProfile: async (userId: string, data: any) => {
+        const key = `profile-${userId}`;
+        const val = JSON.stringify(data);
+        await resilientStorage.setItem(key, val);
+    },
+
+    getProfile: async (userId: string) => {
+        const key = `profile-${userId}`;
+        const val = await resilientStorage.getItem(key);
+        return val ? JSON.parse(val) : null;
+    }
 }
