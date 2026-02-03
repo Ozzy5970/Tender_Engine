@@ -213,9 +213,13 @@ function Dashboard() {
 
 // Role-based Home Router
 function Home() {
-  const { isAdmin, loading } = useAuth()
+  const { isAdmin, loading, status } = useAuth()
 
-  if (loading) return <div className="h-screen flex items-center justify-center">Loading...</div>
+  // Wait for Auth to settle before deciding where to go.
+  // We double-check 'status' to be sure we aren't in that optimistic "session exists but not verified" limbo.
+  if (loading || status === 'LOADING') {
+    return <div className="h-screen flex items-center justify-center">Loading...</div>
+  }
 
   // If Admin, go straight to executive overview
   if (isAdmin) {
