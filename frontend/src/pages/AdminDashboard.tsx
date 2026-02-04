@@ -1,43 +1,64 @@
 import { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/Skeleton"
 import { AdminService, FeedbackService, ErrorService } from "@/services/api"
-import { DollarSign, Star, ShieldAlert, Loader2, Send, Trash2, Users } from "lucide-react"
+import { DollarSign, Star, ShieldAlert, Loader2, Send, Trash2, Users, RefreshCw } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { motion } from "framer-motion"
 
 export default function AdminDashboard() {
     const navigate = useNavigate()
-    const [analytics, setAnalytics] = useState<any>(null)
-    const [loading, setLoading] = useState(true)
+    const [loading, setLoading] = useState(true) // Initial "Shell" loading
     const [errorMsg, setErrorMsg] = useState<string | null>(null)
-    const [broadcastLoading, setBroadcastLoading] = useState(false)
-    const [broadcastForm, setBroadcastForm] = useState({ title: '', message: '', priority: 'INFO' })
+
+    // Decoupled Data States
+    const [analytics, setAnalytics] = useState<any>(null)
+    const [recentUsers, setRecentUsers] = useState<any[]>([])
+    const [growthDataState, setGrowthDataState] = useState<any[]>([])
     const [broadcasts, setBroadcasts] = useState<any[]>([])
 
-    // State for User Tracker
-    const [recentUsers, setRecentUsers] = useState<any[]>([])
+    // Broadcast Form
+    const [broadcastLoading, setBroadcastLoading] = useState(false)
+    const [broadcastForm, setBroadcastForm] = useState({ title: '', message: '', priority: 'INFO' })
+
+    // Growth Chart Config
+    const [growthPeriod, setGrowthPeriod] = useState<'daily' | 'weekly' | 'monthly'>('monthly')
 
     useEffect(() => {
-        loadAnalytics()
-        loadBroadcasts()
-        loadRecentUsers()
+        loadAllData()
     }, [])
 
-    // Growth Chart State
-    const [growthPeriod, setGrowthPeriod] = useState<'daily' | 'weekly' | 'monthly'>('monthly')
-    const [growthDataState, setGrowthDataState] = useState<any[]>([])
-
     useEffect(() => {
-        const loadGrowth = async () => {
-            const { data } = await AdminService.getUserGrowth(growthPeriod)
-            if (data) setGrowthDataState(data as any[])
-        }
         loadGrowth()
     }, [growthPeriod])
 
+    const loadAllData = async () => {
+        setLoading(true)
+        setErrorMsg(null)
+        try {
+            // Parallel Fetching - Don't wait for one to fail
+            await Promise.allSettled([
+                loadAnalytics(),
+                loadBroadcasts(),
+                loadRecentUsers(),
+                loadGrowth()
+            ])
+        } catch (e: any) {
+            console.error("Dashboard Load Error:", e)
+            setErrorMsg(e.message || "Failed to load some dashboard data")
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const loadGrowth = async () => {
+        const { data } = await AdminService.getUserGrowth(growthPeriod)
+        if (data) setGrowthDataState(data as any[])
+    }
+
     const loadAnalytics = async () => {
         const { data, error } = await AdminService.getAnalytics()
+        // These calls rarely block but can fail independently
         const { data: feedbackStats } = await FeedbackService.getStats()
         const { data: errorStats } = await ErrorService.getStats()
 
@@ -62,10 +83,13 @@ export default function AdminDashboard() {
             })
         }
         else {
-            console.error(error)
-            setErrorMsg(typeof error === 'string' ? error : JSON.stringify(error))
+            console.error("Analytics Error:", error)
+            // Don't set global errorMsg here unless everything fails. 
+            // Just leave analytics null so skeleton shows or empty state.
+            if (typeof error === 'string' && error.includes('TIMEOUT')) {
+                setErrorMsg("Network Timeout: Some data could not be loaded.")
+            }
         }
-        setLoading(false)
     }
 
     const loadRecentUsers = async () => {
@@ -110,38 +134,34 @@ export default function AdminDashboard() {
         else loadBroadcasts()
     }
 
-    if (loading) {
-        return (
-            <div className="max-w-7xl mx-auto py-8 px-4 space-y-8">
-                {/* Header Skeleton */}
-                <div className="space-y-2">
-                    <Skeleton className="h-8 w-64" />
-                    <Skeleton className="h-4 w-96" />
-                </div>
-            </div>
-        )
-    }
-
-    if (!analytics) return (
-        <div className="p-8 text-center">
-            <h2 className="text-xl font-bold text-red-600 mb-2">Error Loading Dashboard</h2>
-            <p className="text-gray-600 mb-4">Are you an admin?</p>
-            {errorMsg && (
-                <div className="bg-red-50 p-4 rounded-lg border border-red-200 inline-block text-left">
-                    <p className="font-mono text-xs text-red-800 break-all">{errorMsg}</p>
-                </div>
-            )}
-        </div>
-    )
-
-
+    // --- Render Logic ---
+    // If we have an error but some data, we still render.
+    // If loading is true, we render the layout with known skeletons, NOT a full page spinner.
 
     return (
         <div className="max-w-7xl mx-auto py-8 px-4 font-sans space-y-8">
             {/* Header */}
-            <div>
-                <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Executive Overview</h1>
-                <p className="text-gray-500 mt-1">Real-time business intelligence and performance metrics.</p>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Executive Overview</h1>
+                    <p className="text-gray-500 mt-1">Real-time business intelligence and performance metrics.</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    {errorMsg && (
+                        <div className="bg-red-50 text-red-700 px-3 py-1.5 rounded-lg text-sm font-medium border border-red-200">
+                            ⚠ {errorMsg}
+                        </div>
+                    )}
+                    <button
+                        onClick={loadAllData}
+                        disabled={loading}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                        {loading ? 'Refreshing...' : 'Retry'}
+                    </button>
+                </div>
             </div>
 
             {/* Broadcast Section */}
@@ -202,7 +222,9 @@ export default function AdminDashboard() {
                         <span className="text-xs font-normal text-gray-500">{broadcasts.length} total</span>
                     </h3>
                     <div className="overflow-y-auto space-y-3 pr-2 scrollbar-thin">
-                        {broadcasts.length === 0 && <p className="text-sm text-gray-400 italic">No alerts sent yet.</p>}
+                        {(!broadcasts || broadcasts.length === 0) && (
+                            <p className="text-sm text-gray-400 italic">No alerts sent yet.</p>
+                        )}
                         {broadcasts.map((b: any) => (
                             <div key={b.id} className="p-3 bg-gray-50 rounded-lg border border-gray-100 group relative">
                                 <div className="flex justify-between items-start mb-1">
@@ -234,48 +256,59 @@ export default function AdminDashboard() {
 
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard
-                    label="Total Revenue"
-                    value={`R${analytics.revenue?.total?.toLocaleString() || 0}`}
-                    icon={DollarSign}
-                    theme="emerald"
-                    trend={(analytics.revenue?.trend && analytics.revenue?.trend !== '+0%' && analytics.revenue?.trend !== 'New')
-                        ? `${analytics.revenue.trend} vs last month`
-                        : null}
-                    onClick={() => navigate('/admin/revenue')}
-                />
-                <StatCard
-                    label="Active Users"
-                    value={analytics.users?.active || 0}
-                    icon={Users}
-                    theme="violet"
-                    onClick={() => navigate('/admin/subscriptions')}
-                />
-                <StatCard
-                    label="Avg. Satisfaction"
-                    value={analytics.feedback?.average ? `${analytics.feedback.average}/5` : 'N/A'}
-                    icon={Star}
-                    theme="amber"
-                    subtext={`${analytics.feedback?.count || 0} reviews`}
-                    onClick={() => navigate('/admin/feedback')}
-                    cursor="cursor-pointer hover:border-amber-300"
-                />
-                <StatCard
-                    label="System Health"
-                    value={analytics.errors?.critical_24h > 0 ? `${analytics.errors.critical_24h} Errors` : 'Healthy'}
-                    icon={ShieldAlert}
-                    theme={analytics.errors?.critical_24h > 0 ? "red" : "emerald"}
-                    subtext={analytics.errors?.critical_24h > 0 ? "Critical issues in last 24h" : "System operating normally"}
-                    onClick={() => navigate('/admin/errors')}
-                    cursor="cursor-pointer hover:border-red-300"
-                />
+                {!analytics ? (
+                    // Skeleton State for KPIs
+                    <>
+                        <Skeleton className="h-40 rounded-xl" />
+                        <Skeleton className="h-40 rounded-xl" />
+                        <Skeleton className="h-40 rounded-xl" />
+                        <Skeleton className="h-40 rounded-xl" />
+                    </>
+                ) : (
+                    <>
+                        <StatCard
+                            label="Total Revenue"
+                            value={`R${analytics.revenue?.total?.toLocaleString() || 0}`}
+                            icon={DollarSign}
+                            theme="emerald"
+                            trend={(analytics.revenue?.trend && analytics.revenue?.trend !== '+0%' && analytics.revenue?.trend !== 'New')
+                                ? `${analytics.revenue.trend} vs last month`
+                                : null}
+                            onClick={() => navigate('/admin/revenue')}
+                        />
+                        <StatCard
+                            label="Active Users"
+                            value={analytics.users?.active || 0}
+                            icon={Users}
+                            theme="violet"
+                            onClick={() => navigate('/admin/subscriptions')}
+                        />
+                        <StatCard
+                            label="Avg. Satisfaction"
+                            value={analytics.feedback?.average ? `${analytics.feedback.average}/5` : 'N/A'}
+                            icon={Star}
+                            theme="amber"
+                            subtext={`${analytics.feedback?.count || 0} reviews`}
+                            onClick={() => navigate('/admin/feedback')}
+                            cursor="cursor-pointer hover:border-amber-300"
+                        />
+                        <StatCard
+                            label="System Health"
+                            value={analytics.errors?.critical_24h > 0 ? `${analytics.errors.critical_24h} Errors` : 'Healthy'}
+                            icon={ShieldAlert}
+                            theme={analytics.errors?.critical_24h > 0 ? "red" : "emerald"}
+                            subtext={analytics.errors?.critical_24h > 0 ? "Critical issues in last 24h" : "System operating normally"}
+                            onClick={() => navigate('/admin/errors')}
+                            cursor="cursor-pointer hover:border-red-300"
+                        />
+                    </>
+                )}
             </div>
 
             {/* Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Growth Chart */}
-                {/* Growth Chart */}
-                <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6 shadow-sm min-h-[400px]">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="font-bold text-gray-900">User Growth (New Accounts)</h3>
                         <div className="flex bg-gray-100 rounded-lg p-1">
@@ -294,29 +327,35 @@ export default function AdminDashboard() {
                         </div>
                     </div>
                     <div className="h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={growthDataState}>
-                                <defs>
-                                    <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1} />
-                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} allowDecimals={false} />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                    cursor={{ stroke: '#cbd5e1' }}
-                                />
-                                <Area type="monotone" dataKey="users" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorUsers)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                        {!growthDataState || growthDataState.length === 0 ? (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-50 rounded-lg">
+                                {errorMsg ? <span className="text-gray-400">Chart Unavailable</span> : <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />}
+                            </div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={growthDataState}>
+                                    <defs>
+                                        <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1} />
+                                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} />
+                                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} allowDecimals={false} />
+                                    <Tooltip
+                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                        cursor={{ stroke: '#cbd5e1' }}
+                                    />
+                                    <Area type="monotone" dataKey="users" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorUsers)" />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        )}
                     </div>
                 </div>
 
                 {/* Recent Activity / User Tracker */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm overflow-hidden flex flex-col">
+                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm overflow-hidden flex flex-col min-h-[400px]">
                     <h3 className="font-bold text-gray-900 mb-4 flex items-center justify-between">
                         User Tracker
                         <span className="text-xs font-normal text-gray-500">Live Traffic</span>
@@ -366,7 +405,7 @@ export default function AdminDashboard() {
     )
 }
 
-function StatCard({ label, value, icon: Icon, theme, onClick, trend, subtext, actionLabel }: any) {
+function StatCard({ label, value, icon: Icon, theme, onClick, trend, subtext, actionLabel, cursor }: any) {
     // Theme mapping
     const themes: any = {
         emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600', hoverBg: 'hover:bg-emerald-600', border: 'hover:border-emerald-600' },
@@ -376,6 +415,7 @@ function StatCard({ label, value, icon: Icon, theme, onClick, trend, subtext, ac
         red: { bg: 'bg-red-50', text: 'text-red-600', hoverBg: 'hover:bg-red-600', border: 'hover:border-red-600' },
     }
     const t = themes[theme] || themes.blue
+    const cursorClass = cursor || (onClick ? 'cursor-pointer' : '')
 
     return (
         <motion.div
@@ -385,7 +425,7 @@ function StatCard({ label, value, icon: Icon, theme, onClick, trend, subtext, ac
             className={`
                 group relative overflow-hidden
                 bg-white rounded-xl border border-gray-200 p-6 shadow-sm transition-all duration-300
-                ${onClick ? 'cursor-pointer' : ''}
+                ${cursorClass}
                 ${t.hoverBg} ${t.border}
             `}
         >

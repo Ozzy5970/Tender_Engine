@@ -4,9 +4,38 @@ import type { ApiResponse } from "@/types/api"
 /**
  * Standardized response handler
  */
+// --- Timeout Helper ---
+// Robust timeout that handles PromiseLike (Supabase Builders)
+const timeoutPromise = <T,>(promise: Promise<T> | PromiseLike<T>, ms: number, fallbackValue: T): Promise<T> => {
+    return Promise.race([
+        Promise.resolve(promise),
+        new Promise<T>((resolve) => setTimeout(() => resolve(fallbackValue), ms))
+    ]);
+};
+
+/**
+ * Standardized response handler with Timeout Protection
+ */
 async function handleRequest<T>(request: PromiseLike<any>): Promise<ApiResponse<T>> {
     try {
-        const { data, error, status } = await request
+        // Create a synthetic "timeout" error object
+        const timeoutError = {
+            data: null,
+            error: {
+                message: "Request timed out (Network/Extension Block)",
+                code: "TIMEOUT",
+                details: "The request took too long. Check for blocking extensions.",
+                hint: "Try disabling ad blockers or reloading.",
+                name: "TimeoutError"
+            },
+            status: 408
+        };
+
+        // Wrap the request in a 8000ms timeout
+        // @ts-ignore - Supabase types are complex, but runtime this works.
+        const response: any = await timeoutPromise(request, 8000, timeoutError);
+
+        const { data, error, status } = response;
 
         if (error) {
             // Self-healing: If we hit a missing profile (PGRST116) on any authenticated query,
