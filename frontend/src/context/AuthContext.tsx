@@ -6,9 +6,9 @@ import { resilientStorage } from "@/lib/resilientStorage"
 
 // --- Timeout Helper (Duplicated for Context Safety) ---
 // FIX: Use <T,> to prevent TSX generic from being parsed as JSX tag
-const timeoutPromise = <T,>(promise: Promise<T>, ms: number, fallbackValue: T): Promise<T> => {
+const timeoutPromise = <T,>(promise: Promise<T> | PromiseLike<T>, ms: number, fallbackValue: T): Promise<T> => {
     return Promise.race([
-        promise,
+        Promise.resolve(promise),
         new Promise<T>((resolve) => setTimeout(() => resolve(fallbackValue), ms))
     ]);
 };
@@ -151,7 +151,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     .eq('id', userId)
                     .maybeSingle();
 
-                const dbResult = await timeoutPromise(profilePromise, 2000, { data: null, error: { message: "Profile Timeout" } });
+                const dbResult = await timeoutPromise(profilePromise, 2000, {
+                    data: null,
+                    error: {
+                        message: "Profile Timeout",
+                        details: "",
+                        hint: "",
+                        code: "TIMEOUT",
+                        name: "TimeoutError"
+                    },
+                    count: null,
+                    status: 408,
+                    statusText: "Timeout"
+                } as any);
                 profile = dbResult.data;
                 profileError = dbResult.error;
 
@@ -161,6 +173,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     if (resilientStorage.setProfile) resilientStorage.setProfile(userId, profile)
                 }
             } catch (e) { profileError = e }
+
+            if (profileError) console.warn("Profile fetch error:", profileError)
 
             // If Live DB Failed, Try Cache
             if (!profile && resilientStorage.getProfile) {
