@@ -9,6 +9,7 @@ import { motion } from "framer-motion"
 export default function AdminDashboard() {
     const navigate = useNavigate()
     const [loading, setLoading] = useState(true) // Initial "Shell" loading
+    const [isRefreshing, setIsRefreshing] = useState(false) // Background refresh
     const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
     // Decoupled Data States
@@ -33,9 +34,13 @@ export default function AdminDashboard() {
     }, [growthPeriod])
 
     // Unified Loader
-    const loadAllData = async () => {
-        setLoading(true)
-        setErrorMsg(null)
+    const loadAllData = async (isBackground = false) => {
+        if (!isBackground) setLoading(true)
+        else setIsRefreshing(true)
+
+        // Don't clear error msg on background refresh to keep "Limited Mode" banner visible if issues persist
+        if (!isBackground) setErrorMsg(null)
+
         try {
             await Promise.allSettled([
                 loadAnalytics(),
@@ -48,11 +53,12 @@ export default function AdminDashboard() {
             setErrorMsg(e.message || "Failed to load some dashboard data")
         } finally {
             setLoading(false)
+            setIsRefreshing(false)
         }
     }
 
-    // Manual Retry triggers everything
-    const handleRetry = loadAllData
+    // Manual Retry triggers background refresh
+    const handleRetry = () => loadAllData(true)
 
     const loadGrowth = async () => {
         const { data } = await AdminService.getUserGrowth(growthPeriod)
@@ -87,13 +93,14 @@ export default function AdminDashboard() {
         }
         else {
             console.error("Analytics Error:", error)
-            // Don't set global errorMsg here unless everything fails. 
-            // Just leave analytics null so skeleton shows or empty state.
-            if (typeof error === 'string' && error.includes('TIMEOUT')) {
-                setErrorMsg("Network Timeout: Some data could not be loaded.")
+            // Strict check for TIMEOUT to trigger Limited Mode
+            if (typeof error === 'string' && (error.includes('TIMEOUT') || error.includes('Network'))) {
+                setErrorMsg("Limited Connectivity Mode")
             }
         }
     }
+
+    // ... (Other loaders remain same)
 
     const loadRecentUsers = async () => {
         const { data } = await AdminService.getUsers()
@@ -137,12 +144,30 @@ export default function AdminDashboard() {
         else loadBroadcasts()
     }
 
-
-
     // --- Render Logic ---
 
     return (
         <div className="max-w-7xl mx-auto py-8 px-4 font-sans space-y-8">
+            {/* Limited Mode Banner */}
+            {errorMsg && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                    <ShieldAlert className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                        <h3 className="text-sm font-bold text-amber-800">Limited Connectivity Mode</h3>
+                        <p className="text-sm text-amber-700 mt-0.5">
+                            We are experiencing network interference (possibly from browser extensions).
+                            Some data may be outdated or unavailable.
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => setErrorMsg(null)}
+                        className="text-amber-500 hover:text-amber-700 text-xs font-medium"
+                    >
+                        Dismiss
+                    </button>
+                </div>
+            )}
+
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
@@ -151,18 +176,13 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    {errorMsg && (
-                        <div className="bg-red-50 text-red-700 px-3 py-1.5 rounded-lg text-sm font-medium border border-red-200">
-                            ⚠ {errorMsg}
-                        </div>
-                    )}
                     <button
                         onClick={handleRetry}
-                        disabled={loading}
+                        disabled={loading || isRefreshing}
                         className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50"
                     >
-                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                        {loading ? 'Refreshing...' : 'Retry'}
+                        <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                        {isRefreshing ? 'Updating...' : 'Refresh Data'}
                     </button>
                 </div>
             </div>
