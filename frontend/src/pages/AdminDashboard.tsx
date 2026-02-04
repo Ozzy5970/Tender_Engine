@@ -25,18 +25,21 @@ export default function AdminDashboard() {
     const [growthPeriod, setGrowthPeriod] = useState<'daily' | 'weekly' | 'monthly'>('monthly')
 
     useEffect(() => {
-        loadAllData()
+        loadAnalytics()
+        loadBroadcasts()
+        loadRecentUsers()
+        // Growth loaded by its own effect below
     }, [])
 
     useEffect(() => {
         loadGrowth()
     }, [growthPeriod])
 
-    const loadAllData = async () => {
+    // Manual Retry triggers everything
+    const handleRetry = async () => {
         setLoading(true)
         setErrorMsg(null)
         try {
-            // Parallel Fetching - Don't wait for one to fail
             await Promise.allSettled([
                 loadAnalytics(),
                 loadBroadcasts(),
@@ -154,7 +157,7 @@ export default function AdminDashboard() {
                         </div>
                     )}
                     <button
-                        onClick={loadAllData}
+                        onClick={handleRetry}
                         disabled={loading}
                         className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50"
                     >
@@ -326,7 +329,7 @@ export default function AdminDashboard() {
                             ))}
                         </div>
                     </div>
-                    <div className="h-[300px]">
+                    <div className="h-[300px] w-full">
                         {!growthDataState || growthDataState.length === 0 ? (
                             <div className="w-full h-full flex items-center justify-center bg-gray-50 rounded-lg">
                                 {errorMsg ? <span className="text-gray-400">Chart Unavailable</span> : <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />}
