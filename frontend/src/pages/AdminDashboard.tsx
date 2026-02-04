@@ -25,18 +25,15 @@ export default function AdminDashboard() {
     const [growthPeriod, setGrowthPeriod] = useState<'daily' | 'weekly' | 'monthly'>('monthly')
 
     useEffect(() => {
-        loadAnalytics()
-        loadBroadcasts()
-        loadRecentUsers()
-        // Growth loaded by its own effect below
+        loadAllData()
     }, [])
 
     useEffect(() => {
         loadGrowth()
     }, [growthPeriod])
 
-    // Manual Retry triggers everything
-    const handleRetry = async () => {
+    // Unified Loader
+    const loadAllData = async () => {
         setLoading(true)
         setErrorMsg(null)
         try {
@@ -53,6 +50,9 @@ export default function AdminDashboard() {
             setLoading(false)
         }
     }
+
+    // Manual Retry triggers everything
+    const handleRetry = loadAllData
 
     const loadGrowth = async () => {
         const { data } = await AdminService.getUserGrowth(growthPeriod)
@@ -346,9 +346,9 @@ export default function AdminDashboard() {
                             ))}
                         </div>
                     </div>
-                    <div className="h-[300px] w-full">
+                    <div className="h-[300px] w-full min-h-[300px]">
                         {!growthDataState || growthDataState.length === 0 ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                            <div className="w-full h-full min-h-[300px] flex flex-col items-center justify-center bg-gray-50 rounded-lg border border-dashed border-gray-200">
                                 {loading ? (
                                     <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
                                 ) : (
