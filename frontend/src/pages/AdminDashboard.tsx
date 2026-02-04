@@ -137,9 +137,9 @@ export default function AdminDashboard() {
         else loadBroadcasts()
     }
 
+
+
     // --- Render Logic ---
-    // If we have an error but some data, we still render.
-    // If loading is true, we render the layout with known skeletons, NOT a full page spinner.
 
     return (
         <div className="max-w-7xl mx-auto py-8 px-4 font-sans space-y-8">
@@ -260,13 +260,30 @@ export default function AdminDashboard() {
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {!analytics ? (
-                    // Skeleton State for KPIs
-                    <>
-                        <Skeleton className="h-40 rounded-xl" />
-                        <Skeleton className="h-40 rounded-xl" />
-                        <Skeleton className="h-40 rounded-xl" />
-                        <Skeleton className="h-40 rounded-xl" />
-                    </>
+                    loading ? (
+                        // Skeleton State for KPIs (Only when loading)
+                        <>
+                            <Skeleton className="h-40 rounded-xl" />
+                            <Skeleton className="h-40 rounded-xl" />
+                            <Skeleton className="h-40 rounded-xl" />
+                            <Skeleton className="h-40 rounded-xl" />
+                        </>
+                    ) : (
+                        // Error/Empty State
+                        <div className="col-span-full p-8 bg-gray-50 rounded-xl border border-gray-200 border-dashed text-center">
+                            <ShieldAlert className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                            <h3 className="text-sm font-medium text-gray-900">Analytics Unavailable</h3>
+                            <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
+                                Failed to load performance metrics. This may be due to a network interruption or extension blocking the request.
+                            </p>
+                            <button
+                                onClick={handleRetry}
+                                className="mt-4 text-xs font-medium text-indigo-600 hover:text-indigo-800"
+                            >
+                                Try Refreshing
+                            </button>
+                        </div>
+                    )
                 ) : (
                     <>
                         <StatCard
@@ -331,8 +348,15 @@ export default function AdminDashboard() {
                     </div>
                     <div className="h-[300px] w-full">
                         {!growthDataState || growthDataState.length === 0 ? (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-50 rounded-lg">
-                                {errorMsg ? <span className="text-gray-400">Chart Unavailable</span> : <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />}
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                                {loading ? (
+                                    <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+                                ) : (
+                                    <>
+                                        <p className="text-sm text-gray-400 font-medium">Chart Data Unavailable</p>
+                                        {errorMsg && <p className="text-xs text-red-400 mt-1 px-4 text-center">{errorMsg}</p>}
+                                    </>
+                                )}
                             </div>
                         ) : (
                             <ResponsiveContainer width="100%" height="100%">
