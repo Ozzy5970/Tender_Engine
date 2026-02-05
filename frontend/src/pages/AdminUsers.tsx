@@ -5,23 +5,34 @@ import { motion } from "framer-motion"
 
 export default function AdminUsers() {
     const [users, setUsers] = useState<any[]>([])
-    const [loading, setLoading] = useState(true)
+    // Strict State Machine: 'LOADING' | 'READY' | 'ERROR'
+    const [status, setStatus] = useState<'LOADING' | 'READY' | 'ERROR'>('LOADING')
     const [search, setSearch] = useState("")
     const [sort, setSort] = useState<"date" | "name">("date")
 
     useEffect(() => {
+        // Cold Boot: Always force a refetch on mount
         loadUsers()
     }, [])
 
     const loadUsers = async () => {
-        const { data } = await AdminService.getUsers()
-        if (data) {
+        setStatus('LOADING') // Reset to loading if re-triggered
+        try {
+            const { data, error } = await AdminService.getUsers()
+            if (error) throw new Error(error)
 
-            setUsers(data)
-        } else {
-            console.warn("AdminUsers: No users returned")
+            if (data) {
+                setUsers(data)
+                setStatus('READY')
+            } else {
+                // Should be caught by normalization, but defensive check
+                setUsers([])
+                setStatus('READY')
+            }
+        } catch (err) {
+            console.error("AdminUsers: Failed to load", err)
+            setStatus('ERROR')
         }
-        setLoading(false)
     }
 
     // Filter & Sort
@@ -37,10 +48,37 @@ export default function AdminUsers() {
             })
     }, [users, search, sort])
 
-    if (loading) return <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-gray-400" /></div>
+    if (status === 'LOADING') {
+        return (
+            <div className="p-12 flex flex-col items-center justify-center gap-4 animate-in fade-in">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                <p className="text-gray-400 text-sm font-medium">Loading user directory...</p>
+            </div>
+        )
+    }
+
+    if (status === 'ERROR') {
+        return (
+            <div className="p-12 flex flex-col items-center justify-center gap-4 text-center">
+                <div className="p-4 bg-red-50 text-red-600 rounded-full">
+                    <FileText className="w-8 h-8" />
+                </div>
+                <div>
+                    <h3 className="font-bold text-gray-900">Unable to load users</h3>
+                    <p className="text-gray-500 text-sm mt-1 max-w-md">There was a problem connecting to the server. Please check your connection and try again.</p>
+                </div>
+                <button
+                    onClick={loadUsers}
+                    className="mt-4 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
+                >
+                    Retry Connection
+                </button>
+            </div>
+        )
+    }
 
     return (
-        <div className="max-w-7xl mx-auto py-8 px-4 font-sans">
+        <div className="max-w-7xl mx-auto py-8 px-4 font-sans animate-in fade-in slide-in-from-bottom-2 duration-500">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
@@ -54,14 +92,14 @@ export default function AdminUsers() {
                         <input
                             type="text"
                             placeholder="Search users..."
-                            className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-blue-500 focus:border-blue-500 w-64"
+                            className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-blue-500 focus:border-blue-500 w-64 shadow-sm"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
                     <button
                         onClick={() => setSort(sort === "date" ? "name" : "date")}
-                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 flex items-center gap-2"
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 flex items-center gap-2 bg-white shadow-sm"
                     >
                         <ArrowUpDown className="w-4 h-4" />
                         {sort === "date" ? "Newest First" : "Name A-Z"}
@@ -84,7 +122,10 @@ export default function AdminUsers() {
                         {filtered.length === 0 ? (
                             <tr>
                                 <td colSpan={4} className="p-12 text-center text-gray-400">
-                                    No users found matching "{search}"
+                                    <div className="flex flex-col items-center gap-2">
+                                        <Search className="w-8 h-8 opacity-20" />
+                                        <p>No users found matching "{search}"</p>
+                                    </div>
                                 </td>
                             </tr>
                         ) : (
@@ -159,7 +200,7 @@ export default function AdminUsers() {
             </div>
 
             <div className="mt-4 text-center text-xs text-gray-400">
-                Showing {filtered.length} client accounts
+                {status === 'READY' && `Showing ${filtered.length} client accounts`}
             </div>
         </div>
     )

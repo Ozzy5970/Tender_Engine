@@ -547,9 +547,24 @@ export const TemplateService = {
 
 export const AdminService = {
     async getStats() {
-        return handleRequest<any>(
+        const response = await handleRequest<any>(
             supabase.rpc('get_admin_stats')
         )
+        // Normalization Layer: Enforce camelCase contract
+        if (response.data) {
+            const raw = response.data
+            response.data = {
+                status: (raw.errorCount24h > 10 || raw.error_count > 10) ? 'CRITICAL'
+                    : (raw.errorCount24h > 0 || raw.error_count > 0) ? 'DEGRADED'
+                        : 'HEALTHY',
+                totalUsers: raw.totalUsers ?? raw.total_users ?? 0,
+                errorCount24h: raw.errorCount24h ?? raw.error_count ?? 0,
+                securityEvents: 0,
+                // Pass through any other raw props if needed, but preferred to be explicit
+                ...raw
+            }
+        }
+        return response
     },
 
     async broadcast(title: string, message: string, priority: 'INFO' | 'WARNING' | 'CRITICAL') {
@@ -577,9 +592,15 @@ export const AdminService = {
     },
 
     async getUsers() {
-        return handleRequest<any[]>(
+        // We can add normalization here if needed, currently just passing through
+        // But for "Cold Boot" safety, ensure we return a clean array on native nulls
+        const response = await handleRequest<any[]>(
             supabase.rpc('get_admin_users')
         )
+        if (!response.data) {
+            response.data = [] // Ensure strict array contract
+        }
+        return response
     },
 
     async getAnalytics() {

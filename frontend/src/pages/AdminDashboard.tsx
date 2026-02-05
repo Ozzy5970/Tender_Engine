@@ -27,8 +27,7 @@ const DEFAULT_HEALTH: SystemHealth = {
 export default function AdminDashboard() {
     // const navigate = useNavigate() // REMOVED: Unused
     const [health, setHealth] = useState<SystemHealth>(DEFAULT_HEALTH)
-    const [loading, setLoading] = useState(true)
-    const [isLimited, setIsLimited] = useState(false)
+
 
     const [lastUpdated, setLastUpdated] = useState<number | null>(null)
 
@@ -47,7 +46,6 @@ export default function AdminDashboard() {
                     if (cached.data && cached.timestamp) {
                         setHealth(cached.data)
                         setLastUpdated(cached.timestamp)
-                        setLoading(false) // Show cached immediately
                     }
                 } catch (e) {
                     console.warn("Corrupt cache", e)
@@ -79,14 +77,12 @@ export default function AdminDashboard() {
                 timestamp: Date.now()
             }))
 
-            setIsLimited(false)
+
         } catch (error) {
             console.warn("Health check failed, using fallback/cache", error)
             // If we have data (from cache step above) or default, we just go to limited mode
             // We rely on the initial cache load to have populated 'health' if available
-            setIsLimited(true)
-        } finally {
-            setLoading(false)
+            // setIsLimited(true) -> Handled by status
         }
     }
 
@@ -115,7 +111,7 @@ export default function AdminDashboard() {
                     </p>
                 </div>
 
-                {isLimited && (
+                {status === 'DEGRADED_VIEW' && (
                     <div className="px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-amber-800 text-sm font-medium animate-in fade-in slide-in-from-top-2">
                         <AlertTriangle className="w-4 h-4" />
                         <div className="flex flex-col md:flex-row md:items-center gap-1">
@@ -159,7 +155,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="relative z-10">
                         <p className="text-4xl font-black text-gray-900 tracking-tight">
-                            {loading && health.totalUsers === 0 ? '...' : health.totalUsers.toLocaleString()}
+                            {health.totalUsers.toLocaleString()}
                         </p>
                         <p className="mt-2 text-sm text-gray-500">Registered Accounts</p>
                     </div>
