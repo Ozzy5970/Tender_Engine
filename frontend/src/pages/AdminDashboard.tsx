@@ -1,503 +1,247 @@
 import { useState, useEffect } from 'react'
-import { AdminService, FeedbackService, ErrorService } from "@/services/api"
+import { Link } from "react-router-dom"
+import { AdminService } from "@/services/api"
+import { resilientStorage } from "@/lib/resilientStorage"
 import {
-    Users, DollarSign, ShieldAlert, RefreshCw,
-    MessageSquare, AlertTriangle, TrendingUp, Trash2, Loader2
+    ShieldCheck, AlertTriangle, Users, Activity,
+    BarChart3, Radio, ArrowRight, CheckCircle2,
+    ServerCrash, Lock, ExternalLink
 } from 'lucide-react'
-import { useNavigate } from "react-router-dom"
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
+// Minimal types for the v1 dashboard
+interface SystemHealth {
+    status: 'HEALTHY' | 'DEGRADED' | 'CRITICAL'
+    activeUsers: number
+    errorCount24h: number
+    securityEvents: number
+}
+
+// Default fallback state (Safe Mode)
+const DEFAULT_HEALTH: SystemHealth = {
+    status: 'HEALTHY', // Optimistic default
+    activeUsers: 0,
+    errorCount24h: 0,
+    securityEvents: 0
+}
 
 export default function AdminDashboard() {
-    const navigate = useNavigate()
-    const [loading, setLoading] = useState(true) // Initial "Shell" loading
-    const [isRefreshing, setIsRefreshing] = useState(false) // Background refresh
-    const [errorMsg, setErrorMsg] = useState<string | null>(null)
+    // const navigate = useNavigate() // REMOVED: Unused
+    const [health, setHealth] = useState<SystemHealth>(DEFAULT_HEALTH)
+    const [loading, setLoading] = useState(true)
+    const [isLimited, setIsLimited] = useState(false)
 
-    // Decoupled Data States
-    const [analytics, setAnalytics] = useState<any>(null)
-    const [recentUsers, setRecentUsers] = useState<any[]>([])
-    const [growthDataState, setGrowthDataState] = useState<any[]>([])
-    const [broadcasts, setBroadcasts] = useState<any[]>([])
-
-    // Broadcast Form
-    const [broadcastLoading, setBroadcastLoading] = useState(false)
-    const [broadcastForm, setBroadcastForm] = useState({ title: '', message: '', priority: 'INFO' })
-
-    // Growth Chart Config
-    const [growthPeriod, setGrowthPeriod] = useState<'daily' | 'weekly' | 'monthly'>('monthly')
+    const [lastUpdated, setLastUpdated] = useState<number | null>(null)
 
     useEffect(() => {
-        loadAllData()
+        loadSystemHealth()
     }, [])
 
-    useEffect(() => {
-        loadGrowth()
-    }, [growthPeriod])
-
-    // Unified Loader
-    const loadAllData = async (isBackground = false) => {
-        if (!isBackground) setLoading(true)
-        else setIsRefreshing(true)
-
-        // Don't clear error msg on background refresh to keep "Limited Mode" banner visible if issues persist
-        if (!isBackground) setErrorMsg(null)
-
+    const loadSystemHealth = async () => {
         try {
-            await Promise.allSettled([
-                loadAnalytics(),
-                loadBroadcasts(),
-                loadRecentUsers(),
-                loadGrowth()
-            ])
-        } catch (e: any) {
-            console.error("Dashboard Load Error:", e)
-            setErrorMsg(e.message || "Failed to load some dashboard data")
+            // 1. Check cache first for instant load (ResilientStorage)
+            const cachedStr = await resilientStorage.getItem('admin_health_v1')
+            if (cachedStr) {
+                try {
+                    const cached = JSON.parse(cachedStr)
+                    // cached structure: { data: SystemHealth, timestamp: number }
+                    if (cached.data && cached.timestamp) {
+                        setHealth(cached.data)
+                        setLastUpdated(cached.timestamp)
+                        setLoading(false) // Show cached immediately
+                    }
+                } catch (e) {
+                    console.warn("Corrupt cache", e)
+                }
+            }
+
+            // 2. Fetch fresh
+            // fetching getStats, but treating it as a lightweight health check
+            // In a real optimized endpoint, you'd want a specific /health-check RPC
+            const data = await AdminService.getStats() as any
+
+            // Map the heavy data to our simple View Model
+            const freshHealth: SystemHealth = {
+                status: data.errorCount > 10 ? 'CRITICAL' : data.errorCount > 0 ? 'DEGRADED' : 'HEALTHY',
+                activeUsers: data.totalUsers || 0, // Using total users as proxy for now
+                errorCount24h: data.errorCount || 0,
+                securityEvents: 0 // Placeholder until explicit endpoint exists
+            }
+
+            // 3. Update State & Cache
+            setHealth(freshHealth)
+            setLastUpdated(Date.now())
+            await resilientStorage.setItem('admin_health_v1', JSON.stringify({
+                data: freshHealth,
+                timestamp: Date.now()
+            }))
+
+            setIsLimited(false)
+        } catch (error) {
+            console.warn("Health check failed, using fallback/cache", error)
+            // If we have data (from cache step above) or default, we just go to limited mode
+            // We rely on the initial cache load to have populated 'health' if available
+            setIsLimited(true)
         } finally {
             setLoading(false)
-            setIsRefreshing(false)
         }
     }
 
-    // Manual Retry triggers background refresh
-    const handleRetry = () => loadAllData(true)
-
-    const loadGrowth = async () => {
-        const { data } = await AdminService.getUserGrowth(growthPeriod)
-        if (data) setGrowthDataState(data as any[])
+    // Status Helpers
+    const getStatusColor = (s: string) => {
+        if (s === 'CRITICAL') return 'bg-red-50 text-red-700 border-red-200'
+        if (s === 'DEGRADED') return 'bg-orange-50 text-orange-700 border-orange-200'
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200'
     }
 
-    const loadAnalytics = async () => {
-        const { data, error } = await AdminService.getAnalytics()
-        // These calls rarely block but can fail independently
-        const { data: feedbackStats } = await FeedbackService.getStats()
-        const { data: errorStats } = await ErrorService.getStats()
-
-        if (data) {
-            const d = data as any
-            setAnalytics({
-                revenue: {
-                    total: d.revenue,
-                    trend: null,
-                    trendDir: 'neutral'
-                },
-                users: {
-                    total: d.total_users,
-                    active: d.active_subscriptions,
-                    trend: "+0%",
-                    trendDir: "neutral"
-                },
-                user_growth: d.user_growth,
-                feedback: feedbackStats,
-                errors: errorStats,
-                compliance: d.compliance_split
-            })
-        }
-        else {
-            console.error("Analytics Error:", error)
-            // Strict check for TIMEOUT to trigger Limited Mode
-            if (typeof error === 'string' && (error.includes('TIMEOUT') || error.includes('Network'))) {
-                setErrorMsg("Limited Connectivity Mode")
-            }
-        }
+    const getStatusIcon = (s: string) => {
+        if (s === 'CRITICAL') return <ServerCrash className="w-6 h-6" />
+        if (s === 'DEGRADED') return <AlertTriangle className="w-6 h-6" />
+        return <CheckCircle2 className="w-6 h-6" />
     }
-
-    // ... (Other loaders remain same)
-
-    const loadRecentUsers = async () => {
-        const { data } = await AdminService.getUsers()
-        if (data) {
-            // Sort by last active (sign in) or created if null
-            const sorted = data.sort((a: any, b: any) => {
-                const dateA = new Date(a.last_sign_in_at || a.created_at).getTime()
-                const dateB = new Date(b.last_sign_in_at || b.created_at).getTime()
-                return dateB - dateA
-            }).slice(0, 5) // Show top 5
-            setRecentUsers(sorted)
-        }
-    }
-
-    const loadBroadcasts = async () => {
-        const { data } = await AdminService.getBroadcasts()
-        if (data) setBroadcasts(data as any[])
-    }
-
-    const handleBroadcast = async () => {
-        if (!broadcastForm.title || !broadcastForm.message) return alert("Please fill in title and message")
-        if (!window.confirm("Are you sure you want to broadcast this message to ALL users?")) return
-
-        setBroadcastLoading(true)
-        const { error } = await AdminService.broadcast(broadcastForm.title, broadcastForm.message, broadcastForm.priority as any)
-
-        if (error) {
-            alert("Failed to send: " + error)
-        } else {
-            alert("Broadcast sent successfully!")
-            setBroadcastForm({ title: '', message: '', priority: 'INFO' })
-            loadBroadcasts()
-        }
-        setBroadcastLoading(false)
-    }
-
-    const handleDeleteBroadcast = async (id: string) => {
-        if (!window.confirm("Delete this broadcast record?")) return
-        const { error } = await AdminService.deleteBroadcast(id)
-        if (error) alert("Failed: " + error)
-        else loadBroadcasts()
-    }
-
-    // --- Render Logic ---
-
-    // Data Optional: We ALWAYS render the shell.
-    // Skeletons are used as placeholders for VALUES, not entire components.
-
-    // Helper to detect if we are in "Limited Mode" (Network Blocked)
-    const isLimitedMode = !!errorMsg && (errorMsg.includes('Limited') || errorMsg.includes('Network') || errorMsg.includes('Timeout'));
 
     return (
-        <div className="max-w-7xl mx-auto py-8 px-4 font-sans space-y-8">
-            {/* Phase 3: Limited Mode Banner */}
-            {isLimitedMode && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
-                    <ShieldAlert className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-                    <div className="flex-1">
-                        <h3 className="text-sm font-bold text-amber-800">Limited Connectivity Mode</h3>
-                        <p className="text-sm text-amber-700 mt-0.5">
-                            We are experiencing network interference (possibly from browser extensions).
-                            Some data may be outdated or unavailable.
+        <div className="p-8 max-w-7xl mx-auto">
+            {/* Header */}
+            <div className="mb-10 flex items-end justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight">System Overview</h1>
+                    <p className="text-gray-500 mt-2 flex items-center gap-2">
+                        Admin Console
+                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-mono font-bold">v1.2</span>
+                    </p>
+                </div>
+
+                {isLimited && (
+                    <div className="px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-amber-800 text-sm font-medium animate-in fade-in slide-in-from-top-2">
+                        <AlertTriangle className="w-4 h-4" />
+                        <div className="flex flex-col md:flex-row md:items-center gap-1">
+                            <span>Limited Connection (Using Cached Data)</span>
+                            {lastUpdated && (
+                                <span className="text-amber-700 opacity-80 text-xs md:text-sm">
+                                    • Last updated {new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Main Status Grid (The "Traffic Lights") */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+
+                {/* 1. Global System Health */}
+                <div className={`p-6 rounded-2xl border-2 ${getStatusColor(health.status)} transition-all relative overflow-hidden group`}>
+                    <div className="relative z-10">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-bold uppercase tracking-wider text-sm opacity-80">System Status</h3>
+                            {getStatusIcon(health.status)}
+                        </div>
+                        <p className="text-4xl font-black tracking-tight">{health.status}</p>
+                        <p className="mt-2 text-sm opacity-90 font-medium">
+                            {health.status === 'HEALTHY' ? 'All systems operational' : 'Critical errors detected'}
                         </p>
                     </div>
-                </div>
-            )}
-
-            {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Executive Overview</h1>
-                    <p className="text-gray-500 mt-1">Real-time business intelligence and performance metrics.</p>
+                    {/* Decorative bg icon */}
+                    <Activity className="absolute -right-6 -bottom-6 w-32 h-32 opacity-10 rotate-12" />
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={handleRetry}
-                        disabled={loading || isRefreshing}
-                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50"
-                    >
-                        <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                        {isRefreshing ? 'Updating...' : 'Refresh Data'}
-                    </button>
-                </div>
-            </div>
-
-            {/* Analytics Grid - Data Optional Refactor */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* 1. Revenue Card */}
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm transition-all hover:shadow-md">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-sm font-medium text-gray-500">Total Revenue</p>
-                            <h3 className="text-2xl font-bold text-gray-900 mt-2">
-                                {loading && !analytics ? (
-                                    <div className="h-8 w-24 bg-gray-100 rounded animate-pulse" />
-                                ) : isLimitedMode && !analytics?.revenue ? (
-                                    <span className="text-amber-500 text-lg">⚠ Unavailable</span>
-                                ) : (
-                                    analytics?.revenue?.total !== undefined ? `$${analytics.revenue.total.toLocaleString()}` : '—'
-                                )}
-                            </h3>
-                        </div>
-                        <div className="p-2 bg-green-50 rounded-lg">
-                            <DollarSign className="w-5 h-5 text-green-600" />
+                {/* 2. Operational Metrics */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm relative group overflow-hidden hover:shadow-md transition-all">
+                    <div className="flex items-center justify-between mb-4 relative z-10">
+                        <h3 className="font-bold text-gray-500 uppercase tracking-wider text-sm">Active Identity</h3>
+                        <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                            <Users className="w-5 h-5" />
                         </div>
                     </div>
+                    <div className="relative z-10">
+                        <p className="text-4xl font-black text-gray-900 tracking-tight">
+                            {loading && health.activeUsers === 0 ? '...' : health.activeUsers.toLocaleString()}
+                        </p>
+                        <p className="mt-2 text-sm text-gray-500">Registered Accounts</p>
+                    </div>
+                    <Link to="/admin/users" className="absolute inset-0 z-20" aria-label="View Users" />
                 </div>
 
-                {/* 2. Active Users Card */}
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm transition-all hover:shadow-md">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-sm font-medium text-gray-500">Active Users</p>
-                            <h3 className="text-2xl font-bold text-gray-900 mt-2">
-                                {loading && !analytics ? (
-                                    <div className="h-8 w-16 bg-gray-100 rounded animate-pulse" />
-                                ) : isLimitedMode && !analytics?.users ? (
-                                    <span className="text-amber-500 text-lg">⚠ Unavailable</span>
-                                ) : (
-                                    analytics?.users?.active !== undefined ? analytics.users.active : '—'
-                                )}
-                            </h3>
-                            <div className="mt-1 flex items-center gap-1">
-                                <span className="text-xs text-gray-500">
-                                    of {loading && !analytics ? '...' : (analytics?.users?.total || '0')} total
-                                </span>
-                            </div>
-                        </div>
-                        <div className="p-2 bg-blue-50 rounded-lg">
-                            <Users className="w-5 h-5 text-blue-600" />
+                {/* 3. Security / Errors */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm relative group overflow-hidden hover:shadow-md transition-all">
+                    <div className="flex items-center justify-between mb-4 relative z-10">
+                        <h3 className="font-bold text-gray-500 uppercase tracking-wider text-sm">24h Critical Errors</h3>
+                        <div className={`p-2 rounded-lg ${health.errorCount24h > 0 ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-600'}`}>
+                            <ShieldCheck className="w-5 h-5" />
                         </div>
                     </div>
-                </div>
-
-                {/* 3. Feedback Card */}
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm transition-all hover:shadow-md cursor-pointer" onClick={() => navigate('/admin/feedback')}>
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-sm font-medium text-gray-500">New Feedback</p>
-                            <h3 className="text-2xl font-bold text-gray-900 mt-2">
-                                {loading && !analytics ? (
-                                    <div className="h-8 w-12 bg-gray-100 rounded animate-pulse" />
-                                ) : (
-                                    analytics?.feedback?.total || 0
-                                )}
-                            </h3>
-                            <p className="text-xs text-blue-600 mt-1 font-medium">View all &rarr;</p>
-                        </div>
-                        <div className="p-2 bg-indigo-50 rounded-lg">
-                            <MessageSquare className="w-5 h-5 text-indigo-600" />
-                        </div>
-                    </div>
-                </div>
-
-                {/* 4. System Health Card */}
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm transition-all hover:shadow-md cursor-pointer" onClick={() => navigate('/admin/errors')}>
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-sm font-medium text-gray-500">System Errors</p>
-                            <h3 className={`text-2xl font-bold mt-2 ${analytics?.errors?.recent > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                {loading && !analytics ? (
-                                    <div className="h-8 w-12 bg-gray-100 rounded animate-pulse" />
-                                ) : (
-                                    analytics?.errors?.recent || 0
-                                )}
-                            </h3>
-                            <p className="text-xs text-gray-500 mt-1">Last 24 hours</p>
-                        </div>
-                        <div className={`p-2 rounded-lg ${analytics?.errors?.recent > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
-                            <AlertTriangle className={`w-5 h-5 ${analytics?.errors?.recent > 0 ? 'text-red-600' : 'text-green-600'}`} />
-                        </div>
+                    <div className="relative z-10">
+                        <p className={`text-4xl font-black tracking-tight ${health.errorCount24h > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                            {health.errorCount24h}
+                        </p>
+                        <p className="mt-2 text-sm text-gray-500">Events requiring attention</p>
                     </div>
                 </div>
             </div>
 
-            {/* Growth Chart Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-lg font-bold text-gray-900">User Growth</h3>
-                        <div className="flex bg-gray-100 p-1 rounded-lg">
-                            {(['daily', 'weekly', 'monthly'] as const).map((p) => (
-                                <button
-                                    key={p}
-                                    onClick={() => setGrowthPeriod(p)}
-                                    className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${growthPeriod === p ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                                >
-                                    {p.charAt(0).toUpperCase() + p.slice(1)}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+            {/* Quick Actions (Navigation Hub) */}
+            <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <Lock className="w-5 h-5 text-gray-400" />
+                Management Console
+            </h2>
 
-                    <div className="h-[300px] w-full min-h-[300px] relative">
-                        {/* ALWAYS render container. Overlay states. */}
-                        {loading && (!growthDataState || growthDataState.length === 0) && (
-                            <div className="absolute inset-0 z-10 bg-white/50 flex items-center justify-center backdrop-blur-[1px]">
-                                <p className="text-gray-400 text-sm animate-pulse">Loading Growth Data...</p>
-                            </div>
-                        )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-                        {isLimitedMode && !loading && (!growthDataState || growthDataState.length === 0) && (
-                            <div className="absolute inset-0 z-10 bg-gray-50/50 flex flex-col items-center justify-center border border-dashed border-amber-200 rounded-lg">
-                                <ShieldAlert className="w-8 h-8 text-amber-400 mb-2" />
-                                <p className="text-amber-700 text-sm font-medium">Data Unavailable (Limited Mode)</p>
-                            </div>
-                        )}
-
-                        {!growthDataState || growthDataState.length === 0 ? (
-                            // Empty State (True Empty)
-                            !loading && !isLimitedMode && (
-                                <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                                    <TrendingUp className="w-8 h-8 text-gray-400 mb-2" />
-                                    <p className="text-gray-500 text-sm">No growth data yet</p>
-                                </div>
-                            )
-                        ) : (
-                            // Chart Renders
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={growthDataState}>
-                                    <defs>
-                                        <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.1} />
-                                            <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                                    <XAxis
-                                        dataKey="date"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fill: '#6b7280', fontSize: 12 }}
-                                        dy={10}
-                                    />
-                                    <YAxis
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fill: '#6b7280', fontSize: 12 }}
-                                    />
-                                    <Tooltip
-                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                    />
-                                    <Area
-                                        type="monotone"
-                                        dataKey="count"
-                                        stroke="#4f46e5"
-                                        strokeWidth={2}
-                                        fillOpacity={1}
-                                        fill="url(#colorUsers)"
-                                    />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        )}
-                    </div>
-                </div>
-
-                {/* Recent Users List */}
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-lg font-bold text-gray-900">Recent Sign-ups</h3>
-                        <button onClick={() => navigate('/admin/users')} className="text-sm text-indigo-600 font-medium hover:text-indigo-700">View All</button>
-                    </div>
-                    <div className="space-y-4">
-                        {loading && recentUsers.length === 0 && (
-                            [1, 2, 3].map(i => (
-                                <div key={i} className="flex items-center gap-3 pb-3 border-b border-gray-50">
-                                    <div className="w-8 h-8 rounded-full bg-gray-100 animate-pulse" />
-                                    <div className="flex-1 space-y-2">
-                                        <div className="h-3 w-24 bg-gray-100 rounded animate-pulse" />
-                                        <div className="h-2 w-16 bg-gray-100 rounded animate-pulse" />
-                                    </div>
-                                </div>
-                            ))
-                        )}
-
-                        {isLimitedMode && !loading && recentUsers.length === 0 && (
-                            <div className="p-4 bg-amber-50 rounded-lg border border-amber-100 text-center">
-                                <p className="text-amber-700 text-sm">Cannot load users (Network Blocked)</p>
-                            </div>
-                        )}
-
-                        {!loading && !isLimitedMode && recentUsers.length === 0 && (
-                            <p className="text-sm text-gray-500 text-center py-4">No recent users found.</p>
-                        )}
-
-                        {recentUsers.map((user) => (
-                            <div key={user.id} className="flex items-center gap-3 pb-3 border-b border-gray-50 last:border-0 last:pb-0">
-                                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">
-                                    {(user.email || 'U')[0].toUpperCase()}
-                                </div>
-                                <div className="overflow-hidden">
-                                    <p className="text-sm font-medium text-gray-900 truncate">{user.email || 'Unknown User'}</p>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                        <p className="text-xs text-gray-500">
-                                            {new Date(user.created_at).toLocaleDateString()}
-                                        </p>
-                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${user.sub_plan?.toLowerCase().includes('pro') ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'}`}>
-                                            {user.sub_plan || 'Free'}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-            {/* Broadcasts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-1 bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4">Send Broadcast</h3>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                            <input
-                                type="text"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                placeholder="e.g. Maintenance"
-                                value={broadcastForm.title}
-                                onChange={e => setBroadcastForm({ ...broadcastForm, title: e.target.value })}
-                            />
+                {/* Card 1: Analytics */}
+                <Link to="/admin/analytics" className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-indigo-500 hover:shadow-md transition-all flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                            <BarChart3 className="w-6 h-6" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
-                            <textarea
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none h-24 resize-none"
-                                placeholder="Enter alert message..."
-                                value={broadcastForm.message}
-                                onChange={e => setBroadcastForm({ ...broadcastForm, message: e.target.value })}
-                            />
+                            <h3 className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">Analytics & Revenue</h3>
+                            <p className="text-xs text-gray-500 mt-0.5">View financial reports and charts</p>
+                        </div>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 transform group-hover:translate-x-1 transition-all" />
+                </Link>
+
+                {/* Card 2: Broadcasts */}
+                <Link to="/admin/broadcasts" className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-indigo-500 hover:shadow-md transition-all flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-violet-50 text-violet-600 rounded-lg group-hover:bg-violet-600 group-hover:text-white transition-colors">
+                            <Radio className="w-6 h-6" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-                            <select
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none"
-                                value={broadcastForm.priority}
-                                onChange={e => setBroadcastForm({ ...broadcastForm, priority: e.target.value })}
-                            >
-                                <option value="INFO">Info (Blue)</option>
-                                <option value="WARNING">Warning (Orange)</option>
-                                <option value="CRITICAL">Critical (Red)</option>
-                            </select>
+                            <h3 className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">Broadcasts</h3>
+                            <p className="text-xs text-gray-500 mt-0.5">Send system-wide alerts</p>
                         </div>
-                        <button
-                            onClick={handleBroadcast}
-                            disabled={broadcastLoading}
-                            className="w-full bg-indigo-600 text-white font-bold py-2 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50 flex justify-center items-center gap-2"
-                        >
-                            {broadcastLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                            Send Broadcast
-                        </button>
                     </div>
-                </div>
+                    <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 transform group-hover:translate-x-1 transition-all" />
+                </Link>
 
-                <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4">Active Broadcasts</h3>
-                    <div className="space-y-3">
-                        {loading && broadcasts.length === 0 && (
-                            [1, 2].map(i => <div key={i} className="h-16 w-full bg-gray-50 rounded-lg animate-pulse" />)
-                        )}
-
-                        {isLimitedMode && !loading && broadcasts.length === 0 && (
-                            <div className="p-4 bg-amber-50 rounded-lg border border-amber-100 text-center">
-                                <p className="text-amber-700 text-sm">Cannot load broadcasts (Network Blocked)</p>
-                            </div>
-                        )}
-
-                        {!loading && !isLimitedMode && broadcasts.length === 0 && (
-                            <p className="text-sm text-gray-500">No active broadcasts.</p>
-                        )}
-
-                        {broadcasts.map((b) => (
-                            <div key={b.id} className="flex items-start justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        {b.priority === 'CRITICAL' && <AlertTriangle className="w-4 h-4 text-red-600" />}
-                                        {b.priority === 'WARNING' && <AlertTriangle className="w-4 h-4 text-orange-500" />}
-                                        {b.priority === 'INFO' && <MessageSquare className="w-4 h-4 text-blue-500" />}
-                                        <h4 className="font-bold text-gray-900 text-sm">{b.title}</h4>
-                                    </div>
-                                    <p className="text-sm text-gray-600 mt-1">{b.message}</p>
-                                    <p className="text-xs text-gray-400 mt-2">Sent: {new Date(b.created_at).toLocaleString()}</p>
-                                </div>
-                                <button
-                                    onClick={() => handleDeleteBroadcast(b.id)}
-                                    className="text-red-500 hover:text-red-700 p-1"
-                                    title="Delete Broadcast"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </div>
-                        ))}
+                {/* Card 3: Users */}
+                <Link to="/admin/users" className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-indigo-500 hover:shadow-md transition-all flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-fuchsia-50 text-fuchsia-600 rounded-lg group-hover:bg-fuchsia-600 group-hover:text-white transition-colors">
+                            <Users className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">User Management</h3>
+                            <p className="text-xs text-gray-500 mt-0.5">Search, edit, and support users</p>
+                        </div>
                     </div>
-                </div>
+                    <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 transform group-hover:translate-x-1 transition-all" />
+                </Link>
+
+                {/* External: Supabase */}
+                <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="group bg-gray-50 p-6 rounded-xl border border-gray-200 hover:bg-white hover:border-gray-400 transition-all flex items-center justify-between opacity-70 hover:opacity-100">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
+                            <ExternalLink className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-gray-900">Database Direct</h3>
+                            <p className="text-xs text-gray-500 mt-0.5">Open Supabase Console</p>
+                        </div>
+                    </div>
+                </a>
+
             </div>
         </div>
     )

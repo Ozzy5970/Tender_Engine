@@ -16,6 +16,8 @@ import Alerts from "@/pages/Alerts"
 import Templates from "@/pages/Templates"
 import Settings from "@/pages/Settings"
 import AdminDashboard from "@/pages/AdminDashboard"
+import AdminAnalytics from "@/pages/AdminAnalytics"
+import AdminBroadcasts from "@/pages/AdminBroadcasts"
 import AdminTemplates from "@/pages/AdminTemplates"
 import AdminTemplateHistory from "@/pages/AdminTemplateHistory"
 import AdminRevenue from "@/pages/AdminRevenue"
@@ -289,8 +291,12 @@ function App() {
             <Route path="terms" element={<Terms />} />
             <Route path="privacy" element={<Privacy />} />
 
-            {/* Admin Routes - Should be protected by Role Check Component in production */}
+            {/* Admin Routes */}
             <Route path="admin" element={<AdminDashboard />} />
+            <Route path="admin/analytics" element={<AdminAnalytics />} />
+            <Route path="admin/broadcasts" element={<AdminBroadcasts />} />
+
+            {/* Legacy/Other Admin Routes */}
             <Route path="admin/revenue" element={<AdminRevenue />} />
             <Route path="admin/revenue/history" element={<AdminRevenueHistory />} />
             <Route path="admin/subscriptions" element={<AdminSubscriptions />} />
