@@ -3,90 +3,95 @@ import { Link } from "react-router-dom"
 import { AdminService } from "@/services/api"
 import { resilientStorage } from "@/lib/resilientStorage"
 import {
-    ShieldCheck, AlertTriangle, Users, Activity,
+    AlertTriangle, Users, Activity,
     BarChart3, Radio, ArrowRight, CheckCircle2,
-    ServerCrash, Lock, ExternalLink
+    ServerCrash, Lock, ExternalLink, DollarSign
 } from 'lucide-react'
 
-// Minimal types for the v1 dashboard
-interface SystemHealth {
-    status: 'HEALTHY' | 'DEGRADED' | 'CRITICAL'
+// Single Source of Truth from Server RPC
+interface AdminSnapshot {
     totalUsers: number
-    errorCount24h: number
-    securityEvents: number
+    activeUsers: number
+    totalRevenue: number
+    systemHealth: {
+        status: 'HEALTHY' | 'DEGRADED' | 'CRITICAL'
+        errorCount24h: number
+    }
+    snapshotTimestamp: number // Server time
 }
 
-// Default fallback state (Safe Mode)
-const DEFAULT_HEALTH: SystemHealth = {
-    status: 'HEALTHY', // Optimistic default
+// Default Fallback
+const DEFAULT_SNAPSHOT: AdminSnapshot = {
     totalUsers: 0,
-    errorCount24h: 0,
-    securityEvents: 0
+    activeUsers: 0,
+    totalRevenue: 0,
+    systemHealth: {
+        status: 'HEALTHY',
+        errorCount24h: 0
+    },
+    snapshotTimestamp: 0
 }
 
 export default function AdminDashboard() {
-    // const navigate = useNavigate() // REMOVED: Unused
-    const [health, setHealth] = useState<SystemHealth>(DEFAULT_HEALTH)
+    const [snapshot, setSnapshot] = useState<AdminSnapshot>(DEFAULT_SNAPSHOT)
 
-
+    // Strict State Machine: 'LOADING' | 'READY' | 'DEGRADED_VIEW' | 'ERROR'
+    const [status, setStatus] = useState<'LOADING' | 'READY' | 'DEGRADED_VIEW' | 'ERROR'>('LOADING')
     const [lastUpdated, setLastUpdated] = useState<number | null>(null)
 
     useEffect(() => {
-        loadSystemHealth()
+        loadDashboardSnapshot()
     }, [])
 
-    const loadSystemHealth = async () => {
+    const loadDashboardSnapshot = async () => {
+        // 1. Optimistic Cache Load
         try {
-            // 1. Check cache first for instant load (ResilientStorage)
-            const cachedStr = await resilientStorage.getItem('admin_health_v2') // Bumped version
+            const cachedStr = await resilientStorage.getItem('admin_snapshot_v1')
             if (cachedStr) {
-                try {
-                    const cached = JSON.parse(cachedStr)
-                    // cached structure: { data: SystemHealth, timestamp: number }
-                    if (cached.data && cached.timestamp) {
-                        setHealth(cached.data)
-                        setLastUpdated(cached.timestamp)
-                    }
-                } catch (e) {
-                    console.warn("Corrupt cache", e)
+                const cached = JSON.parse(cachedStr)
+                if (cached.data && cached.timestamp) {
+                    setSnapshot(cached.data)
+                    setLastUpdated(cached.timestamp)
+                    setStatus('READY')
                 }
             }
+        } catch (e) {
+            console.warn("Corrupt cache", e)
+        }
 
-            // 2. Fetch fresh
-            // fetching getStats, but treating it as a lightweight health check
-            // In a real optimized endpoint, you'd want a specific /health-check RPC
-            const response = await AdminService.getStats()
-            const data = response.data
+        // 2. Mandatory Server Verification (Single RPC)
+        try {
+            const { data, error } = await AdminService.getDashboardSnapshot()
 
-            if (!data) throw new Error("No data returned from admin stats")
+            if (error) throw new Error(String(error))
+            if (!data) throw new Error("Empty snapshot returned")
 
-            // Map the heavy data to our simple View Model
-            // Support both camelCase (new RPC) and snake_case (old RPC) for robustness
-            const freshHealth: SystemHealth = {
-                status: (data.errorCount24h > 10) ? 'CRITICAL' : (data.errorCount24h > 0) ? 'DEGRADED' : 'HEALTHY',
-                totalUsers: data.totalUsers ?? data.total_users ?? 0,
-                errorCount24h: data.errorCount24h ?? data.error_count ?? 0,
-                securityEvents: 0
-            }
-
-            // 3. Update State & Cache
-            setHealth(freshHealth)
+            // Update State with Authoritative Server Data
+            setSnapshot(data)
             setLastUpdated(Date.now())
-            await resilientStorage.setItem('admin_health_v2', JSON.stringify({
-                data: freshHealth,
+            setStatus('READY')
+
+            // Update Cache
+            await resilientStorage.setItem('admin_snapshot_v1', JSON.stringify({
+                data,
                 timestamp: Date.now()
             }))
 
-
         } catch (error) {
-            console.warn("Health check failed, using fallback/cache", error)
-            // If we have data (from cache step above) or default, we just go to limited mode
-            // We rely on the initial cache load to have populated 'health' if available
-            // setIsLimited(true) -> Handled by status
+            console.warn("Snapshot fetch failed", error)
+
+            // Resilience Logic
+            if (status === 'READY') {
+                // Fallback to cache if available
+                setStatus('DEGRADED_VIEW')
+            } else {
+                // Fatal if no cache and no network
+                setStatus('ERROR')
+            }
         }
     }
 
-    // Status Helpers
+    // Helpers
     const getStatusColor = (s: string) => {
         if (s === 'CRITICAL') return 'bg-red-50 text-red-700 border-red-200'
         if (s === 'DEGRADED') return 'bg-orange-50 text-orange-700 border-orange-200'
@@ -99,15 +104,46 @@ export default function AdminDashboard() {
         return <CheckCircle2 className="w-6 h-6" />
     }
 
+    if (status === 'LOADING') {
+        return (
+            <div className="flex h-screen items-center justify-center bg-gray-50">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="h-12 w-12 rounded-xl bg-indigo-600 animate-pulse" />
+                    <p className="text-gray-400 font-medium">Loading Dashboard Snapshot...</p>
+                </div>
+            </div>
+        )
+    }
+
+    if (status === 'ERROR') {
+        return (
+            <div className="flex h-screen items-center justify-center bg-gray-50">
+                <div className="text-center max-w-md p-8 bg-white rounded-2xl shadow-sm border border-gray-200">
+                    <div className="inline-flex p-4 bg-red-50 text-red-600 rounded-full mb-4">
+                        <ServerCrash className="w-8 h-8" />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-900">System Unreachable</h2>
+                    <p className="text-gray-500 mt-2 mb-6">Unable to retrieve dashboard snapshot. Please check your internet connection.</p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition w-full"
+                    >
+                        Retry Connection
+                    </button>
+                </div>
+            </div>
+        )
+    }
+
     return (
-        <div className="p-8 max-w-7xl mx-auto">
+        <div className="p-8 max-w-7xl mx-auto font-sans">
             {/* Header */}
-            <div className="mb-10 flex items-end justify-between">
+            <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900 tracking-tight">System Overview</h1>
                     <p className="text-gray-500 mt-2 flex items-center gap-2">
                         Admin Console
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-mono font-bold">v1.2</span>
+                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-mono font-bold">v2.0 (Snapshot)</span>
                     </p>
                 </div>
 
@@ -115,10 +151,10 @@ export default function AdminDashboard() {
                     <div className="px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-amber-800 text-sm font-medium animate-in fade-in slide-in-from-top-2">
                         <AlertTriangle className="w-4 h-4" />
                         <div className="flex flex-col md:flex-row md:items-center gap-1">
-                            <span>Limited Connection (Using Cached Data)</span>
+                            <span>Limited Connection (Using Cached Snapshot)</span>
                             {lastUpdated && (
                                 <span className="text-amber-700 opacity-80 text-xs md:text-sm">
-                                    • Last updated {new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    • {new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                             )}
                         </div>
@@ -127,25 +163,20 @@ export default function AdminDashboard() {
             </div>
 
             {/* Main Status Grid (The "Traffic Lights") */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
 
                 {/* 1. Global System Health */}
-                <div className={`p-6 rounded-2xl border-2 ${getStatusColor(health.status)} transition-all relative overflow-hidden group`}>
+                <div className={`p-6 rounded-2xl border-2 ${getStatusColor(snapshot.systemHealth.status)} transition-all relative overflow-hidden group col-span-1 md:col-span-1`}>
                     <div className="relative z-10">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="font-bold uppercase tracking-wider text-sm opacity-80">System Status</h3>
-                            {getStatusIcon(health.status)}
+                            {getStatusIcon(snapshot.systemHealth.status)}
                         </div>
-                        <p className="text-4xl font-black tracking-tight">{health.status}</p>
-                        <p className="mt-2 text-sm opacity-90 font-medium">
-                            {health.status === 'HEALTHY' ? 'All systems operational' : 'Critical errors detected'}
-                        </p>
+                        <p className="text-2xl font-black tracking-tight">{snapshot.systemHealth.status}</p>
                     </div>
-                    {/* Decorative bg icon */}
-                    <Activity className="absolute -right-6 -bottom-6 w-32 h-32 opacity-10 rotate-12" />
                 </div>
 
-                {/* 2. Operational Metrics */}
+                {/* 2. Total Users */}
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm relative group overflow-hidden hover:shadow-md transition-all">
                     <div className="flex items-center justify-between mb-4 relative z-10">
                         <h3 className="font-bold text-gray-500 uppercase tracking-wider text-sm">Total Users</h3>
@@ -155,26 +186,43 @@ export default function AdminDashboard() {
                     </div>
                     <div className="relative z-10">
                         <p className="text-4xl font-black text-gray-900 tracking-tight">
-                            {health.totalUsers.toLocaleString()}
+                            {snapshot.totalUsers.toLocaleString()}
                         </p>
                         <p className="mt-2 text-sm text-gray-500">Registered Accounts</p>
                     </div>
                     <Link to="/admin/users" className="absolute inset-0 z-20" aria-label="View Users" />
                 </div>
 
-                {/* 3. Security / Errors */}
+                {/* 3. Total Revenue (Paid) */}
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm relative group overflow-hidden hover:shadow-md transition-all">
                     <div className="flex items-center justify-between mb-4 relative z-10">
-                        <h3 className="font-bold text-gray-500 uppercase tracking-wider text-sm">24h Critical Errors</h3>
-                        <div className={`p-2 rounded-lg ${health.errorCount24h > 0 ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-600'}`}>
-                            <ShieldCheck className="w-5 h-5" />
+                        <h3 className="font-bold text-gray-500 uppercase tracking-wider text-sm">Revenue (Paid)</h3>
+                        <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                            <DollarSign className="w-5 h-5" />
                         </div>
                     </div>
                     <div className="relative z-10">
-                        <p className={`text-4xl font-black tracking-tight ${health.errorCount24h > 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                            {health.errorCount24h}
+                        <p className="text-4xl font-black text-gray-900 tracking-tight">
+                            {new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(snapshot.totalRevenue)}
                         </p>
-                        <p className="mt-2 text-sm text-gray-500">Events requiring attention</p>
+                        <p className="mt-2 text-sm text-gray-500">Confirmed Subscriptions</p>
+                    </div>
+                    <Link to="/admin/analytics" className="absolute inset-0 z-20" aria-label="View Revenue" />
+                </div>
+
+                {/* 4. Active Users (30d) */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm relative group overflow-hidden hover:shadow-md transition-all">
+                    <div className="flex items-center justify-between mb-4 relative z-10">
+                        <h3 className="font-bold text-gray-500 uppercase tracking-wider text-sm">Active Users</h3>
+                        <div className="p-2 bg-violet-50 text-violet-600 rounded-lg">
+                            <Activity className="w-5 h-5" />
+                        </div>
+                    </div>
+                    <div className="relative z-10">
+                        <p className="text-4xl font-black text-gray-900 tracking-tight">
+                            {snapshot.activeUsers.toLocaleString()}
+                        </p>
+                        <p className="mt-2 text-sm text-gray-500">Active in last 30 days</p>
                     </div>
                 </div>
             </div>

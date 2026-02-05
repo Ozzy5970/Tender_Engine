@@ -546,6 +546,21 @@ export const TemplateService = {
 }
 
 export const AdminService = {
+    async getDashboardSnapshot() {
+        return handleRequest<{
+            totalUsers: number
+            activeUsers: number
+            totalRevenue: number
+            systemHealth: {
+                status: 'HEALTHY' | 'DEGRADED' | 'CRITICAL'
+                errorCount24h: number
+            }
+            snapshotTimestamp: number
+        }>(
+            supabase.rpc('get_admin_dashboard_snapshot')
+        )
+    },
+
     async getStats() {
         const response = await handleRequest<any>(
             supabase.rpc('get_admin_stats')
