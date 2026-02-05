@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react"
 import { AdminService } from "@/services/api"
-import { Search, Loader2, ArrowUpDown, MoreHorizontal, FileText, CheckCircle } from "lucide-react"
+import { Search, Loader2, ArrowUpDown, FileText, CheckCircle } from "lucide-react"
 import { motion } from "framer-motion"
 
 export default function AdminUsers() {
@@ -77,7 +77,7 @@ export default function AdminUsers() {
                             <th className="px-6 py-4">Identity & Profile</th>
                             <th className="px-6 py-4">Tier & Verification</th>
                             <th className="px-6 py-4">Engagement</th>
-                            <th className="px-6 py-4 text-right">Actions</th>
+
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -124,9 +124,7 @@ export default function AdminUsers() {
                                                     }`}>
                                                     {user.sub_plan || 'Free'}
                                                 </span>
-                                                <span className={`text-[10px] font-medium ${user.sub_status === 'active' ? 'text-green-600' : 'text-gray-400'}`}>
-                                                    {user.sub_status === 'active' ? '● Active' : '○ Inactive'}
-                                                </span>
+
                                             </div>
                                             <div className="flex items-center gap-3 text-[11px] text-gray-400">
                                                 <div className="flex items-center gap-1">
@@ -152,15 +150,7 @@ export default function AdminUsers() {
                                         </div>
                                     </td>
 
-                                    <td className="px-6 py-4 text-right">
-                                        <button
-                                            onClick={() => alert("Detailed Client Profile view is coming in the next Beta release.")}
-                                            className="text-gray-400 hover:text-blue-600 p-2 rounded-full hover:bg-blue-50 transition-colors"
-                                            title="View Details"
-                                        >
-                                            <MoreHorizontal className="w-5 h-5" />
-                                        </button>
-                                    </td>
+
                                 </motion.tr>
                             ))
                         )}
