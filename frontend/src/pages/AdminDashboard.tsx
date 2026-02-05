@@ -11,7 +11,7 @@ import {
 // Minimal types for the v1 dashboard
 interface SystemHealth {
     status: 'HEALTHY' | 'DEGRADED' | 'CRITICAL'
-    activeUsers: number
+    totalUsers: number
     errorCount24h: number
     securityEvents: number
 }
@@ -19,7 +19,7 @@ interface SystemHealth {
 // Default fallback state (Safe Mode)
 const DEFAULT_HEALTH: SystemHealth = {
     status: 'HEALTHY', // Optimistic default
-    activeUsers: 0,
+    totalUsers: 0,
     errorCount24h: 0,
     securityEvents: 0
 }
@@ -39,7 +39,7 @@ export default function AdminDashboard() {
     const loadSystemHealth = async () => {
         try {
             // 1. Check cache first for instant load (ResilientStorage)
-            const cachedStr = await resilientStorage.getItem('admin_health_v1')
+            const cachedStr = await resilientStorage.getItem('admin_health_v2') // Bumped version
             if (cachedStr) {
                 try {
                     const cached = JSON.parse(cachedStr)
@@ -57,20 +57,24 @@ export default function AdminDashboard() {
             // 2. Fetch fresh
             // fetching getStats, but treating it as a lightweight health check
             // In a real optimized endpoint, you'd want a specific /health-check RPC
-            const data = await AdminService.getStats() as any
+            const response = await AdminService.getStats()
+            const data = response.data
+
+            if (!data) throw new Error("No data returned from admin stats")
 
             // Map the heavy data to our simple View Model
+            // New RPC returns camelCase keys directly: totalUsers, errorCount24h
             const freshHealth: SystemHealth = {
-                status: data.errorCount > 10 ? 'CRITICAL' : data.errorCount > 0 ? 'DEGRADED' : 'HEALTHY',
-                activeUsers: data.totalUsers || 0, // Using total users as proxy for now
-                errorCount24h: data.errorCount || 0,
+                status: (data.errorCount24h > 10) ? 'CRITICAL' : (data.errorCount24h > 0) ? 'DEGRADED' : 'HEALTHY',
+                totalUsers: data.totalUsers || 0,
+                errorCount24h: data.errorCount24h || 0,
                 securityEvents: 0 // Placeholder until explicit endpoint exists
             }
 
             // 3. Update State & Cache
             setHealth(freshHealth)
             setLastUpdated(Date.now())
-            await resilientStorage.setItem('admin_health_v1', JSON.stringify({
+            await resilientStorage.setItem('admin_health_v2', JSON.stringify({
                 data: freshHealth,
                 timestamp: Date.now()
             }))
@@ -148,14 +152,14 @@ export default function AdminDashboard() {
                 {/* 2. Operational Metrics */}
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm relative group overflow-hidden hover:shadow-md transition-all">
                     <div className="flex items-center justify-between mb-4 relative z-10">
-                        <h3 className="font-bold text-gray-500 uppercase tracking-wider text-sm">Active Identity</h3>
+                        <h3 className="font-bold text-gray-500 uppercase tracking-wider text-sm">Total Users</h3>
                         <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
                             <Users className="w-5 h-5" />
                         </div>
                     </div>
                     <div className="relative z-10">
                         <p className="text-4xl font-black text-gray-900 tracking-tight">
-                            {loading && health.activeUsers === 0 ? '...' : health.activeUsers.toLocaleString()}
+                            {loading && health.totalUsers === 0 ? '...' : health.totalUsers.toLocaleString()}
                         </p>
                         <p className="mt-2 text-sm text-gray-500">Registered Accounts</p>
                     </div>

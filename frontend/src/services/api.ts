@@ -547,7 +547,7 @@ export const TemplateService = {
 
 export const AdminService = {
     async getStats() {
-        return handleRequest(
+        return handleRequest<any>(
             supabase.rpc('get_admin_stats')
         )
     },
