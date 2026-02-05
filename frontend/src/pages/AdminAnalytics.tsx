@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { AdminService } from "@/services/api"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { DollarSign, TrendingUp, Users, Calendar } from 'lucide-react'
+import { DollarSign, TrendingUp, Users } from 'lucide-react'
 
 export default function AdminAnalytics() {
     const [data, setData] = useState<any>(null)
