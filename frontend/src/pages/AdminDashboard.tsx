@@ -63,12 +63,12 @@ export default function AdminDashboard() {
             if (!data) throw new Error("No data returned from admin stats")
 
             // Map the heavy data to our simple View Model
-            // New RPC returns camelCase keys directly: totalUsers, errorCount24h
+            // Support both camelCase (new RPC) and snake_case (old RPC) for robustness
             const freshHealth: SystemHealth = {
                 status: (data.errorCount24h > 10) ? 'CRITICAL' : (data.errorCount24h > 0) ? 'DEGRADED' : 'HEALTHY',
-                totalUsers: data.totalUsers || 0,
-                errorCount24h: data.errorCount24h || 0,
-                securityEvents: 0 // Placeholder until explicit endpoint exists
+                totalUsers: data.totalUsers ?? data.total_users ?? 0,
+                errorCount24h: data.errorCount24h ?? data.error_count ?? 0,
+                securityEvents: 0
             }
 
             // 3. Update State & Cache
