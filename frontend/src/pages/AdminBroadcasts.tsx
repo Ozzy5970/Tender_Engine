@@ -20,8 +20,8 @@ export default function AdminBroadcasts() {
     const loadBroadcasts = async () => {
         try {
             setLoading(true)
-            const data = await AdminService.getBroadcasts()
-            setBroadcasts(data || [])
+            const { data } = await AdminService.getBroadcasts()
+            setBroadcasts((data as any[]) || [])
         } catch (error) {
             console.error("Failed to load broadcasts", error)
         } finally {
@@ -35,7 +35,7 @@ export default function AdminBroadcasts() {
 
         setSending(true)
         try {
-            await AdminService.createBroadcast({ title, message, priority })
+            await AdminService.broadcast(title, message, priority as 'INFO' | 'WARNING' | 'CRITICAL')
             setTitle('')
             setMessage('')
             setPriority('INFO')
@@ -96,8 +96,8 @@ export default function AdminBroadcasts() {
                                 broadcasts.map(b => (
                                     <div key={b.id} className="flex items-start gap-4 p-4 border border-gray-100 rounded-lg hover:border-gray-200 transition-colors">
                                         <div className={`mt-1 p-2 rounded-lg ${b.priority === 'CRITICAL' ? 'bg-red-100 text-red-600' :
-                                                b.priority === 'WARNING' ? 'bg-orange-100 text-orange-600' :
-                                                    'bg-blue-100 text-blue-600'
+                                            b.priority === 'WARNING' ? 'bg-orange-100 text-orange-600' :
+                                                'bg-blue-100 text-blue-600'
                                             }`}>
                                             <AlertTriangle className="w-5 h-5" />
                                         </div>
@@ -109,8 +109,8 @@ export default function AdminBroadcasts() {
                                             <p className="text-gray-600 mt-1 text-sm">{b.message}</p>
                                             <div className="mt-3 flex items-center gap-2">
                                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${b.priority === 'CRITICAL' ? 'bg-red-50 text-red-600 border-red-100' :
-                                                        b.priority === 'WARNING' ? 'bg-orange-50 text-orange-600 border-orange-100' :
-                                                            'bg-blue-50 text-blue-600 border-blue-100'
+                                                    b.priority === 'WARNING' ? 'bg-orange-50 text-orange-600 border-orange-100' :
+                                                        'bg-blue-50 text-blue-600 border-blue-100'
                                                     }`}>
                                                     {b.priority}
                                                 </span>
@@ -165,8 +165,8 @@ export default function AdminBroadcasts() {
                                                 type="button"
                                                 onClick={() => setPriority(p)}
                                                 className={`py-3 px-4 rounded-lg border text-sm font-bold transition-all ${priority === p
-                                                        ? 'ring-2 ring-indigo-600 border-transparent bg-indigo-50 text-indigo-700'
-                                                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                                                    ? 'ring-2 ring-indigo-600 border-transparent bg-indigo-50 text-indigo-700'
+                                                    : 'border-gray-200 text-gray-500 hover:border-gray-300'
                                                     }`}
                                             >
                                                 {p}
