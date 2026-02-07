@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from "react-router-dom"
 import { AdminService } from "@/services/api"
 import { resilientStorage } from "@/lib/resilientStorage"
+import { supabase } from "@/lib/supabase"
 import {
     AlertTriangle, Users, Activity,
     BarChart3, Radio, ArrowRight, CheckCircle2,
@@ -12,7 +13,7 @@ import {
 interface AdminSnapshot {
     totalUsers: number
     activeUsers: number
-    totalRevenue: number
+    lifetimeRevenuePaid: number
     systemHealth: {
         status: 'HEALTHY' | 'DEGRADED' | 'CRITICAL'
         errorCount24h: number
@@ -24,7 +25,7 @@ interface AdminSnapshot {
 const DEFAULT_SNAPSHOT: AdminSnapshot = {
     totalUsers: 0,
     activeUsers: 0,
-    totalRevenue: 0,
+    lifetimeRevenuePaid: 0,
     systemHealth: {
         status: 'HEALTHY',
         errorCount24h: 0
@@ -41,7 +42,29 @@ export default function AdminDashboard() {
 
     useEffect(() => {
         loadDashboardSnapshot()
+        runDebug()
     }, [])
+
+    const [debugData, setDebugData] = useState<any>(null)
+    const runDebug = async () => {
+        const res: any = {}
+        try {
+            const { data: { user } } = await supabase.auth.getUser()
+            res.userId = user?.id
+
+            if (user?.id) {
+                const { data: p } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
+                res.isAdminProfile = p?.is_admin
+
+                const { data: a } = await supabase.from('admins').select('id').eq('id', user.id).single()
+                res.isAdminTable = !!a
+
+                const { data, error } = await supabase.rpc('get_admin_dashboard_snapshot')
+                res.rpcResult = { data, error }
+            }
+        } catch (e: any) { res.error = e.message }
+        setDebugData(res)
+    }
 
     const loadDashboardSnapshot = async () => {
         // 1. Optimistic Cache Load
@@ -162,6 +185,23 @@ export default function AdminDashboard() {
                 )}
             </div>
 
+            {/* TEMP DEBUG CARD */}
+            {debugData && (
+                <div className="mb-8 p-4 bg-gray-900 text-green-400 rounded-xl font-mono text-xs overflow-auto">
+                    <h3 className="font-bold text-white mb-2 uppercase">Dev Debug Authorization</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <p>User ID: {debugData.userId}</p>
+                            <p>Profile is_admin: {String(debugData.isAdminProfile)}</p>
+                            <p>Admins Table Row: {String(debugData.isAdminTable)}</p>
+                        </div>
+                        <div>
+                            <p>RPC Result: {JSON.stringify(debugData.rpcResult)}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Main Status Grid (The "Traffic Lights") */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
 
@@ -203,7 +243,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="relative z-10">
                         <p className="text-4xl font-black text-gray-900 tracking-tight">
-                            {new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(snapshot.totalRevenue)}
+                            {new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(snapshot.lifetimeRevenuePaid)}
                         </p>
                         <p className="mt-2 text-sm text-gray-500">Confirmed Subscriptions</p>
                     </div>

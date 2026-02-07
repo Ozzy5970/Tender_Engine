@@ -547,20 +547,32 @@ export const TemplateService = {
 
 export const AdminService = {
     async getDashboardSnapshot() {
-        return handleRequest<{
+        const response = await handleRequest<any>(
+            supabase.rpc('get_admin_dashboard_snapshot')
+        )
+
+        // Normalization Fallback (One-Release Compat)
+        // If RPC returns old 'totalRevenue', map it to 'lifetimeRevenuePaid'
+        if (response.data) {
+            const raw = response.data
+            // Cast to unknown first to avoid TS error during transition
+            const anyData = raw as any
+            if (anyData.totalRevenue !== undefined && anyData.lifetimeRevenuePaid === undefined) {
+                anyData.lifetimeRevenuePaid = anyData.totalRevenue
+            }
+        }
+
+        return response as ApiResponse<{
             totalUsers: number
             activeUsers: number
-            totalRevenue: number
+            lifetimeRevenuePaid: number
             systemHealth: {
                 status: 'HEALTHY' | 'DEGRADED' | 'CRITICAL'
                 errorCount24h: number
             }
             snapshotTimestamp: number
-        }>(
-            supabase.rpc('get_admin_dashboard_snapshot')
-        )
+        }>
     },
-
     async getStats() {
         const response = await handleRequest<any>(
             supabase.rpc('get_admin_stats')

@@ -29,6 +29,7 @@ import AdminErrors from "@/pages/AdminErrors"
 import Pricing from "@/pages/Pricing"
 import Terms from "@/pages/Terms"
 import Privacy from "@/pages/Privacy"
+import AdminDebug from "@/pages/AdminDebug"
 
 // Simple Protected Route wrapper
 // Simple Protected Route wrapper
@@ -295,6 +296,7 @@ function App() {
             <Route path="admin" element={<AdminDashboard />} />
             <Route path="admin/analytics" element={<AdminAnalytics />} />
             <Route path="admin/broadcasts" element={<AdminBroadcasts />} />
+            <Route path="admin/debug" element={<AdminDebug />} />
 
             {/* Legacy/Other Admin Routes */}
             <Route path="admin/revenue" element={<AdminRevenue />} />

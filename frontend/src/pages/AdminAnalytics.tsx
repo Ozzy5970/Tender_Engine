@@ -49,7 +49,7 @@ export default function AdminAnalytics() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-gray-500 font-medium text-sm">MRR (Active)</h3>
+                        <h3 className="text-gray-500 font-medium text-sm">MRR (Active Subscriptions)</h3>
                         <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
                             <DollarSign className="w-5 h-5" />
                         </div>
