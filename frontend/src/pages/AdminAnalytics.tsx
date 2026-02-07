@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react'
 import { AdminService } from "@/services/api"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { DollarSign, TrendingUp, Users } from 'lucide-react'
+import type { AdminAnalyticsMetrics } from "@/types/api"
 
 export default function AdminAnalytics() {
-    const [data, setData] = useState<any>(null)
+    const [data, setData] = useState<AdminAnalyticsMetrics | null>(null)
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -12,7 +13,7 @@ export default function AdminAnalytics() {
             try {
                 // In a real app, you might want to cache this too, but for analytics, 
                 // fresh data is usually preferred over instant load.
-                const analyticsData = await AdminService.getAnalytics()
+                const { data: analyticsData } = await AdminService.getAnalytics()
                 setData(analyticsData)
             } catch (error) {
                 console.error("Failed to load analytics", error)
@@ -28,7 +29,7 @@ export default function AdminAnalytics() {
             <div className="p-8 max-w-7xl mx-auto animate-pulse">
                 <div className="h-8 w-48 bg-gray-200 rounded mb-8" />
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    {[1, 2, 3].map(i => <div key={i} className="h-32 bg-gray-100 rounded-xl" />)}
+                    {[1, 2].map(i => <div key={i} className="h-32 bg-gray-100 rounded-xl" />)}
                 </div>
                 <div className="h-96 bg-gray-100 rounded-xl" />
             </div>
@@ -45,17 +46,19 @@ export default function AdminAnalytics() {
             </header>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-gray-500 font-medium text-sm">Total Revenue</h3>
+                        <h3 className="text-gray-500 font-medium text-sm">MRR (Active)</h3>
                         <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
                             <DollarSign className="w-5 h-5" />
                         </div>
                     </div>
-                    <p className="text-3xl font-bold text-gray-900">{data.totalRevenue?.toLocaleString()}</p>
+                    <p className="text-3xl font-bold text-gray-900">
+                        {new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(data.mrrActiveSubscriptions)}
+                    </p>
                     <p className="text-xs text-emerald-600 mt-2 flex items-center font-medium">
-                        <TrendingUp className="w-3 h-3 mr-1" /> All time
+                        <TrendingUp className="w-3 h-3 mr-1" /> Monthly Recurring Revenue
                     </p>
                 </div>
 
@@ -66,19 +69,20 @@ export default function AdminAnalytics() {
                             <Users className="w-5 h-5" />
                         </div>
                     </div>
-                    <p className="text-3xl font-bold text-gray-900">{data.totalUsers?.toLocaleString()}</p>
-                    <p className="text-xs text-gray-400 mt-2">Active platform users</p>
+                    <p className="text-3xl font-bold text-gray-900">{data.activeSubscriptions?.toLocaleString()}</p>
+                    <p className="text-xs text-gray-400 mt-2">Paid accounts</p>
                 </div>
 
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                {/* Removed Hardcoded Growth Rate Card */}
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm opacity-50">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-gray-500 font-medium text-sm">Growth Rate</h3>
+                        <h3 className="text-gray-500 font-medium text-sm">Total Users</h3>
                         <div className="p-2 bg-violet-50 rounded-lg text-violet-600">
-                            <TrendingUp className="w-5 h-5" />
+                            <Users className="w-5 h-5" />
                         </div>
                     </div>
-                    <p className="text-3xl font-bold text-gray-900">+12%</p>
-                    <p className="text-xs text-gray-400 mt-2">Vs. last month</p>
+                    <p className="text-3xl font-bold text-gray-900">{data.totalUsers?.toLocaleString()}</p>
+                    <p className="text-xs text-gray-400 mt-2">All registered accounts</p>
                 </div>
             </div>
 
@@ -93,7 +97,7 @@ export default function AdminAnalytics() {
                 </div>
                 <div className="h-[400px]">
                     <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={data.chartData || []}>
+                        <AreaChart data={data.userGrowthSeries || []}>
                             <defs>
                                 <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.1} />
@@ -102,7 +106,7 @@ export default function AdminAnalytics() {
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                             <XAxis
-                                dataKey="date"
+                                dataKey="name"
                                 axisLine={false}
                                 tickLine={false}
                                 tick={{ fontSize: 12, fill: '#9ca3af' }}

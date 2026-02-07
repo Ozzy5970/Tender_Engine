@@ -619,9 +619,30 @@ export const AdminService = {
     },
 
     async getAnalytics() {
-        return handleRequest(
+        // Use normalized AdminAnalyticsMetrics
+        const response = await handleRequest<any>(
             supabase.rpc('get_admin_analytics')
         )
+
+        // Normalization Layer: Canonical snake_case -> camelCase
+        if (response.data) {
+            const raw = response.data
+            // Map RPC result to AdminAnalyticsMetrics
+            const normalized: import("@/types/api").AdminAnalyticsMetrics = {
+                // Map RPC fields to Clean Contract
+                lifetimeRevenuePaid: 0, // Not provided by this RPC, use default
+                mrrActiveSubscriptions: raw.mrr_active_subscriptions ?? raw.revenue ?? 0,
+                totalUsers: raw.total_users ?? 0,
+                activeUsers30d: 0, // Not provided by this RPC
+                activeSubscriptions: raw.active_subscriptions ?? raw.active_subs ?? 0,
+                errorCount24h: 0, // Not provided by this RPC
+                perfectComplianceUsers: raw.perfect_compliance_users ?? raw.perfect_score ?? 0,
+                userGrowthSeries: raw.user_growth_series ?? raw.user_growth ?? [],
+                complianceSplit: raw.compliance_split
+            }
+            response.data = normalized
+        }
+        return response as ApiResponse<import("@/types/api").AdminAnalyticsMetrics>
     },
 
     async getUserGrowth(period: 'daily' | 'weekly' | 'monthly') {

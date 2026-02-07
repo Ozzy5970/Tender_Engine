@@ -196,7 +196,7 @@ export default function AdminDashboard() {
                 {/* 3. Total Revenue (Paid) */}
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm relative group overflow-hidden hover:shadow-md transition-all">
                     <div className="flex items-center justify-between mb-4 relative z-10">
-                        <h3 className="font-bold text-gray-500 uppercase tracking-wider text-sm">Revenue (Paid)</h3>
+                        <h3 className="font-bold text-gray-500 uppercase tracking-wider text-sm">Lifetime Revenue (Paid)</h3>
                         <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
                             <DollarSign className="w-5 h-5" />
                         </div>
