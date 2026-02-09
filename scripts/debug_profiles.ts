@@ -10,7 +10,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 async function debug() {
-    const { data: profiles, error } = await supabase.from('profiles').select('id, email, company_name')
+    const { data: profiles, error } = await supabase.from('profiles').select('id, company_name')
     if (error) {
         console.error('Error fetching profiles:', error)
     } else {

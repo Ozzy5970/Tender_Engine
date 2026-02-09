@@ -49,11 +49,10 @@ export default function AdminDashboard() {
             res.userId = user?.id
 
             if (user?.id) {
-                const { data: p } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
-                res.isAdminProfile = p?.is_admin
-
-                const { data: a } = await supabase.from('admins').select('id').eq('id', user.id).single()
-                res.isAdminTable = !!a
+                // Secure Check: Use RPC instead of direct table access
+                const { data: isAdmin, error: adminErr } = await supabase.rpc('is_admin')
+                res.isAdminProfile = isAdmin ?? 'N/A' // Fallback helper
+                res.isAdminTable = isAdmin ?? false   // Simplified: if RPC says yes, we are admin
 
                 const { data, error } = await supabase.rpc('get_admin_dashboard_snapshot')
                 res.rpcResult = { data, error }
@@ -114,6 +113,36 @@ export default function AdminDashboard() {
     useEffect(() => {
         loadDashboardSnapshot()
         runDebug()
+
+        // MANUAL VERIFICATION TRIGGER
+        if (new URLSearchParams(window.location.search).get('verify') === 'true') {
+            const runFullVerification = async () => {
+                console.group("🚀 STARTING FULL RPC VERIFICATION 🚀")
+
+                try {
+                    console.log("1. get_admin_dashboard_snapshot")
+                    const snap = await supabase.rpc('get_admin_dashboard_snapshot')
+                    console.log("Result:", snap)
+
+                    console.log("2. get_admin_analytics")
+                    const analytics = await supabase.rpc('get_admin_analytics')
+                    console.log("Result:", analytics)
+
+                    console.log("3. get_admin_revenue_ledger (Last 365 Days)")
+                    const ledger = await supabase.rpc('get_admin_revenue_ledger', {
+                        p_period_start: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(),
+                        p_period_end: new Date().toISOString(),
+                        p_limit: 20,
+                        p_offset: 0
+                    })
+                    console.log("Result:", ledger)
+                } catch (e) {
+                    console.error("Verification Failed:", e)
+                }
+                console.groupEnd()
+            }
+            runFullVerification()
+        }
     }, [])
 
     // Helpers
