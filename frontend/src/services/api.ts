@@ -557,15 +557,24 @@ export const AdminService = {
             const raw = response.data
             // Cast to unknown first to avoid TS error during transition
             const anyData = raw as any
-            if (anyData.totalRevenue !== undefined && anyData.lifetimeRevenuePaid === undefined) {
-                anyData.lifetimeRevenuePaid = anyData.totalRevenue
+            // Normalization: Map RPC result to standardized interface
+            // If RPC is new (revenueLast30Days), use it.
+            // If RPC is old (totalRevenue), map it to revenueLast30Days for now to avoid crash.
+            if (anyData.revenueLast30Days !== undefined) {
+                // Good, new RPC
+            } else if (anyData.totalRevenue !== undefined) {
+                // Fallback for old RPC during migration
+                anyData.revenueLast30Days = anyData.totalRevenue
+            } else if (anyData.lifetimeRevenuePaid !== undefined) {
+                // Fallback for intermediate RPC
+                anyData.revenueLast30Days = anyData.lifetimeRevenuePaid
             }
         }
 
         return response as ApiResponse<{
             totalUsers: number
             activeUsers: number
-            lifetimeRevenuePaid: number
+            revenueLast30Days: number // CHANGED from lifetimeRevenuePaid
             systemHealth: {
                 status: 'HEALTHY' | 'DEGRADED' | 'CRITICAL'
                 errorCount24h: number
@@ -693,14 +702,15 @@ export const AdminService = {
     /**
      * Revenue & Subscriptions Analytics
      */
-    async getRevenueData(period: "7D" | "30D" | "90D" | "1Y", limit = 100, offset = 0) {
+    async getRevenueData(period: "7D" | "30D" | "90D" | "1Y" | "ALL", limit = 100, offset = 0) {
         // Calculate dates for RPC
         const endDate = new Date()
-        const startDate = new Date()
+        let startDate = new Date()
         if (period === "7D") startDate.setDate(endDate.getDate() - 7)
         if (period === "30D") startDate.setDate(endDate.getDate() - 30)
         if (period === "90D") startDate.setDate(endDate.getDate() - 90)
         if (period === "1Y") startDate.setFullYear(endDate.getFullYear() - 1)
+        if (period === "ALL") startDate = new Date(0) // 1970-01-01 (Effective Lifetime)
 
         // Call the new RPC
         const { data, error, status } = await handleRequest<any>(
@@ -714,15 +724,33 @@ export const AdminService = {
 
         if (error) return { data: null, error, status }
 
-        // Normalization: Ensure graphData exists for the UI
-        const transactions = data.transactions || []
+        const raw = data as any
 
-        // Aggregate for Graph (Client-side aggregation is fine for < 100 items, 
-        // but ideally we'd have a separate stats RPC. keeping it simple for now)
+        // 1. Normalize Totals (Snake vs Camel)
+        const totalRevenue = Number(raw.totalRevenue ?? raw.total_revenue ?? 0)
+        const totalCount = Number(raw.totalCount ?? raw.total_count ?? 0)
+        const rawTransactions = raw.transactions ?? raw.transactions_list ?? []
+
+        // 2. Normalize Transactions (Map RPC keys to UI keys)
+        const transactions = rawTransactions.map((t: any) => ({
+            id: t.id,
+            date: t.createdAt || t.created_at || t.date || new Date().toISOString(),
+            amount: Number(t.amount || 0),
+            currency: t.currency || 'ZAR',
+            status: t.status || 'pending',
+            plan: t.planName || t.plan_name || t.plan || 'Unknown',
+            userId: t.userId || t.user_id,
+            userEmail: t.email || t.user_email || t.userEmail || 'Unknown',
+            companyName: t.companyName || t.company_name || 'Unknown Company'
+        }))
+
+        // 3. Aggregate for Graph
         const graphMap = new Map()
         transactions.forEach((tx: any) => {
-            const dateKey = tx.date ? tx.date.split('T')[0] : new Date().toISOString().split('T')[0]
-            graphMap.set(dateKey, (graphMap.get(dateKey) || 0) + Number(tx.amount || 0))
+            if (tx.status === 'paid') { // Only graph paid
+                const dateKey = tx.date.split('T')[0]
+                graphMap.set(dateKey, (graphMap.get(dateKey) || 0) + tx.amount)
+            }
         })
 
         const graphData = Array.from(graphMap.entries())
@@ -731,8 +759,8 @@ export const AdminService = {
 
         return {
             data: {
-                totalRevenue: data.totalRevenue || 0,
-                totalCount: data.totalCount || 0,
+                totalRevenue,
+                totalCount,
                 graphData,
                 transactions
             },

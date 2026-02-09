@@ -51,13 +51,13 @@ interface RevenueData {
     transactions: Transaction[]
 }
 
-const CACHE_KEY_PREFIX = 'admin_revenue_ledger_'
-const CACHE_DURATION = 1000 * 60 * 5 // 5 minutes
+// const CACHE_KEY_PREFIX = 'admin_revenue_ledger_'
+// const CACHE_DURATION = 1000 * 60 * 5 // 5 minutes
 
 function AdminRevenueContent() {
     const navigate = useNavigate()
     const [loading, setLoading] = useState(true)
-    const [period, setPeriod] = useState<"7D" | "30D" | "90D" | "1Y">("30D")
+    const [period, setPeriod] = useState<"7D" | "30D" | "90D" | "1Y" | "ALL">("30D")
 
     // Pagination
     const [page, setPage] = useState(1)
@@ -76,41 +76,31 @@ function AdminRevenueContent() {
         loadData()
     }, [period, page])
 
-    const getCacheKey = () => `${CACHE_KEY_PREFIX}${period}_${page}`
+    // const getCacheKey = () => `${CACHE_KEY_PREFIX}${period}_${page}`
 
     const loadData = async () => {
         setLoading(true)
         setError(null)
         setIsStale(false)
 
-        const cacheKey = getCacheKey()
+        let hadCached = false // Local tracking
 
-        // 1. Try Cache First for Instant Load
+        /* TEMPORARILY DISABLED CACHE FOR RELIABILITY
+        const cacheKey = getCacheKey()
         const cached = localStorage.getItem(cacheKey)
         if (cached) {
             try {
                 const parsed = JSON.parse(cached)
                 if (Date.now() - parsed.timestamp < CACHE_DURATION) {
                     setData(parsed.data)
-                    setLoading(false)
-                    // We can choose to return here for "Offline First" feel, 
-                    // or continue to fetch for "Stale While Revalidate".
-                    // For admin data accuracy, let's fetch in background if we wanted, 
-                    // but standard practice here -> if cache valid, show it.
-                    // To ensure freshness, let's just use it as a fallback or if very fresh (< 30s).
-                    // For now: USE CACHE, but triggered re-fetch only if user hits refresh? 
-                    // Let's stick to the prompt's "resilience": 
-                    // "On timeout/network error: show cached data... do NOT show zeros."
-                    // So we should try network first, then fallback.
-                    // HOWEVER, to make it feel fast, we can set data from cache immediately, 
-                    // then update it.
-                    setData(parsed.data)
-                    setIsStale(true) // Mark as potentially stale until update
+                    // setIsStale(true) 
+                    hadCached = true
                 }
             } catch (e) {
                 localStorage.removeItem(cacheKey)
             }
         }
+        */
 
         try {
             const offset = (page - 1) * PAGE_SIZE
@@ -121,27 +111,23 @@ function AdminRevenueContent() {
 
             setData(res.data)
             setIsStale(false) // Data is fresh
+            hadCached = true
 
-            // Update Cache
+            // TEMPORARILY DISABLED CACHE WRITE
+            /*
             localStorage.setItem(cacheKey, JSON.stringify({
                 timestamp: Date.now(),
                 data: res.data
             }))
+            */
 
         } catch (e: any) {
             console.error("Failed to load revenue data", e)
 
-            // Fallback to cache if we haven't already
-            if (cached && data) {
-                // Already showing cached data, just ensure we know it's stale and show error
+            // Fallback logic using local variable
+            if (hadCached) {
                 setIsStale(true)
                 setError(`Network error. Showing cached data. (${e.message})`)
-            } else if (cached && !data) {
-                // Should have been set above, but just in case
-                const parsed = JSON.parse(cached)
-                setData(parsed.data)
-                setIsStale(true)
-                setError(`Network error. Showing cached data from ${new Date(parsed.timestamp).toLocaleTimeString()}.`)
             } else {
                 setError(e.message || "Failed to load data. Please check connection.")
                 // Set empty structure so UI doesn't crash
@@ -213,7 +199,7 @@ function AdminRevenueContent() {
                         Monthly Statements
                     </button>
                     <div className="bg-white border border-gray-200 rounded-md p-1 flex items-center shadow-sm">
-                        {(["7D", "30D", "90D", "1Y"] as const).map((p) => (
+                        {(["7D", "30D", "90D", "1Y", "ALL"] as const).map((p) => (
                             <button
                                 key={p}
                                 onClick={() => setPeriod(p)}

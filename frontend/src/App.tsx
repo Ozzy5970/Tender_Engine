@@ -45,6 +45,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+// Strict Admin Route wrapper
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAdmin, status } = useAuth()
+
+  if (status === 'LOADING') return <div className="h-screen flex items-center justify-center">Loading...</div>
+
+  // If not logged in, go to Auth
+  if (status === 'UNAUTHENTICATED') return <Navigate to="/auth" replace />
+
+  // If logged in but not admin, go to User Dashboard
+  if (!isAdmin) return <Navigate to="/" replace />
+
+  return <>{children}</>
+}
+
 function Dashboard() {
   const { companyName } = useAuth()
   const navigate = useNavigate()
@@ -292,21 +307,21 @@ function App() {
             <Route path="terms" element={<Terms />} />
             <Route path="privacy" element={<Privacy />} />
 
-            {/* Admin Routes */}
-            <Route path="admin" element={<AdminDashboard />} />
-            <Route path="admin/analytics" element={<AdminAnalytics />} />
-            <Route path="admin/broadcasts" element={<AdminBroadcasts />} />
-            <Route path="admin/debug" element={<AdminDebug />} />
+            {/* Admin Routes (Strictly Gated) */}
+            <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+            <Route path="admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
+            <Route path="admin/broadcasts" element={<AdminRoute><AdminBroadcasts /></AdminRoute>} />
+            <Route path="admin/debug" element={<AdminRoute><AdminDebug /></AdminRoute>} />
 
             {/* Legacy/Other Admin Routes */}
-            <Route path="admin/revenue" element={<AdminRevenue />} />
-            <Route path="admin/revenue/history" element={<AdminRevenueHistory />} />
-            <Route path="admin/subscriptions" element={<AdminSubscriptions />} />
-            <Route path="admin/users" element={<AdminUsers />} />
-            <Route path="admin/feedback" element={<AdminFeedback />} />
-            <Route path="admin/errors" element={<AdminErrors />} />
-            <Route path="admin/templates" element={<AdminTemplates />} />
-            <Route path="admin/templates/history" element={<AdminTemplateHistory />} />
+            <Route path="admin/revenue" element={<AdminRoute><AdminRevenue /></AdminRoute>} />
+            <Route path="admin/revenue/history" element={<AdminRoute><AdminRevenueHistory /></AdminRoute>} />
+            <Route path="admin/subscriptions" element={<AdminRoute><AdminSubscriptions /></AdminRoute>} />
+            <Route path="admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+            <Route path="admin/feedback" element={<AdminRoute><AdminFeedback /></AdminRoute>} />
+            <Route path="admin/errors" element={<AdminRoute><AdminErrors /></AdminRoute>} />
+            <Route path="admin/templates" element={<AdminRoute><AdminTemplates /></AdminRoute>} />
+            <Route path="admin/templates/history" element={<AdminRoute><AdminTemplateHistory /></AdminRoute>} />
           </Route>
         </Routes>
       </AuthProvider>

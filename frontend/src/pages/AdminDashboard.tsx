@@ -13,7 +13,7 @@ import {
 interface AdminSnapshot {
     totalUsers: number
     activeUsers: number
-    lifetimeRevenuePaid: number
+    revenueLast30Days: number // CHANGED
     systemHealth: {
         status: 'HEALTHY' | 'DEGRADED' | 'CRITICAL'
         errorCount24h: number
@@ -25,7 +25,7 @@ interface AdminSnapshot {
 const DEFAULT_SNAPSHOT: AdminSnapshot = {
     totalUsers: 0,
     activeUsers: 0,
-    lifetimeRevenuePaid: 0,
+    revenueLast30Days: 0,
     systemHealth: {
         status: 'HEALTHY',
         errorCount24h: 0
@@ -267,18 +267,18 @@ export default function AdminDashboard() {
                 {/* 3. Total Revenue (Paid) */}
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm relative group overflow-hidden hover:shadow-md transition-all">
                     <div className="flex items-center justify-between mb-4 relative z-10">
-                        <h3 className="font-bold text-gray-500 uppercase tracking-wider text-sm">Lifetime Revenue (Paid)</h3>
+                        <h3 className="font-bold text-gray-500 uppercase tracking-wider text-sm">Revenue (Last 30 Days)</h3>
                         <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
                             <DollarSign className="w-5 h-5" />
                         </div>
                     </div>
                     <div className="relative z-10">
                         <p className="text-4xl font-black text-gray-900 tracking-tight">
-                            {new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(snapshot.lifetimeRevenuePaid)}
+                            {new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(snapshot.revenueLast30Days)}
                         </p>
                         <p className="mt-2 text-sm text-gray-500">Confirmed Subscriptions</p>
                     </div>
-                    <Link to="/admin/analytics" className="absolute inset-0 z-20" aria-label="View Revenue" />
+                    <Link to="/admin/revenue" className="absolute inset-0 z-20" aria-label="View Revenue" />
                 </div>
 
                 {/* 4. Active Users (30d) */}
@@ -307,7 +307,7 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
                 {/* Card 1: Analytics */}
-                <Link to="/admin/analytics" className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-indigo-500 hover:shadow-md transition-all flex items-center justify-between">
+                <Link to="/admin/revenue" className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-indigo-500 hover:shadow-md transition-all flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                             <BarChart3 className="w-6 h-6" />
