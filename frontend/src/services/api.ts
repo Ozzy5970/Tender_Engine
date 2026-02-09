@@ -631,30 +631,10 @@ export const AdminService = {
     },
 
     async getAnalytics() {
-        // Use normalized AdminAnalyticsMetrics
-        const response = await handleRequest<any>(
+        // RPC now returns standardized camelCase contract directly
+        return await handleRequest<import("@/types/api").AdminAnalyticsMetrics>(
             supabase.rpc('get_admin_analytics')
         )
-
-        // Normalization Layer: Canonical snake_case -> camelCase
-        if (response.data) {
-            const raw = response.data
-            // Map RPC result to AdminAnalyticsMetrics
-            const normalized: import("@/types/api").AdminAnalyticsMetrics = {
-                // Map RPC fields to Clean Contract
-                lifetimeRevenuePaid: 0, // Not provided by this RPC, use default
-                mrrActiveSubscriptions: raw.mrr_active_subscriptions ?? raw.revenue ?? 0,
-                totalUsers: raw.total_users ?? 0,
-                activeUsers30d: 0, // Not provided by this RPC
-                activeSubscriptions: raw.active_subscriptions ?? raw.active_subs ?? 0,
-                errorCount24h: 0, // Not provided by this RPC
-                perfectComplianceUsers: raw.perfect_compliance_users ?? raw.perfect_score ?? 0,
-                userGrowthSeries: raw.user_growth_series ?? raw.user_growth ?? [],
-                complianceSplit: raw.compliance_split
-            }
-            response.data = normalized
-        }
-        return response as ApiResponse<import("@/types/api").AdminAnalyticsMetrics>
     },
 
     async getUserGrowth(period: 'daily' | 'weekly' | 'monthly') {
@@ -713,8 +693,8 @@ export const AdminService = {
     /**
      * Revenue & Subscriptions Analytics
      */
-    async getRevenueData(period: "7D" | "30D" | "90D" | "1Y") {
-        // 1. Try to fetch real history
+    async getRevenueData(period: "7D" | "30D" | "90D" | "1Y", limit = 100, offset = 0) {
+        // Calculate dates for RPC
         const endDate = new Date()
         const startDate = new Date()
         if (period === "7D") startDate.setDate(endDate.getDate() - 7)
@@ -722,55 +702,39 @@ export const AdminService = {
         if (period === "90D") startDate.setDate(endDate.getDate() - 90)
         if (period === "1Y") startDate.setFullYear(endDate.getFullYear() - 1)
 
-        const { data: realHistory, error } = await supabase
-            .from('subscription_history')
-            .select('*, profile:profiles(company_name)') // Joining public.profiles is safe
-            .gte('created_at', startDate.toISOString())
-            .lte('created_at', endDate.toISOString())
-            .order('created_at', { ascending: false })
-        // If we have real data (migration applied), use it.
-        if (!error && realHistory && realHistory.length > 0) {
-
-            // Fetch users to map Emails
-            // Fetch users to map Emails
-            const userMap = await _getAdminUserMap()
-
-            // Aggregate for Graph
-            const graphMap = new Map()
-            let totalRevenue = 0
-
-            // Fill empty days? Ideally yes. For now, just aggregate points.
-            realHistory.forEach(tx => {
-                const dateKey = tx.created_at ? tx.created_at.split('T')[0] : new Date().toISOString().split('T')[0]
-                graphMap.set(dateKey, (graphMap.get(dateKey) || 0) + Number(tx.amount || 0))
-                totalRevenue += Number(tx.amount || 0)
+        // Call the new RPC
+        const { data, error, status } = await handleRequest<any>(
+            supabase.rpc('get_admin_revenue_ledger', {
+                p_period_start: startDate.toISOString(),
+                p_period_end: endDate.toISOString(),
+                p_limit: limit,
+                p_offset: offset
             })
+        )
 
-            const graphData = Array.from(graphMap.entries())
-                .map(([date, amount]) => ({ date, amount }))
-                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        if (error) return { data: null, error, status }
 
-            const transactions = realHistory.map((tx: any) => {
-                const mappedUser = userMap.get(tx.user_id)
-                return {
-                    date: tx.created_at,
-                    user_email: mappedUser?.email || tx.user?.email || "Unknown Email",
-                    company_name: mappedUser?.company_name || tx.profile?.company_name || "Unknown Company",
-                    plan: tx.plan_name,
-                    amount: Number(tx.amount || 0),
-                    status: tx.status
-                }
-            })
+        // Normalization: Ensure graphData exists for the UI
+        const transactions = data.transactions || []
 
-            return { data: { totalRevenue, graphData, transactions }, error: null, status: 200 }
-        }
+        // Aggregate for Graph (Client-side aggregation is fine for < 100 items, 
+        // but ideally we'd have a separate stats RPC. keeping it simple for now)
+        const graphMap = new Map()
+        transactions.forEach((tx: any) => {
+            const dateKey = tx.date ? tx.date.split('T')[0] : new Date().toISOString().split('T')[0]
+            graphMap.set(dateKey, (graphMap.get(dateKey) || 0) + Number(tx.amount || 0))
+        })
 
-        // Return empty if no data found (No Mocking)
+        const graphData = Array.from(graphMap.entries())
+            .map(([date, amount]) => ({ date, amount }))
+            .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
         return {
             data: {
-                totalRevenue: 0,
-                graphData: [],
-                transactions: []
+                totalRevenue: data.totalRevenue || 0,
+                totalCount: data.totalCount || 0,
+                graphData,
+                transactions
             },
             error: null,
             status: 200

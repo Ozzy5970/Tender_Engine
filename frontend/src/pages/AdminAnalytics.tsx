@@ -45,20 +45,43 @@ export default function AdminAnalytics() {
                 <p className="text-gray-500 mt-2">Financial performance and user acquisition metrics.</p>
             </header>
 
+            {/* Debug Panel (Only visible with ?debug=1) */}
+            {new URLSearchParams(window.location.search).get('debug') === '1' && (
+                <div className="mb-8 p-4 bg-gray-900 rounded-lg text-green-400 font-mono text-xs overflow-auto max-h-96">
+                    <h4 className="font-bold text-white mb-2 uppercase tracking-wider">Debug: Raw RPC Response</h4>
+                    <pre>{JSON.stringify(data, null, 2)}</pre>
+                </div>
+            )}
+
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-gray-500 font-medium text-sm">MRR (Active Subscriptions)</h3>
+                        <h3 className="text-gray-500 font-medium text-sm">Lifetime Revenue</h3>
                         <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+                            <DollarSign className="w-5 h-5" />
+                        </div>
+                    </div>
+                    <p className="text-3xl font-bold text-gray-900">
+                        {new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(data.lifetimeRevenuePaid)}
+                    </p>
+                    <p className="text-xs text-emerald-600 mt-2 flex items-center font-medium">
+                        <TrendingUp className="w-3 h-3 mr-1" /> Total Paid (All Time)
+                    </p>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-gray-500 font-medium text-sm">MRR (Active)</h3>
+                        <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
                             <DollarSign className="w-5 h-5" />
                         </div>
                     </div>
                     <p className="text-3xl font-bold text-gray-900">
                         {new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(data.mrrActiveSubscriptions)}
                     </p>
-                    <p className="text-xs text-emerald-600 mt-2 flex items-center font-medium">
-                        <TrendingUp className="w-3 h-3 mr-1" /> Monthly Recurring Revenue
+                    <p className="text-xs text-blue-600 mt-2 flex items-center font-medium">
+                        Active Subscriptions Value
                     </p>
                 </div>
 
@@ -71,18 +94,6 @@ export default function AdminAnalytics() {
                     </div>
                     <p className="text-3xl font-bold text-gray-900">{data.activeSubscriptions?.toLocaleString()}</p>
                     <p className="text-xs text-gray-400 mt-2">Paid accounts</p>
-                </div>
-
-                {/* Removed Hardcoded Growth Rate Card */}
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm opacity-50">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-gray-500 font-medium text-sm">Total Users</h3>
-                        <div className="p-2 bg-violet-50 rounded-lg text-violet-600">
-                            <Users className="w-5 h-5" />
-                        </div>
-                    </div>
-                    <p className="text-3xl font-bold text-gray-900">{data.totalUsers?.toLocaleString()}</p>
-                    <p className="text-xs text-gray-400 mt-2">All registered accounts</p>
                 </div>
             </div>
 

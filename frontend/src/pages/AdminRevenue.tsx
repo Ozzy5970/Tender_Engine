@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react"
 import { AdminService } from "@/services/api"
-import { Download, Calendar, Loader2, AlertTriangle, FileText } from "lucide-react"
+import { Download, Calendar, Loader2, AlertTriangle, FileText, ChevronLeft, ChevronRight, RefreshCw, ArrowLeft } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useNavigate } from "react-router-dom"
-import { ArrowLeft } from "lucide-react"
 
 // Simple Error Boundary
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
@@ -32,60 +31,140 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
     }
 }
 
+// Interfaces
+interface Transaction {
+    id: string
+    date: string
+    amount: number
+    currency: string
+    status: string
+    plan: string
+    userId: string
+    userEmail: string
+    companyName: string
+}
+
+interface RevenueData {
+    totalRevenue: number
+    totalCount: number
+    graphData: { date: string, amount: number }[]
+    transactions: Transaction[]
+}
+
+const CACHE_KEY_PREFIX = 'admin_revenue_ledger_'
+const CACHE_DURATION = 1000 * 60 * 5 // 5 minutes
+
 function AdminRevenueContent() {
     const navigate = useNavigate()
     const [loading, setLoading] = useState(true)
     const [period, setPeriod] = useState<"7D" | "30D" | "90D" | "1Y">("30D")
-    const [data, setData] = useState<any>(null)
+
+    // Pagination
+    const [page, setPage] = useState(1)
+    const PAGE_SIZE = 50
+
+    const [data, setData] = useState<RevenueData | null>(null)
     const [error, setError] = useState<string | null>(null)
+    const [isStale, setIsStale] = useState(false)
+
+    useEffect(() => {
+        // Reset to page 1 when period changes
+        setPage(1)
+    }, [period])
 
     useEffect(() => {
         loadData()
-    }, [period])
+    }, [period, page])
+
+    const getCacheKey = () => `${CACHE_KEY_PREFIX}${period}_${page}`
 
     const loadData = async () => {
         setLoading(true)
         setError(null)
-        try {
-            const res = await AdminService.getRevenueData(period)
-            // Robust check
-            if (!res || !res.data) {
-                setData({ totalRevenue: 0, graphData: [], transactions: [] })
-            } else {
-                setData(res.data)
+        setIsStale(false)
+
+        const cacheKey = getCacheKey()
+
+        // 1. Try Cache First for Instant Load
+        const cached = localStorage.getItem(cacheKey)
+        if (cached) {
+            try {
+                const parsed = JSON.parse(cached)
+                if (Date.now() - parsed.timestamp < CACHE_DURATION) {
+                    setData(parsed.data)
+                    setLoading(false)
+                    // We can choose to return here for "Offline First" feel, 
+                    // or continue to fetch for "Stale While Revalidate".
+                    // For admin data accuracy, let's fetch in background if we wanted, 
+                    // but standard practice here -> if cache valid, show it.
+                    // To ensure freshness, let's just use it as a fallback or if very fresh (< 30s).
+                    // For now: USE CACHE, but triggered re-fetch only if user hits refresh? 
+                    // Let's stick to the prompt's "resilience": 
+                    // "On timeout/network error: show cached data... do NOT show zeros."
+                    // So we should try network first, then fallback.
+                    // HOWEVER, to make it feel fast, we can set data from cache immediately, 
+                    // then update it.
+                    setData(parsed.data)
+                    setIsStale(true) // Mark as potentially stale until update
+                }
+            } catch (e) {
+                localStorage.removeItem(cacheKey)
             }
+        }
+
+        try {
+            const offset = (page - 1) * PAGE_SIZE
+            const res = await AdminService.getRevenueData(period, PAGE_SIZE, offset)
+
+            if (res.error) throw new Error(res.error)
+            if (!res.data) throw new Error("No data received")
+
+            setData(res.data)
+            setIsStale(false) // Data is fresh
+
+            // Update Cache
+            localStorage.setItem(cacheKey, JSON.stringify({
+                timestamp: Date.now(),
+                data: res.data
+            }))
+
         } catch (e: any) {
             console.error("Failed to load revenue data", e)
-            setError(e.message || "Unknown failed to load data")
-            setData({ totalRevenue: 0, graphData: [], transactions: [] })
+
+            // Fallback to cache if we haven't already
+            if (cached && data) {
+                // Already showing cached data, just ensure we know it's stale and show error
+                setIsStale(true)
+                setError(`Network error. Showing cached data. (${e.message})`)
+            } else if (cached && !data) {
+                // Should have been set above, but just in case
+                const parsed = JSON.parse(cached)
+                setData(parsed.data)
+                setIsStale(true)
+                setError(`Network error. Showing cached data from ${new Date(parsed.timestamp).toLocaleTimeString()}.`)
+            } else {
+                setError(e.message || "Failed to load data. Please check connection.")
+                // Set empty structure so UI doesn't crash
+                if (!data) setData({ totalRevenue: 0, totalCount: 0, graphData: [], transactions: [] })
+            }
+        } finally {
+            setLoading(false)
         }
-        setLoading(false)
     }
 
     const downloadCSV = () => {
         if (!data || !data.transactions) return
 
-        // Recalculate for CSV
-        const txs = [...data.transactions]
-            .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
-            .reduce((acc: any[], t: any, index: number) => {
-                const prevTotal = index > 0 ? acc[index - 1].runningTotal : 0
-                acc.push({ ...t, runningTotal: prevTotal + (t.amount || 0) })
-                return acc
-            }, [])
-            .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-        const headers = ["Business Name", "Email Address", "Tier", "Time", "Date", "Amount Paid", "Running Total"]
-        const rows = txs.map((t: any) => {
+        const headers = ["Business Name", "Email Address", "Tier", "Time", "Date", "Amount Paid"]
+        const rows = data.transactions.map((t: any) => {
             const dateObj = new Date(t.date)
             return [
-                t.company_name || "Unknown",
-                t.user_email || "Unknown",
+                t.companyName || "Unknown",
+                t.userEmail || "Unknown",
                 t.plan || "Free",
                 dateObj.toLocaleTimeString(),
                 dateObj.toLocaleDateString(),
-                t.amount?.toFixed(2) || "0.00",
-                t.runningTotal?.toFixed(2) || "0.00"
+                t.amount?.toFixed(2) || "0.00"
             ]
         })
 
@@ -96,38 +175,13 @@ function AdminRevenueContent() {
         const encodedUri = encodeURI(csvContent)
         const link = document.createElement("a")
         link.setAttribute("href", encodedUri)
-        link.setAttribute("download", `revenue_report_${period}.csv`)
+        link.setAttribute("download", `revenue_report_${period}_page${page}.csv`)
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
     }
 
-    if (loading && !data) return <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-gray-400" /></div>
-
-    if (error) {
-        return (
-            <div className="p-8 text-center text-red-600">
-                <p>Error loading data: {error}</p>
-                <button onClick={loadData} className="mt-2 text-blue-600 underline">Retry</button>
-            </div>
-        )
-    }
-
-    // Calculate Running Total
-    // 1. Sort ascending to calculate
-    const transactionsWithRunningTotal = [...(data?.transactions || [])]
-        .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        .reduce((acc: any[], t: any, index: number) => {
-            const prevTotal = index > 0 ? acc[index - 1].runningTotal : 0
-            acc.push({ ...t, runningTotal: prevTotal + (t.amount || 0) })
-            return acc
-        }, [])
-        // 2. Sort descending for display (Newest first, seeing the high total at top)
-        .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-    // Excel-like Table Styles
-    const thClass = "px-4 py-2 border border-blue-200 bg-blue-50 text-left text-xs font-bold text-blue-900 uppercase tracking-wider select-none relative"
-    const tdClass = "px-4 py-2 border border-gray-200 text-sm text-gray-700 whitespace-nowrap"
+    const totalPages = data ? Math.ceil(data.totalCount / PAGE_SIZE) : 1
 
     return (
         <div className="max-w-[1600px] mx-auto py-6 px-6 space-y-6 bg-gray-50 min-h-screen">
@@ -144,6 +198,13 @@ function AdminRevenueContent() {
                     <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Revenue</h1>
                 </div>
                 <div className="flex items-center gap-3">
+                    <button
+                        onClick={loadData}
+                        className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+                        title="Refresh Data"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                    </button>
                     <button
                         onClick={() => navigate("/admin/revenue/history")}
                         className="flex items-center px-4 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-md text-sm font-medium shadow-sm transition-colors"
@@ -168,26 +229,38 @@ function AdminRevenueContent() {
                         className="flex items-center px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white border border-transparent rounded-md text-sm font-medium shadow-sm transition-colors"
                     >
                         <Download className="w-4 h-4 mr-2" />
-                        Download Excel
+                        Download CSV
                     </button>
                 </div>
             </div>
+
+            {/* Error / Stale Banner */}
+            {error && (
+                <div className={`p-4 rounded-lg flex items-center gap-3 ${isStale ? 'bg-yellow-50 text-yellow-800 border border-yellow-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+                    <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+                    <p className="text-sm font-medium">{error}</p>
+                </div>
+            )}
 
             {/* Main Graph Card */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <h3 className="font-bold text-gray-900">Revenue Trend</h3>
-                        <p className="text-xs text-gray-500">Gross revenue over selected period</p>
+                        <p className="text-xs text-gray-500">Gross revenue over selected period (Top-level aggregation)</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-2xl font-bold text-gray-900">R{data?.totalRevenue?.toLocaleString() || 0}</p>
+                        {loading && !data ? (
+                            <div className="h-8 w-32 bg-gray-200 animate-pulse rounded"></div>
+                        ) : (
+                            <p className="text-2xl font-bold text-gray-900">R{data?.totalRevenue?.toLocaleString() || 0}</p>
+                        )}
                     </div>
                 </div>
                 <div className="h-[300px]">
                     {(!data?.graphData || data.graphData.length === 0) ? (
                         <div className="h-full flex flex-col items-center justify-center bg-gray-50/50 rounded-lg border border-dashed border-gray-200">
-                            <p className="text-gray-400 text-sm">No revenue data to display for this period</p>
+                            {loading ? <Loader2 className="w-8 h-8 animate-spin text-gray-400" /> : <p className="text-gray-400 text-sm">No revenue data to display</p>}
                         </div>
                     ) : (
                         <ResponsiveContainer width="100%" height="100%">
@@ -234,65 +307,65 @@ function AdminRevenueContent() {
                         <span className="w-1.5 h-4 bg-blue-600 rounded-sm"></span>
                         Transaction Log
                     </h3>
-                    <span className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-1 rounded border border-gray-200">
-                        {transactionsWithRunningTotal.length || 0} ROWS
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-1 rounded border border-gray-200">
+                            {data?.totalCount || 0} TOTAL
+                        </span>
+                        <span className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-1 rounded border border-gray-200">
+                            PAGE {page} of {totalPages}
+                        </span>
+                    </div>
                 </div>
 
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
                         <thead>
                             <tr>
-                                <th className={thClass}>Business Name</th>
-                                <th className={thClass}>Email Address</th>
-                                <th className={thClass}>Tier</th>
-                                <th className={thClass}>Time</th>
-                                <th className={thClass}>Date</th>
-                                <th className={`${thClass} text-right`}>Amount In</th>
-                                <th className={`${thClass} text-right bg-blue-100/50 border-blue-300`}>Running Total</th>
+                                <th className="px-4 py-2 border border-blue-200 bg-blue-50 text-left text-xs font-bold text-blue-900 uppercase tracking-wider select-none relative">Business Name</th>
+                                <th className="px-4 py-2 border border-blue-200 bg-blue-50 text-left text-xs font-bold text-blue-900 uppercase tracking-wider select-none relative">Email Address</th>
+                                <th className="px-4 py-2 border border-blue-200 bg-blue-50 text-left text-xs font-bold text-blue-900 uppercase tracking-wider select-none relative">Tier</th>
+                                <th className="px-4 py-2 border border-blue-200 bg-blue-50 text-left text-xs font-bold text-blue-900 uppercase tracking-wider select-none relative">Time</th>
+                                <th className="px-4 py-2 border border-blue-200 bg-blue-50 text-left text-xs font-bold text-blue-900 uppercase tracking-wider select-none relative">Date</th>
+                                <th className="px-4 py-2 border border-blue-200 bg-blue-50 text-right text-xs font-bold text-blue-900 uppercase tracking-wider select-none relative">Amount In</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {transactionsWithRunningTotal.map((t: any, i: number) => {
-                                const dateObj = new Date(t.date)
-                                return (
-                                    <tr key={i} className="hover:bg-blue-50/50 transition-colors group">
-                                        <td className={`${tdClass} font-medium text-gray-900 group-hover:text-blue-700`}>
-                                            {t.company_name}
+                            {loading && !data ? (
+                                Array.from({ length: 5 }).map((_, i) => (
+                                    <tr key={i}>
+                                        <td colSpan={6} className="px-4 py-4">
+                                            <div className="h-4 bg-gray-100 rounded animate-pulse"></div>
                                         </td>
-                                        <td className={tdClass}>{t.user_email}</td>
-                                        <td className={tdClass}>
-                                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold border ${t.plan === 'Pro' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                                t.plan === 'Standard' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                                    'bg-gray-100 text-gray-600 border-gray-200'
-                                                }`}>
-                                                {t.plan}
-                                            </span>
-                                        </td>
-                                        <td className={`${tdClass} text-gray-500 font-mono text-xs`}>{dateObj.toLocaleTimeString()}</td>
-                                        <td className={tdClass}>{dateObj.toLocaleDateString()}</td>
-                                        <td className={`${tdClass} text-right font-medium`}>R{t.amount?.toFixed(2)}</td>
-                                        <td className={`${tdClass} text-right font-bold text-blue-900 bg-blue-50/30`}>R{t.runningTotal?.toFixed(2)}</td>
                                     </tr>
-                                )
-                            })}
-
-                            {/* Total Footer Row */}
-                            {transactionsWithRunningTotal.length > 0 && (
-                                <tr className="bg-gray-100 border-t-2 border-gray-300">
-                                    <td colSpan={5} className={`${tdClass} text-right font-bold text-gray-900 uppercase`}>
-                                        Total Revenue
-                                    </td>
-                                    <td className={`${tdClass} font-bold text-gray-900 bg-yellow-50 text-right`}>
-                                        R{data.transactions.reduce((acc: number, t: any) => acc + (t.amount || 0), 0).toFixed(2)}
-                                    </td>
-                                    <td className="bg-gray-100"></td>
-                                </tr>
+                                ))
+                            ) : (
+                                data?.transactions.map((t: Transaction, i: number) => {
+                                    const dateObj = new Date(t.date)
+                                    return (
+                                        <tr key={t.id || i} className="hover:bg-blue-50/50 transition-colors group">
+                                            <td className="px-4 py-2 border border-gray-200 text-sm text-gray-700 whitespace-nowrap font-medium group-hover:text-blue-700">
+                                                {t.companyName}
+                                            </td>
+                                            <td className="px-4 py-2 border border-gray-200 text-sm text-gray-700 whitespace-nowrap">{t.userEmail}</td>
+                                            <td className="px-4 py-2 border border-gray-200 text-sm text-gray-700 whitespace-nowrap">
+                                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold border ${t.plan === 'Pro' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                                    t.plan === 'Standard' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                        'bg-gray-100 text-gray-600 border-gray-200'
+                                                    }`}>
+                                                    {t.plan}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-2 border border-gray-200 text-sm text-gray-500 font-mono text-xs whitespace-nowrap">{dateObj.toLocaleTimeString()}</td>
+                                            <td className="px-4 py-2 border border-gray-200 text-sm text-gray-700 whitespace-nowrap">{dateObj.toLocaleDateString()}</td>
+                                            <td className="px-4 py-2 border border-gray-200 text-sm text-gray-700 whitespace-nowrap text-right font-medium">R{t.amount?.toFixed(2)}</td>
+                                        </tr>
+                                    )
+                                })
                             )}
 
-                            {(!data?.transactions || data.transactions.length === 0) && (
+                            {(!loading && (!data?.transactions || data.transactions.length === 0)) && (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-16 text-center text-gray-400 bg-gray-50/30">
+                                    <td colSpan={6} className="px-6 py-16 text-center text-gray-400 bg-gray-50/30">
                                         <div className="flex flex-col items-center gap-2">
                                             <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
                                                 <Calendar className="w-6 h-6 text-gray-300" />
@@ -306,9 +379,28 @@ function AdminRevenueContent() {
                         </tbody>
                     </table>
                 </div>
-                {/* Footer / Pagination Placeholder (Excel style) */}
-                <div className="bg-gray-50 border-t border-gray-200 p-2 text-xs text-right text-gray-500 font-medium">
-                    End of Report
+
+                {/* Pagination Controls */}
+                <div className="bg-gray-50 border-t border-gray-200 p-2 flex items-center justify-between">
+                    <p className="text-xs text-gray-500 pl-2">
+                        Showing {(page - 1) * PAGE_SIZE + 1} to {Math.min(page * PAGE_SIZE, data?.totalCount || 0)} of {data?.totalCount || 0}
+                    </p>
+                    <div className="flex bg-gray-100 rounded-md p-0.5 gap-1">
+                        <button
+                            disabled={page <= 1 || loading}
+                            onClick={() => setPage(p => p - 1)}
+                            className="px-3 py-1 bg-white border border-gray-300 rounded-sm text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center shadow-sm"
+                        >
+                            <ChevronLeft className="w-3 h-3 mr-1" /> Prev
+                        </button>
+                        <button
+                            disabled={page >= totalPages || loading}
+                            onClick={() => setPage(p => p + 1)}
+                            className="px-3 py-1 bg-white border border-gray-300 rounded-sm text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center shadow-sm"
+                        >
+                            Next <ChevronRight className="w-3 h-3 ml-1" />
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

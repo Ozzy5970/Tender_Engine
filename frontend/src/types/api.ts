@@ -20,5 +20,5 @@ export interface AdminAnalyticsMetrics {
     errorCount24h: number            // From error_logs
     perfectComplianceUsers: number   // From doc analysis
     userGrowthSeries: { name: string; users: number }[]
-    complianceSplit?: { compliant: number; at_risk: number }
+    complianceSplit: { compliant: number; at_risk: number }
 }
