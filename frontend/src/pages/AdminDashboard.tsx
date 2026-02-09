@@ -50,7 +50,7 @@ export default function AdminDashboard() {
 
             if (user?.id) {
                 // Secure Check: Use RPC instead of direct table access
-                const { data: isAdmin, error: adminErr } = await supabase.rpc('is_admin')
+                const { data: isAdmin } = await supabase.rpc('is_admin')
                 res.isAdminProfile = isAdmin ?? 'N/A' // Fallback helper
                 res.isAdminTable = isAdmin ?? false   // Simplified: if RPC says yes, we are admin
 
