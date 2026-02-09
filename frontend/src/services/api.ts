@@ -552,29 +552,26 @@ export const AdminService = {
         )
 
         // Normalization Fallback (One-Release Compat)
-        // If RPC returns old 'totalRevenue', map it to 'lifetimeRevenuePaid'
         if (response.data) {
-            const raw = response.data
-            // Cast to unknown first to avoid TS error during transition
-            const anyData = raw as any
-            // Normalization: Map RPC result to standardized interface
-            // If RPC is new (revenueLast30Days), use it.
-            // If RPC is old (totalRevenue), map it to revenueLast30Days for now to avoid crash.
-            if (anyData.revenueLast30Days !== undefined) {
-                // Good, new RPC
-            } else if (anyData.totalRevenue !== undefined) {
-                // Fallback for old RPC during migration
-                anyData.revenueLast30Days = anyData.totalRevenue
-            } else if (anyData.lifetimeRevenuePaid !== undefined) {
+            const raw = response.data as any
+            // Map RPC keys to frontend contract: revenue30dPaid
+            if (raw.revenueLast30Days !== undefined) {
+                raw.revenue30dPaid = raw.revenueLast30Days
+            } else if (raw.revenue30dPaid !== undefined) {
+                // Already correct
+            } else if (raw.totalRevenue !== undefined) {
+                // Fallback for old RPC
+                raw.revenue30dPaid = raw.totalRevenue
+            } else if (raw.lifetimeRevenuePaid !== undefined) {
                 // Fallback for intermediate RPC
-                anyData.revenueLast30Days = anyData.lifetimeRevenuePaid
+                raw.revenue30dPaid = raw.lifetimeRevenuePaid
             }
         }
 
         return response as ApiResponse<{
             totalUsers: number
             activeUsers: number
-            revenueLast30Days: number // CHANGED from lifetimeRevenuePaid
+            revenue30dPaid: number // CHANGED: Enforced Frontend Contract
             systemHealth: {
                 status: 'HEALTHY' | 'DEGRADED' | 'CRITICAL'
                 errorCount24h: number

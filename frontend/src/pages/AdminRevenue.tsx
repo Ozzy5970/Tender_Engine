@@ -356,8 +356,8 @@ function AdminRevenueContent() {
                                             <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
                                                 <Calendar className="w-6 h-6 text-gray-300" />
                                             </div>
-                                            <p className="font-medium">No subscriber records found</p>
-                                            <p className="text-xs max-w-xs mx-auto">Transactions will appear here once users subscribe.</p>
+                                            <p className="font-medium">No paid transactions in this period</p>
+                                            <p className="text-xs max-w-xs mx-auto text-gray-400">Transactions will appear here once valid payments occur.</p>
                                         </div>
                                     </td>
                                 </tr>
