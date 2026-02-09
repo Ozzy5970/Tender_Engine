@@ -39,13 +39,9 @@ export default function AdminDashboard() {
     // Strict State Machine: 'LOADING' | 'READY' | 'DEGRADED_VIEW' | 'ERROR'
     const [status, setStatus] = useState<'LOADING' | 'READY' | 'DEGRADED_VIEW' | 'ERROR'>('LOADING')
     const [lastUpdated, setLastUpdated] = useState<number | null>(null)
-
-    useEffect(() => {
-        loadDashboardSnapshot()
-        runDebug()
-    }, [])
-
     const [debugData, setDebugData] = useState<any>(null)
+
+    // Define functions BEFORE useEffect to avoid hoisting/no-use-before-define issues
     const runDebug = async () => {
         const res: any = {}
         try {
@@ -113,6 +109,12 @@ export default function AdminDashboard() {
             }
         }
     }
+
+    // Effect uses the functions defined above
+    useEffect(() => {
+        loadDashboardSnapshot()
+        runDebug()
+    }, [])
 
     // Helpers
     const getStatusColor = (s: string) => {

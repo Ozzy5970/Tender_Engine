@@ -23,3 +23,5 @@ build
 .tmp/
 __pycache__/
 *.pyc
+.vercel
+.env*.local
