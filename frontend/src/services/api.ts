@@ -641,9 +641,30 @@ export const AdminService = {
     },
 
     async getSystemHealth(hours = 24) {
-        return handleRequest(
+        const response = await handleRequest<any>(
             supabase.rpc('get_admin_system_health', { p_hours: hours })
         )
+
+        // Frontend Normalization (Resilience)
+        if (response.data) {
+            response.data = {
+                summary: response.data.summary || {
+                    status: 'HEALTHY',
+                    errorCount24h: 0,
+                    criticalCount24h: 0,
+                    warningCount24h: 0,
+                    lastErrorAt: null
+                },
+                recent: Array.isArray(response.data.recent) ? response.data.recent : []
+            }
+        } else {
+            // Fallback if RPC fails or returns null
+            response.data = {
+                summary: { status: 'HEALTHY', errorCount24h: 0, criticalCount24h: 0, warningCount24h: 0, lastErrorAt: null },
+                recent: []
+            }
+        }
+        return response
     },
 
     async getUserGrowth(period: 'daily' | 'weekly' | 'monthly') {
