@@ -75,22 +75,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
      * We don't just trust the token. We ask the server.
      * BUT: We don't punish network/extension failures with logout.
      */
-    const checkUserRoleAndTier = async (userId: string | undefined, currentUser?: User | null): Promise<boolean> => {
+    const checkUserRoleAndTier = async (userId: string | undefined): Promise<boolean> => {
         if (!userId) {
             setStatus('UNAUTHENTICATED')
             return false
-        }
-
-        // --- 0. SUPER ADMIN WHITELIST (NETWORK BYPASS) ---
-        // Critical for "Perfect Refresh" when Extensions block DB calls.
-        // We trust the email from the restored session (which is signed by Supabase).
-        // This only controls UI routing. Real data is RLS protected.
-        const ADMIN_WHITELIST = ['austin.simonsps@gmail.com', 'austin.simonsps+test@gmail.com'];
-        let forcedAdmin = false;
-        if (currentUser?.email && ADMIN_WHITELIST.includes(currentUser.email)) {
-            console.log("👑 Super Admin Detected (Whitelist). Forcing Admin UI.");
-            forcedAdmin = true;
-            setIsAdmin(true); // Immediate UI Update
         }
 
         if (verificationInProgress.current) return true
@@ -136,9 +124,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // if (status !== 'AUTHENTICATED') setStatus('AUTHENTICATED') // <-- DELAYED to end
             }
 
-            // 1. Fetch Profile (Decoupled from Auth)
-            // If this fails, we effectively degrade to LIMITED mode features (UI handles missing profile)
-            // FIX: Try to fetch from DB -> Save to Cache. If Fail -> Read from Cache.
+            // 1. Check Admin Status (Strict RPC)
+            // We NO LONGER check profile.is_admin or a whitelist. We ask the database directly.
+            let rpcAdmin = false;
+            try {
+                const { data, error } = await supabase.rpc('is_admin');
+                if (!error && data) {
+                    rpcAdmin = data;
+                    console.log("👮 Admin status confirmed via RPC.");
+                } else {
+                    console.log("👤 User is NOT an admin (RPC returned false/error).");
+                }
+            } catch (e) {
+                console.warn("Admin RPC check failed:", e);
+            }
+            setIsAdmin(rpcAdmin);
+
+            // 2. Fetch Profile (For UI Text Only)
+            // Decoupled from Admin Check. If this fails, we just don't show names.
             let profile = null;
             let profileError = null;
 
@@ -147,7 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // Wrap in timeout to prevent hanging
                 const profilePromise = supabase
                     .from('profiles')
-                    .select('is_admin, company_name, full_name')
+                    .select('company_name, full_name')
                     .eq('id', userId)
                     .maybeSingle();
 
@@ -155,11 +158,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     data: null,
                     error: {
                         message: "Profile Timeout",
-                        details: "",
-                        hint: "",
                         code: "TIMEOUT",
                         name: "TimeoutError"
-                    },
+                    } as any,
                     count: null,
                     status: 408,
                     statusText: "Timeout"
@@ -169,7 +170,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 if (profile) {
                     // Success! Cache it for resilience
-                    // (We don't await this to keep UI snappy)
                     if (resilientStorage.setProfile) resilientStorage.setProfile(userId, profile)
                 }
             } catch (e) { profileError = e }
@@ -186,19 +186,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
             if (profile) {
-                setIsAdmin(profile.is_admin || forcedAdmin) // Trust DB OR Whitelist
                 setCompanyName(profile.company_name || null)
                 setFullName(profile.full_name || null)
             } else {
-                // RLS or specific table block shouldn't kill the session
-                if (forcedAdmin) {
-                    // If DB completely failed but we are Whitelisted, ensure we stay Admin
-                    setIsAdmin(true);
-                    console.log("👑 DB Failed, but Whitelist sustained Admin Status.");
-                } else {
-                    console.warn("⚠️ Profile not found or RLS blocked. User stays authenticated.")
-                    setIsAdmin(false)
-                }
                 setCompanyName(null)
             }
 
@@ -236,7 +226,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const refreshProfile = async () => {
         if (user?.id) {
-            await checkUserRoleAndTier(user.id, user)
+            await checkUserRoleAndTier(user.id)
         }
     }
 
@@ -278,7 +268,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     setSession(initialSession)
                     setUser(initialSession.user)
                     // Verify (Status updated inside)
-                    await checkUserRoleAndTier(initialSession.user.id, initialSession.user)
+                    await checkUserRoleAndTier(initialSession.user.id)
                 } else if (!isMagicLink) {
                     // Only declare UNAUTHENTICATED if we are purely empty and not waiting for a swap
                     setStatus('UNAUTHENTICATED')
@@ -322,7 +312,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     setSession(currentSession)
                     setUser(currentSession.user)
                     // Optimistic Update? No, stick to LOADING -> VERIFIED flow for robust UI
-                    await checkUserRoleAndTier(currentSession.user.id, currentSession.user)
+                    await checkUserRoleAndTier(currentSession.user.id)
                 }
             }
         })
