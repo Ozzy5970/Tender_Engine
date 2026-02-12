@@ -2,19 +2,25 @@ import React, { useState, useEffect } from "react"
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ArrowUpRight, CheckCircle, FileText, AlertTriangle } from "lucide-react"
+
 import { TenderService, CompanyService } from "@/services/api"
 import { AuthProvider, useAuth } from "@/context/AuthContext"
 import Layout from "@/components/Layout"
+
+// Pages
 import AuthPage from "@/pages/Auth"
 import TenderIngest from "@/pages/TenderIngest"
 import Tenders from "@/pages/Tenders"
 import TenderDetails from "@/pages/TenderDetails"
 import Compliance from "@/pages/Compliance"
-
-
 import Alerts from "@/pages/Alerts"
 import Templates from "@/pages/Templates"
 import Settings from "@/pages/Settings"
+import Pricing from "@/pages/Pricing"
+import Terms from "@/pages/Terms"
+import Privacy from "@/pages/Privacy"
+
+// Admin Pages
 import AdminDashboard from "@/pages/AdminDashboard"
 import AdminAnalytics from "@/pages/AdminAnalytics"
 import AdminBroadcasts from "@/pages/AdminBroadcasts"
@@ -22,21 +28,11 @@ import AdminTemplates from "@/pages/AdminTemplates"
 import AdminTemplateHistory from "@/pages/AdminTemplateHistory"
 import AdminHealth from "@/pages/AdminHealth"
 import AdminRevenue from "@/pages/AdminRevenue"
-
-...
-
-{/* Admin Routes (Strictly Gated) */ }
-            <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-            <Route path="admin/health" element={<AdminRoute><AdminHealth /></AdminRoute>} />
-            <Route path="admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
 import AdminRevenueHistory from "@/pages/AdminRevenueHistory"
 import AdminSubscriptions from "@/pages/AdminSubscriptions"
 import AdminUsers from "@/pages/AdminUsers"
 import AdminFeedback from "@/pages/AdminFeedback"
 import AdminErrors from "@/pages/AdminErrors"
-import Pricing from "@/pages/Pricing"
-import Terms from "@/pages/Terms"
-import Privacy from "@/pages/Privacy"
 import AdminDebug from "@/pages/AdminDebug"
 
 // Simple Protected Route wrapper

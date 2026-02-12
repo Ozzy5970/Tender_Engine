@@ -3,7 +3,7 @@ import { AdminService } from "@/services/api"
 import {
     Activity, AlertTriangle, CheckCircle2,
     Clock, RefreshCw, Server, Shield, Database,
-    Cpu, Globe, Terminal, ArrowLeft
+    Globe, Terminal, ArrowLeft
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
@@ -55,8 +55,8 @@ export default function AdminHealth() {
                             key={h}
                             onClick={() => setTimeWindow(h)}
                             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${timeWindow === h
-                                    ? 'bg-indigo-50 text-indigo-600 font-bold'
-                                    : 'text-gray-500 hover:bg-gray-50'
+                                ? 'bg-indigo-50 text-indigo-600 font-bold'
+                                : 'text-gray-500 hover:bg-gray-50'
                                 }`}
                         >
                             {h === 1 ? '1 Hour' : h === 168 ? '7 Days' : '24 Hours'}
@@ -67,8 +67,8 @@ export default function AdminHealth() {
 
             {/* Top Status Card */}
             <div className={`p-8 rounded-2xl border-l-8 shadow-sm mb-8 bg-white ${health.status === 'CRITICAL' ? 'border-red-500' :
-                    health.status === 'DEGRADED' ? 'border-orange-500' :
-                        'border-emerald-500'
+                health.status === 'DEGRADED' ? 'border-orange-500' :
+                    'border-emerald-500'
                 }`}>
                 <div className="flex flex-col md:flex-row gap-6">
                     <div className="flex-1">
