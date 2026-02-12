@@ -237,15 +237,18 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
 
                 {/* 1. Global System Health */}
-                <div className={`p-6 rounded-2xl border-2 ${getStatusColor(snapshot.systemHealth.status)} transition-all relative overflow-hidden group col-span-1 md:col-span-1`}>
+                <Link to="/admin/health" className={`p-6 rounded-2xl border-2 ${getStatusColor(snapshot.systemHealth.status)} transition-all relative overflow-hidden group col-span-1 md:col-span-1 hover:shadow-md cursor-pointer`}>
                     <div className="relative z-10">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="font-bold uppercase tracking-wider text-sm opacity-80">System Status</h3>
                             {getStatusIcon(snapshot.systemHealth.status)}
                         </div>
                         <p className="text-2xl font-black tracking-tight">{snapshot.systemHealth.status}</p>
+                        <div className="mt-2 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                            View Health Report <ArrowRight className="w-3 h-3" />
+                        </div>
                     </div>
-                </div>
+                </Link>
 
                 {/* 2. Total Users */}
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm relative group overflow-hidden hover:shadow-md transition-all">

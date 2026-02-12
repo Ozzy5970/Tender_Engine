@@ -20,7 +20,15 @@ import AdminAnalytics from "@/pages/AdminAnalytics"
 import AdminBroadcasts from "@/pages/AdminBroadcasts"
 import AdminTemplates from "@/pages/AdminTemplates"
 import AdminTemplateHistory from "@/pages/AdminTemplateHistory"
+import AdminHealth from "@/pages/AdminHealth"
 import AdminRevenue from "@/pages/AdminRevenue"
+
+...
+
+{/* Admin Routes (Strictly Gated) */ }
+            <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+            <Route path="admin/health" element={<AdminRoute><AdminHealth /></AdminRoute>} />
+            <Route path="admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
 import AdminRevenueHistory from "@/pages/AdminRevenueHistory"
 import AdminSubscriptions from "@/pages/AdminSubscriptions"
 import AdminUsers from "@/pages/AdminUsers"
@@ -309,6 +317,7 @@ function App() {
 
             {/* Admin Routes (Strictly Gated) */}
             <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+            <Route path="admin/health" element={<AdminRoute><AdminHealth /></AdminRoute>} />
             <Route path="admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
             <Route path="admin/broadcasts" element={<AdminRoute><AdminBroadcasts /></AdminRoute>} />
             <Route path="admin/debug" element={<AdminRoute><AdminDebug /></AdminRoute>} />

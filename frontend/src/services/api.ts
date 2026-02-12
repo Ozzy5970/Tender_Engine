@@ -640,6 +640,12 @@ export const AdminService = {
         )
     },
 
+    async getSystemHealth(hours = 24) {
+        return handleRequest(
+            supabase.rpc('get_admin_system_health', { p_hours: hours })
+        )
+    },
+
     async getUserGrowth(period: 'daily' | 'weekly' | 'monthly') {
         return handleRequest(
             supabase.rpc('get_user_growth', { period })
