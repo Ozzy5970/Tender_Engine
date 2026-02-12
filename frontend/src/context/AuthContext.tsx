@@ -14,12 +14,14 @@ const timeoutPromise = <T,>(promise: Promise<T> | PromiseLike<T>, ms: number, fa
 };
 
 type AuthStatus = 'LOADING' | 'AUTHENTICATED' | 'UNAUTHENTICATED' | 'LIMITED'
+type AdminStatus = 'UNKNOWN' | 'ADMIN' | 'NOT_ADMIN'
 
 type AuthContextType = {
     session: Session | null
     user: User | null
     status: AuthStatus
-    isAdmin: boolean
+    isAdmin: boolean // Computed for backward compat: adminStatus === 'ADMIN'
+    adminStatus: AdminStatus
     tier: "Free" | "Standard" | "Pro"
     companyName: string | null
     fullName: string | null
@@ -34,6 +36,7 @@ const AuthContext = createContext<AuthContextType>({
     user: null,
     status: 'LOADING',
     isAdmin: false,
+    adminStatus: 'UNKNOWN',
     tier: "Free",
     companyName: null,
     fullName: null,
@@ -51,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [status, setStatus] = useState<AuthStatus>('LOADING')
 
     // Profile Data
-    const [isAdmin, setIsAdmin] = useState(false)
+    const [adminStatus, setAdminStatus] = useState<AdminStatus>('UNKNOWN')
     const [tier, setTier] = useState<"Free" | "Standard" | "Pro">("Free")
     const [companyName, setCompanyName] = useState<string | null>(null)
     const [fullName, setFullName] = useState<string | null>(null)
@@ -59,17 +62,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Legacy flag for compatibility, equivalent to (status === 'AUTHENTICATED' || status === 'LIMITED')
     const isVerified = status === 'AUTHENTICATED' || status === 'LIMITED'
 
+    // Computed isAdmin for backward compat
+    const isAdmin = adminStatus === 'ADMIN'
+
+    // Concurrency & Loop Guard
+    const verificationInProgress = useRef(false)
+    const lastCheckedUserIdRef = useRef<string | null>(null)
+
     const signOut = async () => {
         // Optimistic Logout
         setSession(null)
         setUser(null)
         setStatus('UNAUTHENTICATED')
+
+        // Reset Admin State
+        setAdminStatus('UNKNOWN')
+        lastCheckedUserIdRef.current = null
+
         await supabase.auth.signOut()
     }
-
-    // Concurrency & Loop Guard
-    const verificationInProgress = useRef(false)
-    const lastCheckedUserIdRef = useRef<string | null>(null)
 
     /**
      * SENIOR PRINCIPLE 2: "Reconcile server + client state"
@@ -80,6 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!userId) {
             setStatus('UNAUTHENTICATED')
             lastCheckedUserIdRef.current = null
+            setAdminStatus('UNKNOWN')
             return false
         }
 
@@ -137,19 +149,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // 1. Check Admin Status (Strict RPC ONLY)
             // We NO LONGER check profile.is_admin or a whitelist. We ask the database directly.
-            let rpcAdmin = false;
+            // TRI-STATE LOGIC: UNKNOWN -> ADMIN | NOT_ADMIN. No defaulting to false on timeout.
             try {
-                const { data, error } = await supabase.rpc('is_admin');
-                if (!error && data) {
-                    rpcAdmin = !!data; // Ensure boolean
+                // Increased Timeout for Admin Check (12s) to handle slow cold starts
+                const adminCheckPromise = supabase.rpc('is_admin');
+                const adminResult = await timeoutPromise(adminCheckPromise, 12000, { data: null, error: { message: "RPC Timeout" } } as any);
+
+                const { data, error } = adminResult as any;
+
+                if (!error && data === true) {
                     console.log("👮 Admin status confirmed via RPC.");
+                    setAdminStatus('ADMIN');
+                } else if (!error && data === false) {
+                    console.log("👤 User is NOT an admin (RPC returned false).");
+                    setAdminStatus('NOT_ADMIN');
                 } else {
-                    console.log("👤 User is NOT an admin (RPC returned false/error).");
+                    // Error or Timeout: Keep UNKNOWN. Do NOT set NOT_ADMIN.
+                    console.warn("⚠️ Admin check indeterminate (Timeout or Error). Status remains UNKNOWN.", error);
+                    // We keep unknown so AdminRoute can show a spinner/retry instead of kicking them out.
                 }
+
             } catch (e) {
-                console.warn("Admin RPC check failed:", e);
+                console.warn("Admin RPC check exception:", e);
+                // Keep UNKNOWN
             }
-            setIsAdmin(rpcAdmin);
 
             // 2. Fetch Profile (Available Fields Only)
             // DO NOT query 'is_admin'. DO NOT retry loops.
@@ -241,6 +264,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const refreshProfile = async () => {
         if (user?.id) {
+            // Force re-check? No, checkUserRoleAndTier has guard.
+            // If we want to FORCE refresh, we might need to clear ref.
+            // But usually refreshProfile is called after manual updates.
+            lastCheckedUserIdRef.current = null; // Allow re-check
             await checkUserRoleAndTier(user.id)
         }
     }
@@ -314,7 +341,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 setSession(null)
                 setUser(null)
-                setIsAdmin(false)
+                setAdminStatus('UNKNOWN') // Reset Admin Status
+                lastCheckedUserIdRef.current = null // Reset Loop Guard
                 setTier("Free")
                 setCompanyName(null)
                 setFullName(null)
@@ -342,7 +370,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         session,
         user,
         status,
-        isAdmin,
+        isAdmin, // Computed
+        adminStatus, // Exposed for Tri-State Routing
         tier,
         companyName,
         fullName,

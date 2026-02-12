@@ -49,18 +49,41 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-// Strict Admin Route wrapper
+// Strict Admin Route wrapper (Tri-State Verification)
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { isAdmin, status } = useAuth()
+  const { adminStatus, status } = useAuth()
 
-  if (status === 'LOADING') return <div className="h-screen flex items-center justify-center">Loading...</div>
+  // 1. App Loading?
+  if (status === 'LOADING') {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50 flex-col gap-3">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <span className="text-gray-500 font-medium">Initializing...</span>
+      </div>
+    )
+  }
 
-  // If not logged in, go to Auth
-  if (status === 'UNAUTHENTICATED') return <Navigate to="/auth" replace />
+  // 2. Not Logged In?
+  if (status === 'UNAUTHENTICATED') {
+    return <Navigate to="/auth" replace />
+  }
 
-  // If logged in but not admin, go to User Dashboard
-  if (!isAdmin) return <Navigate to="/" replace />
+  // 3. Admin Status Unknown? (Tri-State: Don't redirect yet!)
+  if (adminStatus === 'UNKNOWN') {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50 flex-col gap-3">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <span className="text-gray-500 font-medium">Verifying Admin Access...</span>
+      </div>
+    )
+  }
 
+  // 4. Definitely Not Admin?
+  if (adminStatus === 'NOT_ADMIN') {
+    return <Navigate to="/" replace />
+  }
+
+  // 5. Success
   return <>{children}</>
 }
 
