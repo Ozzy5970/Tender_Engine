@@ -109,12 +109,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 if (isCriticalAuthError) {
                     console.error("⛔ Critical Auth Failure. Session Invalid. Logging out.")
-                    // FIX: Disable logout for "Ghost Logout" debugging
-                    console.warn("🛑 DEBUG: Would have logged out here, but blocked for testing.")
-                    // await signOut()
+                    await signOut()
                     return false
                 } else {
-                    console.log("🛡️ Extension/Network Block Detected. Entering LIMITED mode (Cushioned).")
+                    console.log("🛡️ Extension/Network Block Detected. Entering LIMITED mode.")
                     // We trust the optimistic session because the server is unreachable/blocked
                     setStatus('LIMITED')
                     // We can still try to fetch profile if RLS allows
@@ -131,9 +129,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const { data, error } = await supabase.rpc('is_admin');
                 if (!error && data) {
                     rpcAdmin = data;
-                    console.log("👮 Admin status confirmed via RPC.");
                 } else {
-                    console.log("👤 User is NOT an admin (RPC returned false/error).");
+                    // No log needed for non-admin
                 }
             } catch (e) {
                 console.warn("Admin RPC check failed:", e);
@@ -178,10 +175,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // If Live DB Failed, Try Cache
             if (!profile && resilientStorage.getProfile) {
-                console.log("⚠️ DB Profile missing. Trying Offline Cache.")
                 try {
                     profile = await resilientStorage.getProfile(userId);
-                    if (profile) console.log("✅ Restored Profile from Offline Cache.")
+                    if (profile) { /* No log needed */ }
                 } catch (e) { /* Ignore */ }
             }
 
@@ -232,7 +228,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         let isMounted = true
-        console.log("🚀 AuthProvider MOUNTED - Senior Resilience Mode")
 
         const initialize = async () => {
             // SENIOR PRINCIPLE 1: "Delay decisions"
