@@ -15,13 +15,13 @@ export default function AdminDebug() {
                 results.user = { id: user?.id, email: user?.email, error: authError }
 
                 if (user?.id) {
-                    // 2. Profile Check
+                    // 2. Profile Check (Partial - Column 'is_admin' Removed)
                     const { data: profile, error: profileError } = await supabase
                         .from('profiles')
-                        .select('is_admin')
+                        .select('id') // Just check existance
                         .eq('id', user.id)
                         .single()
-                    results.profile = { is_admin: profile?.is_admin, error: profileError }
+                    results.profile = { exists: !!profile, error: profileError }
 
                     // 3. Admin Table Check
                     const { data: admin, error: adminError } = await supabase

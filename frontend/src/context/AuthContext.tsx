@@ -67,8 +67,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await supabase.auth.signOut()
     }
 
-    // Concurrency Guard
+    // Concurrency & Loop Guard
     const verificationInProgress = useRef(false)
+    const lastCheckedUserIdRef = useRef<string | null>(null)
 
     /**
      * SENIOR PRINCIPLE 2: "Reconcile server + client state"
@@ -78,7 +79,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const checkUserRoleAndTier = async (userId: string | undefined): Promise<boolean> => {
         if (!userId) {
             setStatus('UNAUTHENTICATED')
+            lastCheckedUserIdRef.current = null
             return false
+        }
+
+        // GRIDLOCK GUARD: Never re-check the same user ID in the same session lifecycle
+        // unless explicitly forced (which we aren't doing here).
+        // This prevents the "Infinite Profile Loop" if the DB is throwing 42703.
+        if (lastCheckedUserIdRef.current === userId) {
+            console.log("🛡️ Skipping redundant admin check (Loop Protection).")
+            if (status !== 'AUTHENTICATED') setStatus('AUTHENTICATED')
+            return true
         }
 
         if (verificationInProgress.current) return true
@@ -109,10 +120,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 if (isCriticalAuthError) {
                     console.error("⛔ Critical Auth Failure. Session Invalid. Logging out.")
-                    await signOut()
+                    // FIX: Disable logout for "Ghost Logout" debugging
+                    console.warn("🛑 DEBUG: Would have logged out here, but blocked for testing.")
+                    // await signOut()
                     return false
                 } else {
-                    console.log("🛡️ Extension/Network Block Detected. Entering LIMITED mode.")
+                    console.log("🛡️ Extension/Network Block Detected. Entering LIMITED mode (Cushioned).")
                     // We trust the optimistic session because the server is unreachable/blocked
                     setStatus('LIMITED')
                     // We can still try to fetch profile if RLS allows
@@ -122,62 +135,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // if (status !== 'AUTHENTICATED') setStatus('AUTHENTICATED') // <-- DELAYED to end
             }
 
-            // 1. Check Admin Status (Strict RPC)
+            // 1. Check Admin Status (Strict RPC ONLY)
             // We NO LONGER check profile.is_admin or a whitelist. We ask the database directly.
             let rpcAdmin = false;
             try {
                 const { data, error } = await supabase.rpc('is_admin');
                 if (!error && data) {
-                    rpcAdmin = data;
+                    rpcAdmin = !!data; // Ensure boolean
+                    console.log("👮 Admin status confirmed via RPC.");
                 } else {
-                    // No log needed for non-admin
+                    console.log("👤 User is NOT an admin (RPC returned false/error).");
                 }
             } catch (e) {
                 console.warn("Admin RPC check failed:", e);
             }
             setIsAdmin(rpcAdmin);
 
-            // 2. Fetch Profile (For UI Text Only)
-            // Decoupled from Admin Check. If this fails, we just don't show names.
+            // 2. Fetch Profile (Available Fields Only)
+            // DO NOT query 'is_admin'. DO NOT retry loops.
             let profile = null;
-            let profileError = null;
 
             try {
                 // Try Live DB
                 // Wrap in timeout to prevent hanging
                 const profilePromise = supabase
                     .from('profiles')
-                    .select('company_name, full_name')
+                    .select('company_name, full_name') // STRICTLY EXISTING COLUMNS
                     .eq('id', userId)
                     .maybeSingle();
 
                 const dbResult = await timeoutPromise(profilePromise, 2000, {
                     data: null,
-                    error: {
-                        message: "Profile Timeout",
-                        code: "TIMEOUT",
-                        name: "TimeoutError"
-                    } as any,
+                    error: { message: "Profile Timeout", code: "TIMEOUT" } as any,
                     count: null,
                     status: 408,
                     statusText: "Timeout"
                 } as any);
+
                 profile = dbResult.data;
-                profileError = dbResult.error;
+
+                if (dbResult.error) {
+                    console.warn("Profile fetch warning (Non-Fatal):", dbResult.error.message)
+                    // DO NOT RETRY. FALLTHROUGH.
+                }
 
                 if (profile) {
                     // Success! Cache it for resilience
                     if (resilientStorage.setProfile) resilientStorage.setProfile(userId, profile)
                 }
-            } catch (e) { profileError = e }
-
-            if (profileError) console.warn("Profile fetch error:", profileError)
+            } catch (e) {
+                console.warn("Profile fetch exception:", e)
+                // Consume error. Do not propagate.
+            }
 
             // If Live DB Failed, Try Cache
             if (!profile && resilientStorage.getProfile) {
+                console.log("⚠️ DB Profile missing. Trying Offline Cache.")
                 try {
                     profile = await resilientStorage.getProfile(userId);
-                    if (profile) { /* No log needed */ }
+                    if (profile) console.log("✅ Restored Profile from Offline Cache.")
                 } catch (e) { /* Ignore */ }
             }
 
@@ -208,6 +224,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // 3. NOW we are ready to say "AUTHENTICATED"
             // This ensures logic downstream (like isAdmin check) has the latest data.
+            // MARK SUCCESS to prevent future loops
+            lastCheckedUserIdRef.current = userId;
+
             if (status !== 'AUTHENTICATED') setStatus('AUTHENTICATED')
             return true
         } catch (e) {
@@ -228,6 +247,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         let isMounted = true
+        console.log("🚀 AuthProvider MOUNTED - Senior Resilience Mode")
 
         const initialize = async () => {
             // SENIOR PRINCIPLE 1: "Delay decisions"
