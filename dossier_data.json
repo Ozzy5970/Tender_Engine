@@ -1,0 +1,73 @@
+{
+  "snapshot": {
+    "totalUsers": 7,
+    "activeUsers": 7,
+    "revenueLast30Days": 3998,
+    "systemHealth": {
+      "status": "HEALTHY",
+      "errorCount24h": 0
+    },
+    "snapshotTimestamp": 1770668974395
+  },
+  "ledger": {
+    "totalRevenue": 3998,
+    "totalCount": 5,
+    "transactions": [
+      {
+        "id": "21f9d450-3fe3-4796-b646-b3b8d1d4d0c7",
+        "date": "2026-02-09T14:53:55.752888+00:00",
+        "amount": 0,
+        "currency": "ZAR",
+        "status": "paid",
+        "plan": "tier-3",
+        "userId": "e33ece37-9763-44fa-baa3-d312ed6b962b",
+        "userEmail": "tier3@test.com",
+        "companyName": "Tier 3 Enterprise"
+      },
+      {
+        "id": "48299c08-5945-49b9-96c1-80149aa4aa96",
+        "date": "2026-02-09T14:53:54.585854+00:00",
+        "amount": 0,
+        "currency": "ZAR",
+        "status": "paid",
+        "plan": "tier-2",
+        "userId": "70f68abc-5b9a-4c29-8ba4-191a6f12d08e",
+        "userEmail": "tier2@test.com",
+        "companyName": "Tier 2 Civil Works"
+      },
+      {
+        "id": "b25372a7-e646-4911-a139-a983766cba3f",
+        "date": "2026-02-09T14:53:53.380081+00:00",
+        "amount": 0,
+        "currency": "ZAR",
+        "status": "paid",
+        "plan": "tier-1",
+        "userId": "a6bbac55-1db4-4976-b34f-4e5a4a1b947c",
+        "userEmail": "tier1@test.com",
+        "companyName": "Tier 1 Construction"
+      },
+      {
+        "id": "6461d8b8-466f-4e26-b7d1-a28febef1c05",
+        "date": "2026-01-30T19:51:22.120191+00:00",
+        "amount": 1999,
+        "currency": "ZAR",
+        "status": "paid",
+        "plan": "Pro",
+        "userId": "0044fd5d-de94-44be-bcf5-a6be165ed674",
+        "userEmail": "reubenjacobs123@gmail.com",
+        "companyName": "Reuben Jacobs Construction (Pty) Ltd"
+      },
+      {
+        "id": "6d2fb61e-9c7c-4e17-93a5-025070e9bf4b",
+        "date": "2026-01-30T19:51:21.882324+00:00",
+        "amount": 1999,
+        "currency": "ZAR",
+        "status": "paid",
+        "plan": "Pro",
+        "userId": "0044fd5d-de94-44be-bcf5-a6be165ed674",
+        "userEmail": "reubenjacobs123@gmail.com",
+        "companyName": "Reuben Jacobs Construction (Pty) Ltd"
+      }
+    ]
+  }
+}

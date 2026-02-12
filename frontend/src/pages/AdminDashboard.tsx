@@ -299,72 +299,72 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             </div>
-        </div>
 
-                {/* Quick Actions (Navigation Hub) */ }
-                <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-                    <Lock className="w-5 h-5 text-gray-400" />
-                    Management Console
-                </h2>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Quick Actions (Navigation Hub) */}
+            <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <Lock className="w-5 h-5 text-gray-400" />
+                Management Console
+            </h2>
 
-                    {/* Card 1: Analytics */}
-                    <Link to="/admin/revenue" className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-indigo-500 hover:shadow-md transition-all flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                                <BarChart3 className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">Analytics & Revenue</h3>
-                                <p className="text-xs text-gray-500 mt-0.5">View financial reports and charts</p>
-                            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                {/* Card 1: Analytics */}
+                <Link to="/admin/revenue" className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-indigo-500 hover:shadow-md transition-all flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                            <BarChart3 className="w-6 h-6" />
                         </div>
-                        <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 transform group-hover:translate-x-1 transition-all" />
-                    </Link>
-
-                    {/* Card 2: Broadcasts */}
-                    <Link to="/admin/broadcasts" className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-indigo-500 hover:shadow-md transition-all flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-violet-50 text-violet-600 rounded-lg group-hover:bg-violet-600 group-hover:text-white transition-colors">
-                                <Radio className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">Broadcasts</h3>
-                                <p className="text-xs text-gray-500 mt-0.5">Send system-wide alerts</p>
-                            </div>
+                        <div>
+                            <h3 className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">Analytics & Revenue</h3>
+                            <p className="text-xs text-gray-500 mt-0.5">View financial reports and charts</p>
                         </div>
-                        <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 transform group-hover:translate-x-1 transition-all" />
-                    </Link>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 transform group-hover:translate-x-1 transition-all" />
+                </Link>
 
-                    {/* Card 3: Users */}
-                    <Link to="/admin/users" className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-indigo-500 hover:shadow-md transition-all flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-fuchsia-50 text-fuchsia-600 rounded-lg group-hover:bg-fuchsia-600 group-hover:text-white transition-colors">
-                                <Users className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">User Management</h3>
-                                <p className="text-xs text-gray-500 mt-0.5">Search, edit, and support users</p>
-                            </div>
+                {/* Card 2: Broadcasts */}
+                <Link to="/admin/broadcasts" className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-indigo-500 hover:shadow-md transition-all flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-violet-50 text-violet-600 rounded-lg group-hover:bg-violet-600 group-hover:text-white transition-colors">
+                            <Radio className="w-6 h-6" />
                         </div>
-                        <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 transform group-hover:translate-x-1 transition-all" />
-                    </Link>
-
-                    {/* External: Supabase */}
-                    <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="group bg-gray-50 p-6 rounded-xl border border-gray-200 hover:bg-white hover:border-gray-400 transition-all flex items-center justify-between opacity-70 hover:opacity-100">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
-                                <ExternalLink className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-gray-900">Database Direct</h3>
-                                <p className="text-xs text-gray-500 mt-0.5">Open Supabase Console</p>
-                            </div>
+                        <div>
+                            <h3 className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">Broadcasts</h3>
+                            <p className="text-xs text-gray-500 mt-0.5">Send system-wide alerts</p>
                         </div>
-                    </a>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 transform group-hover:translate-x-1 transition-all" />
+                </Link>
 
-                </div>
-            </div >
-            )
+                {/* Card 3: Users */}
+                <Link to="/admin/users" className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-indigo-500 hover:shadow-md transition-all flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-fuchsia-50 text-fuchsia-600 rounded-lg group-hover:bg-fuchsia-600 group-hover:text-white transition-colors">
+                            <Users className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">User Management</h3>
+                            <p className="text-xs text-gray-500 mt-0.5">Search, edit, and support users</p>
+                        </div>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 transform group-hover:translate-x-1 transition-all" />
+                </Link>
+
+                {/* External: Supabase */}
+                <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="group bg-gray-50 p-6 rounded-xl border border-gray-200 hover:bg-white hover:border-gray-400 transition-all flex items-center justify-between opacity-70 hover:opacity-100">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
+                            <ExternalLink className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-gray-900">Database Direct</h3>
+                            <p className="text-xs text-gray-500 mt-0.5">Open Supabase Console</p>
+                        </div>
+                    </div>
+                </a>
+
+            </div>
+        </div >
+    )
 }

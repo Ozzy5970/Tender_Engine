@@ -554,17 +554,14 @@ export const AdminService = {
         // Normalization Fallback (One-Release Compat)
         if (response.data) {
             const raw = response.data as any
-            // Map RPC keys to frontend contract: revenue30dPaid
-            if (raw.revenueLast30Days !== undefined) {
-                raw.revenue30dPaid = raw.revenueLast30Days
-            } else if (raw.revenue30dPaid !== undefined) {
-                // Already correct
-            } else if (raw.totalRevenue !== undefined) {
-                // Fallback for old RPC
-                raw.revenue30dPaid = raw.totalRevenue
-            } else if (raw.lifetimeRevenuePaid !== undefined) {
-                // Fallback for intermediate RPC
-                raw.revenue30dPaid = raw.lifetimeRevenuePaid
+
+            // 1. Enforce numeric revenue (Handled RNaN)
+            const revenueVal = raw.revenue30dPaid ?? raw.revenueLast30Days ?? raw.totalRevenue ?? raw.lifetimeRevenuePaid ?? 0
+            raw.revenue30dPaid = Number(revenueVal) || 0
+
+            // 2. Enforce System Health
+            if (!raw.systemHealth) {
+                raw.systemHealth = { status: 'DEGRADED', errorCount24h: 0 }
             }
         }
 
