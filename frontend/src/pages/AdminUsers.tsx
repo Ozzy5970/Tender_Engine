@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react"
 import { AdminService } from "@/services/api"
+import { normalizePlanLabel } from "@/lib/plans"
 import { Search, Loader2, ArrowUpDown, FileText, CheckCircle } from "lucide-react"
 import { motion } from "framer-motion"
 
@@ -159,11 +160,11 @@ export default function AdminUsers() {
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col gap-1.5">
                                             <div className="flex items-center gap-2">
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${user.sub_plan?.toLowerCase().includes('pro') ? 'bg-indigo-600 text-white shadow-sm' :
-                                                    user.sub_plan?.toLowerCase().includes('standard') ? 'bg-blue-500 text-white' :
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${normalizePlanLabel(user.sub_plan) === 'Pro Plan' ? 'bg-indigo-600 text-white shadow-sm' :
+                                                    normalizePlanLabel(user.sub_plan) === 'Basic Plan' ? 'bg-blue-500 text-white' :
                                                         'bg-gray-100 text-gray-500'
                                                     }`}>
-                                                    {user.sub_plan || 'Free'}
+                                                    {normalizePlanLabel(user.sub_plan)}
                                                 </span>
 
                                             </div>

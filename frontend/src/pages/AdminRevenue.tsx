@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react"
 import { AdminService } from "@/services/api"
+import { normalizePlanLabel } from "@/lib/plans"
 import { Download, Calendar, Loader2, AlertTriangle, FileText, ChevronLeft, ChevronRight, RefreshCw, ArrowLeft } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useNavigate } from "react-router-dom"
@@ -147,7 +148,7 @@ function AdminRevenueContent() {
             return [
                 t.companyName || "Unknown",
                 t.userEmail || "Unknown",
-                t.plan || "Free",
+                normalizePlanLabel(t.plan),
                 dateObj.toLocaleTimeString(),
                 dateObj.toLocaleDateString(),
                 t.amount?.toFixed(2) || "0.00"
@@ -334,11 +335,11 @@ function AdminRevenueContent() {
                                             </td>
                                             <td className="px-4 py-2 border border-gray-200 text-sm text-gray-700 whitespace-nowrap">{t.userEmail}</td>
                                             <td className="px-4 py-2 border border-gray-200 text-sm text-gray-700 whitespace-nowrap">
-                                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold border ${t.plan === 'Pro' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                                    t.plan === 'Standard' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold border ${normalizePlanLabel(t.plan) === 'Pro Plan' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                                    normalizePlanLabel(t.plan) === 'Basic Plan' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                                                         'bg-gray-100 text-gray-600 border-gray-200'
                                                     }`}>
-                                                    {t.plan}
+                                                    {normalizePlanLabel(t.plan)}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-2 border border-gray-200 text-sm text-gray-500 font-mono text-xs whitespace-nowrap">{dateObj.toLocaleTimeString()}</td>

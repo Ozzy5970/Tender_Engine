@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 // 2. Fix map callback
 // ...
 import { AdminService } from "@/services/api"
+import { normalizePlanLabel } from "@/lib/plans"
 import { Download, Loader2, ArrowLeft, UserCheck, UserX, AlertCircle } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 
@@ -38,7 +39,7 @@ export default function AdminSubscriptions() {
                 u.company_name || "Unknown",
                 u.email || "Unknown",
                 u.sub_status || "free",
-                u.sub_plan || "Free Plan",
+                normalizePlanLabel(u.sub_plan),
                 isFormer ? "Yes" : "No"
             ]
         })
@@ -122,7 +123,7 @@ export default function AdminSubscriptions() {
                                         <td className={tdClass}>{u.email}</td>
                                         <td className={tdClass}>
                                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-green-100 text-green-700">
-                                                {u.sub_plan}
+                                                {normalizePlanLabel(u.sub_plan)}
                                             </span>
                                         </td>
                                         {/* No Time, just Date */}
