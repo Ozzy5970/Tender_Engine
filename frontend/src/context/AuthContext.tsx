@@ -29,6 +29,7 @@ type AuthContextType = {
     loading: boolean // <--- Added for compatibility
     signOut: () => Promise<void>
     refreshProfile: () => Promise<void>
+    retryVerification: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -44,6 +45,7 @@ const AuthContext = createContext<AuthContextType>({
     loading: true, // <--- Added default
     signOut: async () => { },
     refreshProfile: async () => { },
+    retryVerification: async () => { },
 })
 
 export const useAuth = () => useContext(AuthContext)
@@ -67,7 +69,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Concurrency & Loop Guard
     const verificationInProgress = useRef(false)
+    const inFlightPromiseRef = useRef<Promise<boolean> | null>(null)
     const lastCheckedUserIdRef = useRef<string | null>(null)
+    const initTimeoutRef = useRef<any>(null) // FIX #1: Store timeout for cleanup
 
     const signOut = async () => {
         // Optimistic Logout
@@ -78,6 +82,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Reset Admin State
         setAdminStatus('UNKNOWN')
         lastCheckedUserIdRef.current = null
+        setTier("Free")
+        setCompanyName(null)
+        setFullName(null)
 
         await supabase.auth.signOut()
     }
@@ -99,167 +106,187 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // unless explicitly forced (which we aren't doing here).
         // This prevents the "Infinite Profile Loop" if the DB is throwing 42703.
         if (lastCheckedUserIdRef.current === userId) {
-            console.log("🛡️ Skipping redundant admin check (Loop Protection).")
-            if (status !== 'AUTHENTICATED') setStatus('AUTHENTICATED')
+            console.log("🛡️ Skipping redundant check (already verified for this user).")
             return true
         }
 
-        if (verificationInProgress.current) return true
-        verificationInProgress.current = true
+        // RE-ENTRANCY GUARD: If a check is already in flight, wait for it.
+        if (inFlightPromiseRef.current) {
+            console.log("✈️ Auth verification already in flight. Waiting for result...")
+            return inFlightPromiseRef.current
+        }
 
-        try {
-            // 0. GOLD STANDARD VERIFICATION with TIMEOUT
-            // FIX: SES/Metamask can freeze getUser() indefinitely. We enforce a 2s timeout.
-            const verifiedUserPromise = supabase.auth.getUser()
-            const verificationTimeoutPromise = new Promise<{ data: { user: null }, error: any }>((resolve) =>
-                setTimeout(() => resolve({ data: { user: null }, error: { message: "Verification Timed Out" } }), 2000)
-            )
-
-            const { data: { user: verifiedUser }, error: authError } = await Promise.race([
-                verifiedUserPromise,
-                verificationTimeoutPromise
-            ])
-
-            // Extension Resilience:
-            // If authError is 401/403 -> Invalid Token -> Logout
-            // If authError is Network/Unknown/Timeout -> Assume Extension Block -> LIMITED Mode (Stay logged in)
-            if (authError || !verifiedUser) {
-                console.warn("⚠️ Server verification warning:", authError)
-
-                const isCriticalAuthError = authError?.status === 401 ||
-                    authError?.message?.includes("token") ||
-                    authError?.message?.includes("JWT")
-
-                if (isCriticalAuthError) {
-                    console.error("⛔ Critical Auth Failure. Session Invalid. Logging out.")
-                    // FIX: Disable logout for "Ghost Logout" debugging
-                    console.warn("🛑 DEBUG: Would have logged out here, but blocked for testing.")
-                    // await signOut()
-                    return false
-                } else {
-                    console.log("🛡️ Extension/Network Block Detected. Entering LIMITED mode (Cushioned).")
-                    // We trust the optimistic session because the server is unreachable/blocked
-                    setStatus('LIMITED')
-                    // We can still try to fetch profile if RLS allows
-                }
-            } else {
-                // Happy Path
-                // if (status !== 'AUTHENTICATED') setStatus('AUTHENTICATED') // <-- DELAYED to end
-            }
-
-            // 1. Check Admin Status (Strict RPC ONLY)
-            // We NO LONGER check profile.is_admin or a whitelist. We ask the database directly.
-            // TRI-STATE LOGIC: UNKNOWN -> ADMIN | NOT_ADMIN. No defaulting to false on timeout.
-            try {
-                // Increased Timeout for Admin Check (12s) to handle slow cold starts
-                const adminCheckPromise = supabase.rpc('is_admin');
-                const adminResult = await timeoutPromise(adminCheckPromise, 12000, { data: null, error: { message: "RPC Timeout" } } as any);
-
-                const { data, error } = adminResult as any;
-
-                if (!error && data === true) {
-                    console.log("👮 Admin status confirmed via RPC.");
-                    setAdminStatus('ADMIN');
-                } else if (!error && data === false) {
-                    console.log("👤 User is NOT an admin (RPC returned false).");
-                    setAdminStatus('NOT_ADMIN');
-                } else {
-                    // Error or Timeout: Keep UNKNOWN. Do NOT set NOT_ADMIN.
-                    console.warn("⚠️ Admin check indeterminate (Timeout or Error). Status remains UNKNOWN.", error);
-                    // We keep unknown so AdminRoute can show a spinner/retry instead of kicking them out.
-                }
-
-            } catch (e) {
-                console.warn("Admin RPC check exception:", e);
-                // Keep UNKNOWN
-            }
-
-            // 2. Fetch Profile (Available Fields Only)
-            // DO NOT query 'is_admin'. DO NOT retry loops.
-            let profile = null;
+        // Start Verification
+        const verificationPromise = (async () => {
+            verificationInProgress.current = true
+            let serverVerified = false
+            const startTime = Date.now()
 
             try {
-                // Try Live DB
-                // Wrap in timeout to prevent hanging
-                const profilePromise = supabase
-                    .from('profiles')
-                    .select('company_name, full_name') // STRICTLY EXISTING COLUMNS
-                    .eq('id', userId)
-                    .maybeSingle();
+                // 0. GOLD STANDARD VERIFICATION with EXTENDED TIMEOUT (10s)
+                // FIX: SES/Metamask can freeze getUser() indefinitely. 
+                const verifiedUserPromise = supabase.auth.getUser()
 
-                const dbResult = await timeoutPromise(profilePromise, 2000, {
-                    data: null,
-                    error: { message: "Profile Timeout", code: "TIMEOUT" } as any,
-                    count: null,
-                    status: 408,
-                    statusText: "Timeout"
-                } as any);
+                const { data: { user: verifiedUser }, error: authError } = await timeoutPromise(
+                    verifiedUserPromise.then(res => ({ data: { user: res.data.user }, error: res.error })),
+                    10000,
+                    { data: { user: null }, error: { message: "Verification Timed Out", status: 408 } as any }
+                )
 
-                profile = dbResult.data;
+                console.log(`⏱️ Gold Standard Verification took ${Date.now() - startTime}ms`)
 
-                if (dbResult.error) {
-                    console.warn("Profile fetch warning (Non-Fatal):", dbResult.error.message)
-                    // DO NOT RETRY. FALLTHROUGH.
+                // Extension Resilience:
+                if (authError || !verifiedUser) {
+                    console.warn("⚠️ Server verification warning:", authError)
+
+                    const isCriticalAuthError = authError?.status === 401 ||
+                        authError?.message?.includes("token") ||
+                        authError?.message?.includes("JWT")
+
+                    if (isCriticalAuthError) {
+                        console.error("⛔ Critical Auth Failure. Session Invalid. Logging out.")
+                        return false
+                    } else {
+                        console.log("🛡️ Extension/Network Block Detected. Entering LIMITED mode (Cushioned).")
+                        // We do NOT set serverVerified = true
+                        if (status !== 'LIMITED') setStatus('LIMITED')
+                    }
+                } else {
+                    // Happy Path: Server confirmed session is valid
+                    serverVerified = true
+                }
+
+                // 1. Check Admin Status (Strict RPC ONLY)
+                // We NO LONGER check profile.is_admin or a whitelist. We ask the database directly.
+                // TRI-STATE LOGIC: UNKNOWN -> ADMIN | NOT_ADMIN. No defaulting to false on timeout.
+                try {
+                    const rpcStart = Date.now()
+                    // Increased Timeout for Admin Check (12s) to handle slow cold starts
+                    const adminCheckPromise = supabase.rpc('is_admin');
+                    const adminResult = await timeoutPromise(adminCheckPromise, 12000, { data: null, error: { message: "RPC Timeout" } } as any);
+
+                    console.log(`⏱️ Admin RPC took ${Date.now() - rpcStart}ms`)
+
+                    const { data, error } = adminResult as any;
+
+                    if (!error && data === true) {
+                        console.log("👮 Admin status confirmed via RPC.");
+                        setAdminStatus('ADMIN');
+                    } else if (!error && data === false) {
+                        console.log("👤 User is NOT an admin (RPC returned false).");
+                        setAdminStatus('NOT_ADMIN');
+                    } else {
+                        // Error or Timeout: Keep UNKNOWN. Do NOT set NOT_ADMIN.
+                        console.warn("⚠️ Admin check indeterminate (Timeout or Error). Status remains UNKNOWN.", error);
+                        // We keep unknown so AdminRoute can show a spinner/retry instead of kicking them out.
+                    }
+
+                } catch (e) {
+                    console.warn("Admin RPC check exception:", e);
+                    // Keep UNKNOWN
+                }
+
+                // 2. Fetch Profile (Available Fields Only)
+                // DO NOT query 'is_admin'. DO NOT retry loops.
+                let profile = null;
+
+                try {
+                    // Try Live DB with 10s Timeout
+                    const profilePromise = supabase
+                        .from('profiles')
+                        .select('company_name, full_name') // STRICTLY EXISTING COLUMNS
+                        .eq('id', userId)
+                        .maybeSingle();
+
+                    const dbResult = await timeoutPromise(profilePromise, 10000, {
+                        data: null,
+                        error: { message: "Profile Timeout", code: "TIMEOUT" } as any,
+                        count: null,
+                        status: 408,
+                        statusText: "Timeout"
+                    } as any);
+
+                    profile = dbResult.data;
+
+                    if (dbResult.error) {
+                        console.warn("Profile fetch warning (Non-Fatal):", dbResult.error.message)
+                    }
+
+                    if (profile) {
+                        // Success! Cache it for resilience
+                        if (resilientStorage.setProfile) resilientStorage.setProfile(userId, profile)
+                    }
+                } catch (e) {
+                    console.warn("Profile fetch exception:", e)
+                }
+
+                // If Live DB Failed, Try Cache
+                if (!profile && resilientStorage.getProfile) {
+                    console.log("⚠️ DB Profile missing. Trying Offline Cache.")
+                    try {
+                        profile = await resilientStorage.getProfile(userId);
+                        if (profile) console.log("✅ Restored Profile from Offline Cache.")
+                    } catch (e) { /* Ignore */ }
                 }
 
                 if (profile) {
-                    // Success! Cache it for resilience
-                    if (resilientStorage.setProfile) resilientStorage.setProfile(userId, profile)
+                    setCompanyName(profile.company_name || null)
+                    setFullName(profile.full_name || null)
+                } else {
+                    setCompanyName(null)
                 }
+
+                // 2. Check Tier
+                // Similar logic for Subscription (Cache it too if needed, but profile is main redirect blocker)
+                // Added 10s Timeout
+                const subPromise = supabase
+                    .from('subscriptions')
+                    .select('plan_name')
+                    .eq('user_id', userId)
+                    .eq('status', 'active')
+                    .maybeSingle()
+
+                const { data: sub } = await timeoutPromise(subPromise, 10000, { data: null } as any)
+
+                if (sub?.plan_name) {
+                    const p = sub.plan_name.toLowerCase()
+                    if (p.includes('enterprise') || p.includes('pro')) setTier("Pro")
+                    else if (p.includes('standard')) setTier("Standard")
+                    else setTier("Free")
+                } else {
+                    setTier("Free")
+                }
+
+                // 3. Status Finalization
+                // Only set AUTHENTICATED if we server verified or completed happy path.
+                // Keep LIMITED if verification failed but we didn't crash.
+                lastCheckedUserIdRef.current = userId;
+
+                if (serverVerified) {
+                    if (status !== 'AUTHENTICATED') setStatus('AUTHENTICATED')
+                } else {
+                    // FIX #2: Robust Fallback
+                    // If server verification failed but we have a session (userId exists),
+                    // ensuring we don't leave the user in LOADING or UNAUTHENTICATED.
+                    // We force LIMITED unless they are somehow already AUTHENTICATED.
+                    if (status !== 'AUTHENTICATED') setStatus('LIMITED')
+                }
+
+                return true
+
             } catch (e) {
-                console.warn("Profile fetch exception:", e)
-                // Consume error. Do not propagate.
+                console.error("Auth check unexpected error:", e)
+                // Safety Net: Don't logout on crash
+                if (status === 'LOADING') setStatus('LIMITED')
+                return true
+            } finally {
+                verificationInProgress.current = false
+                inFlightPromiseRef.current = null
             }
+        })()
 
-            // If Live DB Failed, Try Cache
-            if (!profile && resilientStorage.getProfile) {
-                console.log("⚠️ DB Profile missing. Trying Offline Cache.")
-                try {
-                    profile = await resilientStorage.getProfile(userId);
-                    if (profile) console.log("✅ Restored Profile from Offline Cache.")
-                } catch (e) { /* Ignore */ }
-            }
-
-            if (profile) {
-                setCompanyName(profile.company_name || null)
-                setFullName(profile.full_name || null)
-            } else {
-                setCompanyName(null)
-            }
-
-            // 2. Check Tier
-            // Similar logic for Subscription (Cache it too if needed, but profile is main redirect blocker)
-            const { data: sub } = await supabase
-                .from('subscriptions')
-                .select('plan_name')
-                .eq('user_id', userId)
-                .eq('status', 'active')
-                .maybeSingle()
-
-            if (sub?.plan_name) {
-                const p = sub.plan_name.toLowerCase()
-                if (p.includes('enterprise') || p.includes('pro')) setTier("Pro")
-                else if (p.includes('standard')) setTier("Standard")
-                else setTier("Free")
-            } else {
-                setTier("Free")
-            }
-
-            // 3. NOW we are ready to say "AUTHENTICATED"
-            // This ensures logic downstream (like isAdmin check) has the latest data.
-            // MARK SUCCESS to prevent future loops
-            lastCheckedUserIdRef.current = userId;
-
-            if (status !== 'AUTHENTICATED') setStatus('AUTHENTICATED')
-            return true
-        } catch (e) {
-            console.error("Auth check unexpected error:", e)
-            // Safety Net: Don't logout on crash
-            setStatus('LIMITED')
-            return true
-        } finally {
-            verificationInProgress.current = false
-        }
+        inFlightPromiseRef.current = verificationPromise
+        return verificationPromise
     }
 
     const refreshProfile = async () => {
@@ -268,6 +295,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // If we want to FORCE refresh, we might need to clear ref.
             // But usually refreshProfile is called after manual updates.
             lastCheckedUserIdRef.current = null; // Allow re-check
+            await checkUserRoleAndTier(user.id)
+        }
+    }
+
+    const retryVerification = async () => {
+        if (user?.id) {
+            console.log("🔄 Manual Verification Retry Requested")
+            lastCheckedUserIdRef.current = null
             await checkUserRoleAndTier(user.id)
         }
     }
@@ -282,14 +317,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // We check session.
             // We wait for verification.
 
-            // Safety Timeout: If Supabase hangs for > 3s, force completion
-            const timeoutId = setTimeout(() => {
-                console.warn("⚠️ Auth Initialization timed out (3s). Forcing resolution.")
-                if (isMounted) {
-                    // If we have a user in state, go LIMITED. If not, go UNAUTHENTICATED.
-                    setStatus((prev) => (prev === 'LOADING' ? 'UNAUTHENTICATED' : prev))
-                }
-            }, 3000)
+            // Safety Timeout: If Supabase hangs for > 15s (User Req), force completion
+            // FIX #1: Use ref for cleanup
+            initTimeoutRef.current = setTimeout(() => {
+                console.warn("⚠️ Auth Initialization timed out (15s). Forcing resolution.")
+                supabase.auth.getSession().then(({ data }) => {
+                    if (!isMounted) return
+                    if (data.session) {
+                        setStatus('LIMITED')
+                    } else {
+                        setStatus('UNAUTHENTICATED')
+                    }
+                })
+            }, 15000)
 
             try {
                 // 1. Check for Magic Link / OAuth Code
@@ -303,7 +343,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 let initialSession = data.session
 
                 // Clear timeout since we got a response
-                clearTimeout(timeoutId)
+                if (initTimeoutRef.current) clearTimeout(initTimeoutRef.current)
 
                 if (initialSession) {
                     console.log("✅ Optimistic Session Restored.")
@@ -319,7 +359,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             } catch (err) {
                 console.error("Auth init error:", err)
-                clearTimeout(timeoutId)
+                if (initTimeoutRef.current) clearTimeout(initTimeoutRef.current)
                 setStatus('UNAUTHENTICATED')
             }
         }
@@ -362,6 +402,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         return () => {
             isMounted = false
+            // FIX #1: Cleanup timeout on unmount
+            if (initTimeoutRef.current) clearTimeout(initTimeoutRef.current)
             subscription.unsubscribe()
         }
     }, [])
@@ -380,6 +422,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isVerified,
         signOut,
         refreshProfile,
+        retryVerification,
     }
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -51,7 +51,18 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 // Strict Admin Route wrapper (Tri-State Verification)
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { adminStatus, status } = useAuth()
+  const { adminStatus, status, retryVerification } = useAuth()
+  const [showRetry, setShowRetry] = useState(false)
+
+  useEffect(() => {
+    let timer: any
+    if (adminStatus === 'UNKNOWN') {
+      timer = setTimeout(() => setShowRetry(true), 10000)
+    } else {
+      setShowRetry(false)
+    }
+    return () => clearTimeout(timer)
+  }, [adminStatus])
 
   // 1. App Loading?
   if (status === 'LOADING') {
@@ -70,10 +81,42 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 
   // 3. Admin Status Unknown? (Tri-State: Don't redirect yet!)
   if (adminStatus === 'UNKNOWN') {
+    // Optional: if status === 'LIMITED' and adminStatus === 'UNKNOWN', show message
+    if (status === 'LIMITED') {
+      return (
+        <div className="h-screen flex items-center justify-center bg-gray-50 flex-col gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-600"></div>
+          <span className="text-yellow-700 font-medium">Network/extension blocked verification. Please disable extensions or retry.</span>
+          {showRetry && (
+            <button
+              onClick={() => {
+                setShowRetry(false)
+                retryVerification()
+              }}
+              className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors text-sm font-medium"
+            >
+              Retry Verification
+            </button>
+          )}
+        </div>
+      )
+    }
+
     return (
       <div className="h-screen flex items-center justify-center bg-gray-50 flex-col gap-3">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
         <span className="text-gray-500 font-medium">Verifying Admin Access...</span>
+        {showRetry && (
+          <button
+            onClick={() => {
+              setShowRetry(false)
+              retryVerification()
+            }}
+            className="mt-4 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors text-sm font-medium"
+          >
+            Retry Verification
+          </button>
+        )}
       </div>
     )
   }
@@ -119,7 +162,7 @@ function Dashboard() {
   }, [])
 
   const CHART_DATA = [
-    { name: 'Average', score: avgReadiness || 0 }
+    { name: 'Average', score: avgReadiness ?? 0 }
   ];
 
   return (
@@ -211,22 +254,27 @@ function Dashboard() {
       <div className="grid gap-6 md:grid-cols-2">
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Readiness Overview</h3>
-          <div className="h-[300px]">
-            {/* If we have no data, show empty state */}
-            {activeTendersCount === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                <p>No active tenders to analyze</p>
+          <div className="w-full h-[300px] min-h-[300px] flex items-center justify-center">
+            {activeTendersCount !== null && activeTendersCount > 0 && avgReadiness !== null ? (
+              <div className="w-full h-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={CHART_DATA}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}%`} domain={[0, 100]} />
+                    <Tooltip />
+                    <Bar dataKey="score" fill="#2563eb" radius={[4, 4, 0, 0]} barSize={50} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={CHART_DATA}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}%`} domain={[0, 100]} />
-                  <Tooltip />
-                  <Bar dataKey="score" fill="#2563eb" radius={[4, 4, 0, 0]} barSize={50} />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="flex flex-col items-center justify-center text-gray-400">
+                <p>
+                  {activeTendersCount === 0
+                    ? "No active tenders to analyze"
+                    : "Loading chart..."}
+                </p>
+              </div>
             )}
           </div>
         </div>
@@ -258,16 +306,31 @@ function Dashboard() {
 
 // Role-based Home Router
 function Home() {
-  const { isAdmin, loading, status } = useAuth()
+  const { adminStatus, loading, status } = useAuth()
 
   // Wait for Auth to settle before deciding where to go.
   // We double-check 'status' to be sure we aren't in that optimistic "session exists but not verified" limbo.
   if (loading || status === 'LOADING') {
-    return <div className="h-screen flex items-center justify-center">Loading...</div>
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50 flex-col gap-3">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <span className="text-gray-500 font-medium">Initializing...</span>
+      </div>
+    )
+  }
+
+  // Tri-State Check for UNKNOWN
+  if (adminStatus === 'UNKNOWN') {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50 flex-col gap-3">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <span className="text-gray-500 font-medium">Verifying Access...</span>
+      </div>
+    )
   }
 
   // If Admin, go straight to executive overview
-  if (isAdmin) {
+  if (adminStatus === 'ADMIN') {
     return <Navigate to="/admin" replace />
   }
 
