@@ -295,9 +295,34 @@ export const CompanyService = {
     },
 
     async getCompliance() {
-        return handleRequest(
+        // 1. Fetch from View (now includes storage_path)
+        // We use 'any' to bypass strict typing for the new column until types are regenerated
+        const response = await handleRequest<any[]>(
             supabase.from('view_compliance_summary').select('*')
         )
+
+        if (response.error || !response.data) return response
+
+        // 2. Generate Signed URLs at Runtime
+        // This ensures no expired public links are ever stored
+        const signedDocs = await Promise.all(response.data.map(async (doc) => {
+            const path = doc.storage_path || doc.file_url
+            const bucket = doc.bucket || 'compliance'
+
+            // If it behaves like a URL (starts with http), return as is (already signed/public)
+            if (path && typeof path === 'string' && !path.startsWith('http')) {
+                const { data } = await supabase.storage
+                    .from(bucket)
+                    .createSignedUrl(path, 3600) // Valid for 1 Hour
+
+                if (data?.signedUrl) {
+                    return { ...doc, file_url: data.signedUrl }
+                }
+            }
+            return doc
+        }))
+
+        return { ...response, data: signedDocs }
     },
 
     async getComplianceStats() {
@@ -343,71 +368,71 @@ export const CompanyService = {
         }
     },
 
-    async uploadComplianceDoc(file: File, category: string, docType: string, metadata: Record<string, unknown> = {}) {
-        // 0. Get User
+    async uploadComplianceDoc(
+        file: File,
+        category: string,
+        docType: string,
+        metadata: Record<string, any> = {}
+    ) {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return { data: null, error: "User not authenticated", status: 401 }
 
-        const fileName = `${category}/${docType}/${Date.now()}_${file.name}`
+        const bucket = "compliance"
+        const storagePath = `${user.id}/${category}/${docType}/${Date.now()}_${file.name}`
 
-        // 1. Upload File
         const { error: uploadError } = await supabase.storage
-            .from('compliance')
-            .upload(fileName, file)
+            .from(bucket)
+            .upload(storagePath, file, { contentType: file.type, upsert: false })
 
         if (uploadError) return { data: null, error: uploadError.message, status: 500 }
 
-        // 2 Create/Update Record
-        let referenceNumber = null;
-        if (metadata.registration_number) referenceNumber = metadata.registration_number;
-        if (metadata.crs_number) referenceNumber = metadata.crs_number;
-        if (metadata.tax_ref) referenceNumber = metadata.tax_ref;
-        if (metadata.maaa_number) referenceNumber = metadata.maaa_number;
-        if (metadata.vat_number) referenceNumber = metadata.vat_number;
-        if (metadata.uif_number) referenceNumber = metadata.uif_number;
-        if (metadata.coid_ref) referenceNumber = metadata.coid_ref;
-
         return handleRequest(
-            supabase.from('compliance_documents').insert({
+            supabase.from("compliance_documents").insert({
                 user_id: user.id,
                 category,
                 doc_type: docType,
-                title: file.name, // Fallback title
+                title: file.name,
                 file_name: file.name,
-                file_url: fileName,
-                status: 'valid', // Default to valid, backend trigger handles expiry later
-                expiry_date: metadata.expiryDate || null,
-                reference_number: referenceNumber,
-                metadata: metadata,
+
+                bucket,
+                storage_path: storagePath,
+
+                // IMPORTANT: store a storage KEY, not a full URL
+                file_url: storagePath,
+
+                status: "valid",
+                expiry_date: metadata.expiryDate ?? null,
+                reference_number: metadata.reference_number ?? null,
+                metadata,
                 issue_date: new Date().toISOString()
             })
         )
     },
 
     async deleteComplianceDoc(id: string) {
-        // 1. Fetch doc to get file_url
-        const { data: doc, error: fetchError } = await supabase
-            .from('compliance_documents')
-            .select('file_url')
-            .eq('id', id)
-            .single()
+        // 1. Atomic DB Delete via RPC
+        // Deletes the row and returns the storage path in one go
+        const { data, error } = await supabase.rpc('delete_compliance_document', { p_doc_id: id })
 
-        if (fetchError) return { data: null, error: fetchError.message, status: 500 }
+        if (error) return { data: null, error: error.message, status: 500 }
 
-        // 2. Delete file from storage
-        if (doc && doc.file_url) {
-            const { error: storageError } = await supabase.storage
-                .from('compliance')
-                .remove([doc.file_url])
+        // 2. Cleanup Storage (If path existed)
+        // RPC returns array of deleted rows
+        if (data && Array.isArray(data) && data.length > 0) {
+            const { storage_path, bucket } = data[0]
+            if (storage_path) {
+                const { error: storageError } = await supabase.storage
+                    .from(bucket || 'compliance')
+                    .remove([storage_path])
 
-            if (storageError) console.error("Failed to delete file from storage:", storageError)
-            // Continue to delete record even if storage fails
+                if (storageError) console.error("Failed to delete file from storage:", storageError)
+            }
+        } else {
+            // If no rows were returned, permission denied or not found
+            return { data: null, error: "Document not found or permission denied", status: 404 }
         }
 
-        // 3. Delete Record
-        return handleRequest(
-            supabase.from('compliance_documents').delete().eq('id', id)
-        )
+        return { data: true, error: null, status: 200 }
     },
 
     // --- Alerts ---
