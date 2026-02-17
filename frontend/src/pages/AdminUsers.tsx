@@ -116,6 +116,7 @@ export default function AdminUsers() {
                             <th className="px-6 py-4">Identity & Profile</th>
                             <th className="px-6 py-4">Tier & Verification</th>
                             <th className="px-6 py-4">Engagement</th>
+                            <th className="px-6 py-4">User Documents</th>
 
                         </tr>
                     </thead>
@@ -144,7 +145,14 @@ export default function AdminUsers() {
                                                 {(user.company_name?.[0] || 'U').toUpperCase()}
                                             </div>
                                             <div className="overflow-hidden">
-                                                <p className="font-bold text-gray-900 truncate">{user.company_name || "New Company"}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-bold text-gray-900 truncate">{user.company_name || "New Company"}</p>
+                                                    {user.role === 'ADMIN' && (
+                                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
+                                                            ADMIN
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <div className="flex items-center gap-1.5 mt-0.5">
                                                     <p className="text-gray-500 text-[11px] truncate">{user.full_name || user.email}</p>
                                                     {user.profile_complete ? (
@@ -158,25 +166,29 @@ export default function AdminUsers() {
                                     </td>
 
                                     <td className="px-6 py-4">
-                                        <div className="flex flex-col gap-1.5">
-                                            <div className="flex items-center gap-2">
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${normalizePlanLabel(user.sub_plan) === 'Pro Plan' ? 'bg-indigo-600 text-white shadow-sm' :
-                                                    normalizePlanLabel(user.sub_plan) === 'Basic Plan' ? 'bg-blue-500 text-white' :
-                                                        'bg-gray-100 text-gray-500'
-                                                    }`}>
-                                                    {normalizePlanLabel(user.sub_plan)}
-                                                </span>
+                                        {user.role === 'ADMIN' ? (
+                                            <div className="text-gray-400 text-xs pl-2">—</div>
+                                        ) : (
+                                            <div className="flex flex-col gap-1.5">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${normalizePlanLabel(user.sub_plan) === 'Pro Plan' ? 'bg-indigo-600 text-white shadow-sm' :
+                                                        normalizePlanLabel(user.sub_plan) === 'Basic Plan' ? 'bg-blue-500 text-white' :
+                                                            'bg-gray-100 text-gray-500'
+                                                        }`}>
+                                                        {normalizePlanLabel(user.sub_plan)}
+                                                    </span>
 
-                                            </div>
-                                            <div className="flex items-center gap-3 text-[11px] text-gray-400">
-                                                <div className="flex items-center gap-1">
-                                                    <span className="font-semibold text-gray-600">Reg:</span> {user.registration_number ? '✓' : '×'}
                                                 </div>
-                                                <div className="flex items-center gap-1">
-                                                    <span className="font-semibold text-gray-600">Tax:</span> {user.tax_reference_number ? '✓' : '×'}
+                                                <div className="flex items-center gap-3 text-[11px] text-gray-400">
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="font-semibold text-gray-600">Reg:</span> {user.registration_number ? '✓' : '×'}
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="font-semibold text-gray-600">Tax:</span> {user.tax_reference_number ? '✓' : '×'}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                        )}
                                     </td>
 
                                     <td className="px-6 py-4">
@@ -185,10 +197,12 @@ export default function AdminUsers() {
                                                 <CheckCircle className={`w-3.5 h-3.5 ${user.profile_complete ? 'text-green-500' : 'text-gray-300'}`} />
                                                 {user.profile_complete ? 'Profile Verified' : 'Awaiting Details'}
                                             </div>
-                                            <div className="flex items-center gap-2 text-xs text-gray-600">
-                                                <FileText className="w-3.5 h-3.5 text-blue-500" />
-                                                Documents: {user.doc_count || 0}
-                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-2 text-xs text-gray-600">
+                                            <FileText className="w-3.5 h-3.5 text-blue-500" />
+                                            {user.doc_count || 0}
                                         </div>
                                     </td>
 
