@@ -291,11 +291,16 @@ function ProfileSettings() {
         full_name: '',
         email: '',
         phone: '',
-        address: '',
-        location: '',
         company_name: '',
         registration_number: '',
-        tax_reference_number: ''
+        tax_reference_number: '',
+        address_line_1: '',
+        address_line_2: '',
+        suburb: '',
+        city: '',
+        province: '',
+        postal_code: '',
+        country: 'South Africa'
     })
     const [message, setMessage] = useState<string | null>(null)
 
@@ -309,7 +314,7 @@ function ProfileSettings() {
         setLoading(true)
         const { data } = await supabase
             .from('profiles')
-            .select('full_name, phone, address, location, company_name, registration_number, tax_reference_number')
+            .select('full_name, phone, company_name, registration_number, tax_reference_number, tax_reference, address, location, address_line_1, address_line_2, suburb, city, province, postal_code, country')
             .eq('id', session?.user.id)
             .single()
 
@@ -318,11 +323,16 @@ function ProfileSettings() {
                 full_name: data.full_name || '',
                 email: session?.user.email || '',
                 phone: data.phone || '',
-                address: data.address || '',
-                location: data.location || '',
                 company_name: (data.company_name === 'New Company' ? '' : data.company_name) || '',
                 registration_number: data.registration_number || '',
-                tax_reference_number: data.tax_reference_number || ''
+                tax_reference_number: data.tax_reference_number || data.tax_reference || '',
+                address_line_1: data.address_line_1 || data.address || data.location || '',
+                address_line_2: data.address_line_2 || '',
+                suburb: data.suburb || '',
+                city: data.city || '',
+                province: data.province || '',
+                postal_code: data.postal_code || '',
+                country: data.country || 'South Africa'
             })
         }
         setLoading(false)
@@ -334,26 +344,32 @@ function ProfileSettings() {
         setMessage(null)
 
         // Validation Rules
-        const taxRegex = /^\d{10}$/
-        const regRegex = /^\d{4}\/\d{6}\/\d{2}$/
+        const regRegex = /^(?:19|20)\d{2}\/\d{6}\/\d{2}$/
         const phoneRegex = /^(\+27|0)[6-8][0-9]{8}$/ // Basic SA Mobile or +27 International
 
-        // 1. Tax Number Validation
-        if (formData.tax_reference_number && !taxRegex.test(formData.tax_reference_number.replace(/\s/g, ''))) {
+        // 1. Defensives
+        if (!formData.company_name || formData.company_name.trim().length < 2) {
+            setMessage("Error: Company Name is required (min 2 chars).")
+            setSaving(false)
+            return
+        }
+
+        // 2. Tax Number Validation (strip non-digits)
+        const cleanedTax = formData.tax_reference_number ? formData.tax_reference_number.replace(/\D/g, '') : ''
+        if (cleanedTax && cleanedTax.length !== 10) {
             setMessage("Error: Tax Reference Number must be exactly 10 digits.")
             setSaving(false)
             return
         }
 
-        // 2. Registration Number Validation
-        // Allow empty if they haven't filled it yet, but if filled, must be valid
+        // 3. Registration Number Validation
         if (formData.registration_number && !regRegex.test(formData.registration_number.trim())) {
             setMessage("Error: Company Registration Number must be in format YYYY/NNNNNN/NN")
             setSaving(false)
             return
         }
 
-        // 3. Phone Validation (Soft check)
+        // 4. Phone Validation (Soft check)
         if (formData.phone && !phoneRegex.test(formData.phone.replace(/\s/g, ''))) {
             setMessage("Error: Please enter a valid SA mobile number (e.g. 082 123 4567)")
             setSaving(false)
@@ -365,13 +381,18 @@ function ProfileSettings() {
             supabase
                 .from('profiles')
                 .update({
-                    full_name: formData.full_name,
-                    phone: formData.phone,
-                    address: formData.address,
-                    location: formData.location,
-                    company_name: formData.company_name,
-                    registration_number: formData.registration_number,
-                    tax_reference_number: formData.tax_reference_number
+                    full_name: formData.full_name.trim(),
+                    phone: formData.phone.trim(),
+                    company_name: formData.company_name.trim(),
+                    registration_number: formData.registration_number.trim(),
+                    tax_reference_number: cleanedTax,
+                    address_line_1: formData.address_line_1.trim(),
+                    address_line_2: formData.address_line_2.trim(),
+                    suburb: formData.suburb.trim(),
+                    city: formData.city.trim(),
+                    province: formData.province.trim(),
+                    postal_code: formData.postal_code.trim(),
+                    country: formData.country.trim()
                 })
                 .eq('id', session?.user.id),
 
@@ -440,16 +461,6 @@ function ProfileSettings() {
                             placeholder="+27 82 123 4567"
                         />
                     </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Location</label>
-                        <input
-                            type="text"
-                            value={formData.location}
-                            onChange={e => setFormData({ ...formData, location: e.target.value })}
-                            className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
-                            placeholder="Cape Town, South Africa"
-                        />
-                    </div>
                 </div>
 
                 <div className="space-y-6 pt-6 border-t border-gray-100">
@@ -493,15 +504,86 @@ function ProfileSettings() {
                     </div>
                 </div>
 
-                <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Physical Address</label>
-                    <textarea
-                        value={formData.address}
-                        onChange={e => setFormData({ ...formData, address: e.target.value })}
-                        rows={3}
-                        className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
-                        placeholder="e.g. 123 Nelson Mandela Blvd, Cape Town, 8001"
-                    />
+                <div className="space-y-6 pt-6 border-t border-gray-100">
+                    <h3 className="text-sm font-bold text-gray-900 mb-4">Physical Address</h3>
+                    <div className="grid grid-cols-1 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">Address Line 1</label>
+                            <input
+                                type="text"
+                                value={formData.address_line_1}
+                                onChange={e => setFormData({ ...formData, address_line_1: e.target.value })}
+                                className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                                placeholder="e.g. 123 Nelson Mandela Blvd"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">Address Line 2 <span className="text-gray-400 font-normal">(Optional)</span></label>
+                            <input
+                                type="text"
+                                value={formData.address_line_2}
+                                onChange={e => setFormData({ ...formData, address_line_2: e.target.value })}
+                                className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                                placeholder="Suite, unit, floor, etc."
+                            />
+                        </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">Suburb</label>
+                            <input
+                                type="text"
+                                value={formData.suburb}
+                                onChange={e => setFormData({ ...formData, suburb: e.target.value })}
+                                className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                                placeholder="e.g. Foreshore"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">City</label>
+                            <input
+                                type="text"
+                                value={formData.city}
+                                onChange={e => setFormData({ ...formData, city: e.target.value })}
+                                className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                                placeholder="e.g. Cape Town"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">Province</label>
+                            <input
+                                type="text"
+                                value={formData.province}
+                                onChange={e => setFormData({ ...formData, province: e.target.value })}
+                                className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                                placeholder="Western Cape"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">Postal Code</label>
+                            <input
+                                type="text"
+                                value={formData.postal_code}
+                                onChange={e => setFormData({ ...formData, postal_code: e.target.value })}
+                                className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                                placeholder="8001"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">Country</label>
+                            <input
+                                type="text"
+                                value={formData.country}
+                                onChange={e => setFormData({ ...formData, country: e.target.value })}
+                                className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                                disabled={false}
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 <div className="pt-4 flex items-center gap-4">
