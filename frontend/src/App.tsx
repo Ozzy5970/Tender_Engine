@@ -101,7 +101,6 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
         </div>
       )
     }
-
     return (
       <div className="h-screen flex items-center justify-center bg-gray-50 flex-col gap-3">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -121,7 +120,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // 4. Definitely Not Admin?
+  // 4. Definitely Not Admin? (Or defaulted there via Error fallback in AuthContext)
   if (adminStatus === 'NOT_ADMIN') {
     return <Navigate to="/" replace />
   }
@@ -319,8 +318,13 @@ function Home() {
     )
   }
 
-  // Tri-State Check for UNKNOWN
-  if (adminStatus === 'UNKNOWN') {
+  // Tri-State Check for UNKNOWN - Safety Catch
+  if (adminStatus === 'UNKNOWN' && (status === 'AUTHENTICATED' || status === 'LIMITED')) {
+    // If the Context hasn't resolved admin status but auth *is* finished overall,
+    // we default to normal user dashboard to prevent permanent hanging.
+    console.warn("⚠️ [Home Route] adminStatus remained UNKNOWN after Auth settled. Defaulting to standard Dashboard.");
+    return <Dashboard />
+  } else if (adminStatus === 'UNKNOWN') {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-50 flex-col gap-3">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>

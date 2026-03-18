@@ -170,20 +170,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     const { data, error } = adminResult as any;
 
                     if (!error && data === true) {
-                        console.log("👮 Admin status confirmed via RPC.");
+                        console.log("👮 [AuthContext] Admin status confirmed via RPC.");
                         setAdminStatus('ADMIN');
                     } else if (!error && data === false) {
-                        console.log("👤 User is NOT an admin (RPC returned false).");
+                        console.log("👤 [AuthContext] User is NOT an admin (RPC returned false).");
                         setAdminStatus('NOT_ADMIN');
                     } else {
-                        // Error or Timeout: Keep UNKNOWN. Do NOT set NOT_ADMIN.
-                        console.warn("⚠️ Admin check indeterminate (Timeout or Error). Status remains UNKNOWN.", error);
-                        // We keep unknown so AdminRoute can show a spinner/retry instead of kicking them out.
+                        // FIX: Indeterminate state (Error, Timeout, null) must resolve to NOT_ADMIN
+                        // so the UI does not hang forever on "Verifying User".
+                        console.warn("⚠️ [AuthContext] Admin check indeterminate (Timeout or Error). Defaulting to NOT_ADMIN.", error);
+                        setAdminStatus('NOT_ADMIN');
                     }
 
                 } catch (e) {
-                    console.warn("Admin RPC check exception:", e);
-                    // Keep UNKNOWN
+                    console.warn("⚠️ [AuthContext] Admin RPC check exception:", e);
+                    setAdminStatus('NOT_ADMIN');
                 }
 
                 // 2. Fetch Profile (Available Fields Only)
@@ -271,12 +272,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     // We force LIMITED unless they are somehow already AUTHENTICATED.
                     if (status !== 'AUTHENTICATED') setStatus('LIMITED')
                 }
+                
+                console.log(`✅ [AuthContext] Verification complete. Status: ${serverVerified ? 'AUTHENTICATED' : 'LIMITED'} | Admin: ${lastCheckedUserIdRef.current ? 'Resolved' : 'Unknown'}`);
 
                 return true
 
             } catch (e) {
-                console.error("Auth check unexpected error:", e)
-                // Safety Net: Don't logout on crash
+                console.error("⛔ [AuthContext] Auth check unexpected error:", e)
+                // Safety Net: Don't logout on crash, but DO set NOT_ADMIN so app loads
+                setAdminStatus('NOT_ADMIN')
                 if (status === 'LOADING') setStatus('LIMITED')
                 return true
             } finally {
@@ -369,7 +373,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // 3. Auth Listener (The Source of Truth)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
             if (!isMounted) return
-            console.log(`Auth Event: ${event}`)
+            console.log(`🔄 [AuthContext] Auth Event Received: ${event}`)
 
             if (event === 'SIGNED_OUT') {
                 // SENIOR PRINCIPLE 4: "Reconile state"
