@@ -10,7 +10,7 @@ import {
     AlertTriangle
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { useNavigate, useSearchParams, useBlocker } from "react-router-dom"
 import { toast } from "sonner"
 
 export default function Settings() {
@@ -20,8 +20,14 @@ export default function Settings() {
 
     // Get initial tab from URL
     const currentTab = searchParams.get('tab') || 'profile'
+    const [isProfileDirty, setIsProfileDirty] = useState(false)
 
     const setActiveTab = (tab: string) => {
+        if (currentTab === 'profile' && isProfileDirty) {
+            if (!window.confirm("You have unsaved changes. Are you sure you want to leave this page?")) {
+                return;
+            }
+        }
         setSearchParams({ tab })
     }
 
@@ -130,7 +136,7 @@ export default function Settings() {
                             transition={{ duration: 0.2 }}
                             className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm min-h-[400px]"
                         >
-                            {currentTab === 'profile' && <ProfileSettings />}
+                            {currentTab === 'profile' && <ProfileSettings setIsDirty={setIsProfileDirty} />}
                             {currentTab === 'billing' && <BillingSettings navigate={navigate} />}
                             {currentTab === 'notifications' && <NotificationSettings />}
                             {currentTab === 'security' && <SecuritySettings />}
@@ -283,7 +289,7 @@ function BillingSettings({ navigate }: any) {
     )
 }
 
-function ProfileSettings() {
+function ProfileSettings({ setIsDirty }: { setIsDirty: (dirty: boolean) => void }) {
     const { session, refreshProfile } = useAuth()
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
@@ -302,7 +308,49 @@ function ProfileSettings() {
         postal_code: '',
         country: 'South Africa'
     })
+    const [initialFormData, setInitialFormData] = useState<any>(null)
     const [message, setMessage] = useState<string | null>(null)
+
+    const hasUnsavedChanges = initialFormData !== null && JSON.stringify(formData) !== JSON.stringify(initialFormData)
+
+    useEffect(() => {
+        setIsDirty(hasUnsavedChanges)
+    }, [hasUnsavedChanges, setIsDirty])
+
+    // React Router internal navigation blocker
+    const blocker = useBlocker(
+        ({ currentLocation, nextLocation }) => {
+            if (!hasUnsavedChanges) return false;
+            // Block if pathname changes or if query params (like tabs) change
+            const currentUrl = currentLocation.pathname + currentLocation.search;
+            const nextUrl = nextLocation.pathname + nextLocation.search;
+            return currentUrl !== nextUrl;
+        }
+    );
+
+    useEffect(() => {
+        if (blocker.state === "blocked") {
+            const confirmLeave = window.confirm("You have unsaved changes. Are you sure you want to leave this page?");
+            if (confirmLeave) {
+                blocker.proceed();
+            } else {
+                blocker.reset();
+            }
+        }
+    }, [blocker]);
+
+    // Browser tab close blocker
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (hasUnsavedChanges) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [hasUnsavedChanges]);
 
     useEffect(() => {
         if (session?.user) {
@@ -312,14 +360,17 @@ function ProfileSettings() {
 
     const loadProfile = async () => {
         setLoading(true)
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('profiles')
             .select('full_name, phone, company_name, registration_number, tax_reference_number, tax_reference, address, location, address_line_1, address_line_2, suburb, city, province, postal_code, country')
             .eq('id', session?.user.id)
             .single()
 
-        if (data) {
-            setFormData({
+        if (error) {
+            console.error("Error loading profile:", error)
+            toast.error("Failed to load profile data.")
+        } else if (data) {
+            const loadedData = {
                 full_name: data.full_name || '',
                 email: session?.user.email || '',
                 phone: data.phone || '',
@@ -333,7 +384,9 @@ function ProfileSettings() {
                 province: data.province || '',
                 postal_code: data.postal_code || '',
                 country: data.country || 'South Africa'
-            })
+            }
+            setFormData(loadedData)
+            setInitialFormData(loadedData)
         }
         setLoading(false)
     }
@@ -411,6 +464,16 @@ function ProfileSettings() {
             toast.error("Failed to update profile")
         } else {
             setMessage("Profile updated successfully")
+            
+            // Normalize form data cleanly based on validation changes
+            const savedFormData = {
+                ...formData,
+                tax_reference_number: cleanedTax
+            }
+            // Update local state and reset dirty tracking
+            setFormData(savedFormData)
+            setInitialFormData(savedFormData) 
+            
             // REFRESH APP CONTEXT
             await refreshProfile()
             toast.success("Profile saved and app updated!")
@@ -596,7 +659,7 @@ function ProfileSettings() {
                         Save Changes
                     </button>
                     {message && (
-                        <span className={`text - sm font - medium ${message.includes("Error") ? "text-red-600" : "text-green-600"} `}>
+                        <span className={`text-sm font-medium ${message.includes("Error") ? "text-red-600" : "text-green-600"}`}>
                             {message}
                         </span>
                     )}
