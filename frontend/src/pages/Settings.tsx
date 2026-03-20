@@ -10,7 +10,7 @@ import {
     AlertTriangle
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import { useNavigate, useSearchParams, useBlocker } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
 export default function Settings() {
@@ -22,8 +22,8 @@ export default function Settings() {
     const currentTab = searchParams.get('tab') || 'profile'
     const [isProfileDirty, setIsProfileDirty] = useState(false)
 
-    const setActiveTab = (tab: string) => {
-        if (currentTab === 'profile' && isProfileDirty) {
+    const setActiveTab = (tab: string, options?: { force?: boolean }) => {
+        if (!options?.force && currentTab === 'profile' && isProfileDirty) {
             if (!window.confirm("You have unsaved changes. Are you sure you want to leave this page?")) {
                 return;
             }
@@ -36,12 +36,12 @@ export default function Settings() {
 
     useEffect(() => {
         if (isOnboarding) {
-            setActiveTab('profile')
+            setActiveTab('profile', { force: true })
         }
         // Admin Redirect: If they land on 'profile' or 'billing', bump them to notifications
         // Note: currentTab defaults to 'profile' now, so we catch that default case here too.
         if (isAdmin && (currentTab === 'profile' || currentTab === 'billing')) {
-            setSearchParams({ tab: 'notifications' })
+            setActiveTab('notifications', { force: true })
         }
     }, [isAdmin, currentTab, isOnboarding])
 
@@ -317,27 +317,7 @@ function ProfileSettings({ setIsDirty }: { setIsDirty: (dirty: boolean) => void 
         setIsDirty(hasUnsavedChanges)
     }, [hasUnsavedChanges, setIsDirty])
 
-    // React Router internal navigation blocker
-    const blocker = useBlocker(
-        ({ currentLocation, nextLocation }) => {
-            if (!hasUnsavedChanges) return false;
-            // Block if pathname changes or if query params (like tabs) change
-            const currentUrl = currentLocation.pathname + currentLocation.search;
-            const nextUrl = nextLocation.pathname + nextLocation.search;
-            return currentUrl !== nextUrl;
-        }
-    );
 
-    useEffect(() => {
-        if (blocker.state === "blocked") {
-            const confirmLeave = window.confirm("You have unsaved changes. Are you sure you want to leave this page?");
-            if (confirmLeave) {
-                blocker.proceed();
-            } else {
-                blocker.reset();
-            }
-        }
-    }, [blocker]);
 
     // Browser tab close blocker
     useEffect(() => {
