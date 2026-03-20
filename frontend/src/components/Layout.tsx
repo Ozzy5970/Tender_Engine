@@ -39,6 +39,9 @@ export default function Layout() {
     }
 
     const confirmNavigation = () => {
+        if (user?.id) {
+            sessionStorage.removeItem(`settings-profile-draft-${user.id}`);
+        }
         setAppDirty(false);
         setShowDirtyModal(false);
         if (pendingPath) navigate(pendingPath);

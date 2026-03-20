@@ -15,7 +15,7 @@ import { toast } from "sonner"
 import UnsavedChangesModal from "@/components/UnsavedChangesModal"
 
 export default function Settings() {
-    const { isAdmin, isAppDirty, setAppDirty } = useAuth()
+    const { isAdmin, isAppDirty, setAppDirty, session } = useAuth()
     const navigate = useNavigate()
     const [searchParams, setSearchParams] = useSearchParams()
 
@@ -38,6 +38,9 @@ export default function Settings() {
     }
 
     const confirmTabSwitch = () => {
+        if (session?.user?.id) {
+            sessionStorage.removeItem(`settings-profile-draft-${session.user.id}`);
+        }
         setAppDirty(false);
         setShowDirtyModal(false);
         if (pendingTab) setSearchParams({ tab: pendingTab });
@@ -315,6 +318,10 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
     const { session, refreshProfile } = useAuth()
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
+
+    const userId = session?.user?.id
+    const draftKey = userId ? `settings-profile-draft-${userId}` : null
+
     const [formData, setFormData] = useState({
         full_name: '',
         email: '',
@@ -335,11 +342,17 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
 
     const hasUnsavedChanges = initialFormData !== null && JSON.stringify(formData) !== JSON.stringify(initialFormData)
 
+    // Draft and Dirty state sync
     useEffect(() => {
-        setAppDirty(hasUnsavedChanges)
-    }, [hasUnsavedChanges, setAppDirty])
-
-
+        if (initialFormData !== null && draftKey) {
+            setAppDirty(hasUnsavedChanges)
+            if (hasUnsavedChanges) {
+                sessionStorage.setItem(draftKey, JSON.stringify(formData))
+            } else {
+                sessionStorage.removeItem(draftKey)
+            }
+        }
+    }, [formData, initialFormData, draftKey, hasUnsavedChanges, setAppDirty])
 
     // Browser tab close blocker
     useEffect(() => {
@@ -354,18 +367,21 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [hasUnsavedChanges]);
 
+    // Initial Load - Depend only on userId
     useEffect(() => {
-        if (session?.user) {
+        if (userId) {
             loadProfile()
         }
-    }, [session])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userId])
 
     const loadProfile = async () => {
-        setLoading(true)
+        if (initialFormData === null) setLoading(true) 
+        
         const { data, error } = await supabase
             .from('profiles')
             .select('full_name, phone, company_name, registration_number, tax_reference_number, tax_reference, address, location, address_line_1, address_line_2, suburb, city, province, postal_code, country')
-            .eq('id', session?.user.id)
+            .eq('id', userId)
             .single()
 
         if (error) {
@@ -374,7 +390,7 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
         } else if (data) {
             const loadedData = {
                 full_name: data.full_name || '',
-                email: session?.user.email || '',
+                email: session?.user?.email || '',
                 phone: data.phone || '',
                 company_name: (data.company_name === 'New Company' ? '' : data.company_name) || '',
                 registration_number: data.registration_number || '',
@@ -387,9 +403,21 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
                 postal_code: data.postal_code || '',
                 country: data.country || 'South Africa'
             }
-            setFormData(loadedData)
+            
             setInitialFormData(loadedData)
-            setAppDirty(false) // 2. explicitly reset to false when loaded
+            
+            const storedDraft = draftKey ? sessionStorage.getItem(draftKey) : null
+            if (storedDraft) {
+                try {
+                    const parsed = JSON.parse(storedDraft)
+                    setFormData(parsed) // Restore draft
+                } catch {
+                    setFormData(loadedData)
+                }
+            } else {
+                setFormData(loadedData)
+                setAppDirty(false)
+            }
         }
         setLoading(false)
     }
@@ -473,6 +501,10 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
                 ...formData,
                 tax_reference_number: cleanedTax
             }
+            
+            // Clear draft immediately
+            if (draftKey) sessionStorage.removeItem(draftKey)
+            
             // Update local state and reset dirty tracking
             setFormData(savedFormData)
             setInitialFormData(savedFormData) 
