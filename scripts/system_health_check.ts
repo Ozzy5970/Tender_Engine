@@ -3,8 +3,9 @@ import { createClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
 import path from 'path'
 
-// Load env from frontend directory
+// Load env from frontend directory and root
 dotenv.config({ path: path.resolve(__dirname, '../frontend/.env') })
+dotenv.config({ path: path.resolve(__dirname, '../.env') })
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY

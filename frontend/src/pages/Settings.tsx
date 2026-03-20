@@ -14,19 +14,19 @@ import { useNavigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
 export default function Settings() {
-    const { isAdmin } = useAuth()
+    const { isAdmin, isAppDirty, setAppDirty } = useAuth()
     const navigate = useNavigate()
     const [searchParams, setSearchParams] = useSearchParams()
 
     // Get initial tab from URL
     const currentTab = searchParams.get('tab') || 'profile'
-    const [isProfileDirty, setIsProfileDirty] = useState(false)
 
     const setActiveTab = (tab: string, options?: { force?: boolean }) => {
-        if (!options?.force && currentTab === 'profile' && isProfileDirty) {
+        if (!options?.force && currentTab === 'profile' && isAppDirty) {
             if (!window.confirm("You have unsaved changes. Are you sure you want to leave this page?")) {
                 return;
             }
+            setAppDirty(false);
         }
         setSearchParams({ tab })
     }
@@ -136,7 +136,7 @@ export default function Settings() {
                             transition={{ duration: 0.2 }}
                             className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm min-h-[400px]"
                         >
-                            {currentTab === 'profile' && <ProfileSettings setIsDirty={setIsProfileDirty} />}
+                            {currentTab === 'profile' && <ProfileSettings setAppDirty={setAppDirty} />}
                             {currentTab === 'billing' && <BillingSettings navigate={navigate} />}
                             {currentTab === 'notifications' && <NotificationSettings />}
                             {currentTab === 'security' && <SecuritySettings />}
@@ -289,7 +289,7 @@ function BillingSettings({ navigate }: any) {
     )
 }
 
-function ProfileSettings({ setIsDirty }: { setIsDirty: (dirty: boolean) => void }) {
+function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => void }) {
     const { session, refreshProfile } = useAuth()
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
@@ -314,8 +314,8 @@ function ProfileSettings({ setIsDirty }: { setIsDirty: (dirty: boolean) => void 
     const hasUnsavedChanges = initialFormData !== null && JSON.stringify(formData) !== JSON.stringify(initialFormData)
 
     useEffect(() => {
-        setIsDirty(hasUnsavedChanges)
-    }, [hasUnsavedChanges, setIsDirty])
+        setAppDirty(hasUnsavedChanges)
+    }, [hasUnsavedChanges, setAppDirty])
 
 
 
@@ -367,6 +367,7 @@ function ProfileSettings({ setIsDirty }: { setIsDirty: (dirty: boolean) => void 
             }
             setFormData(loadedData)
             setInitialFormData(loadedData)
+            setAppDirty(false) // 2. explicitly reset to false when loaded
         }
         setLoading(false)
     }
@@ -453,6 +454,7 @@ function ProfileSettings({ setIsDirty }: { setIsDirty: (dirty: boolean) => void 
             // Update local state and reset dirty tracking
             setFormData(savedFormData)
             setInitialFormData(savedFormData) 
+            setAppDirty(false) // 1. explicitly reset after a successful save
             
             // REFRESH APP CONTEXT
             await refreshProfile()

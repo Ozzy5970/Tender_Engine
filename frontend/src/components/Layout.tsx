@@ -15,10 +15,20 @@ import {
 } from "lucide-react"
 
 export default function Layout() {
-    const { signOut, user, isAdmin, tier, companyName, fullName } = useAuth()
+    const { signOut, user, isAdmin, tier, companyName, fullName, isAppDirty, setAppDirty } = useAuth()
     const navigate = useNavigate()
     const location = useLocation()
     const [unreadCount, setUnreadCount] = useState(0)
+
+    const handleSafeNavigation = (path: string) => {
+        if (isAppDirty) {
+            if (!window.confirm("You have unsaved changes. Are you sure you want to leave this page?")) {
+                return;
+            }
+            setAppDirty(false); // 3. reset on navigation confirmation
+        }
+        navigate(path);
+    }
 
     useEffect(() => {
         if (user) fetchAlerts()
@@ -116,7 +126,7 @@ export default function Layout() {
                             return (
                                 <button
                                     key={item.path}
-                                    onClick={() => navigate(item.path)}
+                                    onClick={() => handleSafeNavigation(item.path)}
                                     className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${theme.sidebarItem(isActive)}`}
                                 >
                                     <div className="flex items-center">
@@ -185,7 +195,7 @@ export default function Layout() {
                     <div className="flex items-center gap-4 justify-end w-1/3">
                         {!isAdmin && (
                             <button
-                                onClick={() => navigate('/alerts')}
+                                onClick={() => handleSafeNavigation('/alerts')}
                                 className="relative p-2 opacity-60 hover:opacity-100 transition-opacity rounded-full hover:bg-black/5"
                             >
                                 <Bell className="h-5 w-5" />
