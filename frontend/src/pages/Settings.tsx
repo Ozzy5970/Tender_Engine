@@ -12,6 +12,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
+import UnsavedChangesModal from "@/components/UnsavedChangesModal"
 
 export default function Settings() {
     const { isAdmin, isAppDirty, setAppDirty } = useAuth()
@@ -21,14 +22,31 @@ export default function Settings() {
     // Get initial tab from URL
     const currentTab = searchParams.get('tab') || 'profile'
 
+    // Modal states
+    const [pendingTab, setPendingTab] = useState<string | null>(null)
+    const [showDirtyModal, setShowDirtyModal] = useState(false)
+
     const setActiveTab = (tab: string, options?: { force?: boolean }) => {
+        if (currentTab === tab) return;
+
         if (!options?.force && currentTab === 'profile' && isAppDirty) {
-            if (!window.confirm("You have unsaved changes. Are you sure you want to leave this page?")) {
-                return;
-            }
-            setAppDirty(false);
+            setPendingTab(tab);
+            setShowDirtyModal(true);
+            return;
         }
         setSearchParams({ tab })
+    }
+
+    const confirmTabSwitch = () => {
+        setAppDirty(false);
+        setShowDirtyModal(false);
+        if (pendingTab) setSearchParams({ tab: pendingTab });
+        setPendingTab(null);
+    }
+
+    const cancelTabSwitch = () => {
+        setShowDirtyModal(false);
+        setPendingTab(null);
     }
 
     // Redirect admins away from profile/billing if they land there
@@ -145,7 +163,11 @@ export default function Settings() {
                 </div>
             </div>
 
-
+            <UnsavedChangesModal 
+                isOpen={showDirtyModal} 
+                onConfirm={confirmTabSwitch} 
+                onCancel={cancelTabSwitch} 
+            />
         </div>
     )
 }

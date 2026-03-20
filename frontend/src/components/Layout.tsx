@@ -4,6 +4,7 @@ import { Toaster } from "sonner"
 import { useEffect, useState } from "react"
 import { CompanyService } from "@/services/api"
 import LegalModal from "./LegalModal"
+import UnsavedChangesModal from "./UnsavedChangesModal"
 import {
     LayoutDashboard,
     FileText,
@@ -20,14 +21,33 @@ export default function Layout() {
     const location = useLocation()
     const [unreadCount, setUnreadCount] = useState(0)
 
+    // Modal states
+    const [pendingPath, setPendingPath] = useState<string | null>(null)
+    const [showDirtyModal, setShowDirtyModal] = useState(false)
+
     const handleSafeNavigation = (path: string) => {
+        if (location.pathname === path) {
+            return navigate(path);
+        }
+
         if (isAppDirty) {
-            if (!window.confirm("You have unsaved changes. Are you sure you want to leave this page?")) {
-                return;
-            }
-            setAppDirty(false); // 3. reset on navigation confirmation
+            setPendingPath(path);
+            setShowDirtyModal(true);
+            return;
         }
         navigate(path);
+    }
+
+    const confirmNavigation = () => {
+        setAppDirty(false);
+        setShowDirtyModal(false);
+        if (pendingPath) navigate(pendingPath);
+        setPendingPath(null);
+    }
+
+    const cancelNavigation = () => {
+        setShowDirtyModal(false);
+        setPendingPath(null);
     }
 
     useEffect(() => {
@@ -220,6 +240,11 @@ export default function Layout() {
             </div>
             <Toaster position="top-right" richColors />
             <LegalModal />
+            <UnsavedChangesModal 
+                isOpen={showDirtyModal} 
+                onConfirm={confirmNavigation} 
+                onCancel={cancelNavigation} 
+            />
         </div>
     )
 }
