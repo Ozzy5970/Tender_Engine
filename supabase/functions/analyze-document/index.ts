@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 Deno.serve(async (req) => {
@@ -10,6 +11,7 @@ Deno.serve(async (req) => {
     try {
         // Handle CORS preflight
         if (req.method === 'OPTIONS') {
+            console.log("[EDGE FUNC PROOF] Received OPTIONS preflight request - returning 200 OK")
             return new Response('ok', { headers: corsHeaders })
         }
 
@@ -21,6 +23,8 @@ Deno.serve(async (req) => {
         }
 
         const body = await req.json().catch(() => null)
+        console.log(`[EDGE FUNC PROOF] Started executing main function logic for method: ${req.method}`)
+
         if (!body) {
             throw new Error('Invalid Request Body')
         }
@@ -43,6 +47,8 @@ Deno.serve(async (req) => {
 
         // SECURITY FIX: Use the User's JWT (Auth Header) to respect RLS
         const authHeader = req.headers.get('Authorization')
+        console.log(`[EDGE FUNC PROOF] Authorization header present: ${!!authHeader}`)
+
         if (!authHeader) {
             throw new Error('Unauthorized: Missing Authorization Header')
         }
@@ -52,11 +58,20 @@ Deno.serve(async (req) => {
             global: { headers: { Authorization: authHeader } }
         })
 
+        // EXPLICIT AUTH VERIFICATION: Ensure token is deeply valid and not expired
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
+        if (authError || !user) {
+            throw new Error(`Unauthorized: Invalid or expired token. ${authError?.message || ''}`)
+        }
+        console.log(`[EDGE FUNC PROOF] User authenticated ID: ${user.id}`)
+
         // 2. FETCH PROFILE (For Cross-Referencing)
         const { data: profile, error: profileError } = await supabaseClient
             .from('profiles')
             .select('company_name, registration_number, tax_reference_number, full_name')
             .single()
+
+        console.log(`[EDGE FUNC PROOF] User Verification / Profile fetch completed. Error: ${profileError?.message || 'None'}`);
 
         const profileData = profile || {}
         console.log(`[AI] Cross-referencing against profile: ${JSON.stringify(profileData)}`)

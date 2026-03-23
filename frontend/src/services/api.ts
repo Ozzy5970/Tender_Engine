@@ -348,15 +348,21 @@ export const CompanyService = {
     async analyzeDocument(filePath: string, docType: string, validationRules: Record<string, unknown> = {}) {
         try {
             const { data: { session } } = await supabase.auth.getSession()
+            console.log("[FRONTEND AUTH PROOF] Session exists:", !!session)
+            if (session) {
+                console.log("[FRONTEND AUTH PROOF] Token (first 20):", session.access_token.substring(0, 20) + "...")
+            }
             if (!session) throw new Error("User not authenticated")
 
+            console.log(`[FRONTEND INVOKE] Calling analyze-document...`)
             const { data, error } = await supabase.functions.invoke('analyze-document', {
                 body: { file_path: filePath, doc_type: docType, validationRules },
                 headers: {
-                    // Explicitly inject the Authorization header in case the custom storage client fails to auto-attach it
                     Authorization: `Bearer ${session.access_token}`
                 }
             })
+
+            console.log("[FRONTEND INVOKE RESULT] Error:", error?.message || "None", "Status:", error ? 401 : 200)
 
             if (error) throw error
             return { data, error: null, status: 200 }
