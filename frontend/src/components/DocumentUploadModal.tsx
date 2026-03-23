@@ -103,18 +103,21 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                     mappedData.expiry_date = mappedData.expiry_date || rawExpiry
                     mappedData.issue_date = mappedData.issue_date || rawIssue
 
+                    // Fallback entity_name extraction for robust mapping
+                    if (!mappedData.entity_name) {
+                        mappedData.entity_name = rawPayload.entity_name || rawPayload.entityName 
+                            || normalizedAI['entityname'] 
+                            || normalizedAI['companyname'] 
+                            || normalizedAI['legalentityname'] 
+                            || normalizedAI['suppliername'] 
+                            || ""
+                    }
+
                     console.log("[DEBUG 1] AI Raw Payload:", rawPayload)
                     console.log("[DEBUG 2] Normalized AI:", normalizedAI)
                     console.log("[DEBUG 3] Mapped Fields:", mappedData)
 
-                    // FORCE A MINIMAL PROOF
-                    setMetadata({
-                        entity_name: "DEBUG ENTITY",
-                        pin: "1234567890",
-                        status: "Compliant",
-                        issue_date: "2024-10-01",
-                        expiry_date: "2026-10-01"
-                    })
+                    setMetadata(mappedData)
 
                     // Strict Validation Handling
                     if (data.valid === false) {
