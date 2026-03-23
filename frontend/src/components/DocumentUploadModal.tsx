@@ -69,19 +69,34 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                 const { data, error: analyzeError } = await CompanyService.analyzeDocument(fileName, docType, rules)
 
                 if (data) {
-                    // Strict mapping: only include whitelisted fields from taxonomy
+                    console.log("[AI Raw Extraction]:", data)
+                    
                     const mappedData: any = {}
+                    const normalizedAI: any = {}
+                    
+                    // Normalize all AI keys for flexible matching
+                    Object.entries(data).forEach(([k, v]) => {
+                        normalizedAI[k.toLowerCase().replace(/[_\s-]/g, '')] = v
+                    })
+
+                    // Strict mapping: check exact key, flexible key, or flexible label
                     if (rules.fields) {
                         rules.fields.forEach((f: any) => {
-                            if (data[f.key] !== undefined) {
-                                mappedData[f.key] = data[f.key]
-                            }
+                            const exactVal = data[f.key]
+                            const flexKeyVal = normalizedAI[f.key.toLowerCase().replace(/[_\s-]/g, '')]
+                            const flexLabelVal = normalizedAI[f.label.toLowerCase().replace(/[_\s-]/g, '')]
+
+                            if (exactVal !== undefined) mappedData[f.key] = exactVal
+                            else if (flexKeyVal !== undefined) mappedData[f.key] = flexKeyVal
+                            else if (flexLabelVal !== undefined) mappedData[f.key] = flexLabelVal
                         })
                     }
                     
                     // Always extract these if present from AI, unifying naming
-                    mappedData.expiryDate = data.expiry_date || data.expiryDate || mappedData.expiry_date || ""
-                    mappedData.issueDate = data.issue_date || data.issueDate || mappedData.issue_date || ""
+                    mappedData.expiry_date = data.expiry_date || data.expiryDate || normalizedAI['expirydate'] || ""
+                    mappedData.issue_date = data.issue_date || data.issueDate || normalizedAI['issuedate'] || ""
+
+                    console.log("[AI Mapped Fields]:", mappedData)
 
                     setMetadata(mappedData)
 
@@ -246,11 +261,11 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                 <input
                                     type="date"
                                     required
-                                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-primary focus:border-primary ${metadata.expiryDate && new Date(metadata.expiryDate) < new Date() ? 'border-red-300 bg-red-50 text-red-900' : 'border-gray-300'
+                                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-primary focus:border-primary ${metadata.expiry_date && new Date(metadata.expiry_date) < new Date() ? 'border-red-300 bg-red-50 text-red-900' : 'border-gray-300'
                                         }`}
-                                    value={metadata.expiryDate || ""}
+                                    value={metadata.expiry_date || ""}
                                     onChange={(e) => {
-                                        setMetadata({ ...metadata, expiryDate: e.target.value })
+                                        setMetadata({ ...metadata, expiry_date: e.target.value })
                                         // Real-time check
                                         const date = new Date(e.target.value)
                                         const now = new Date()
@@ -263,7 +278,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                         }
                                     }}
                                 />
-                                {metadata.expiryDate && new Date(metadata.expiryDate) < new Date() && (
+                                {metadata.expiry_date && new Date(metadata.expiry_date) < new Date() && (
                                     <p className="text-xs text-red-600 mt-1 font-medium">Warning: This date is in the past.</p>
                                 )}
                             </div>

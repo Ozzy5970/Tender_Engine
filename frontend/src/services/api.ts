@@ -401,10 +401,10 @@ export const CompanyService = {
                 file_url: storagePath,
 
                 status: "valid",
-                expiry_date: metadata.expiryDate ?? null,
+                expiry_date: metadata.expiry_date ?? null,
                 reference_number: metadata.reference_number ?? null,
                 metadata,
-                issue_date: new Date().toISOString()
+                issue_date: metadata.issue_date ?? new Date().toISOString()
             })
         )
     },
