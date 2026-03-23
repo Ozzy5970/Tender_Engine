@@ -69,12 +69,21 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                 const { data, error: analyzeError } = await CompanyService.analyzeDocument(fileName, docType, rules)
 
                 if (data) {
+                    // Strict mapping: only include whitelisted fields from taxonomy
+                    const mappedData: any = {}
+                    if (rules.fields) {
+                        rules.fields.forEach((f: any) => {
+                            if (data[f.key] !== undefined) {
+                                mappedData[f.key] = data[f.key]
+                            }
+                        })
+                    }
+                    
+                    // Always extract these if present from AI, unifying naming
+                    mappedData.expiryDate = data.expiry_date || data.expiryDate || mappedData.expiry_date || ""
+                    mappedData.issueDate = data.issue_date || data.issueDate || mappedData.issue_date || ""
 
-                    setMetadata((prev: any) => ({
-                        ...prev,
-                        ...data,
-                        expiryDate: data.expiry_date || prev.expiryDate,
-                    }))
+                    setMetadata(mappedData)
 
                     // Strict Validation Handling
                     if (data.valid === false) {
@@ -100,11 +109,22 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
 
         setUploading(true)
         try {
-            // Re-upload/Update metadata record (api.ts uploadComplianceDoc will re-upload logic or we can refactor)
-            // Ideally we separate "save metadata" from "upload file".
-            // Since uploadComplianceDoc takes a File, it re-uploads.
-            // This is acceptable for V1 MVP to ensure consistent pathing in DB.
-            const { error } = await CompanyService.uploadComplianceDoc(fileToUpload, category, docType, metadata)
+            // Pre-save normalization (canonical formatting)
+            const finalMetadata = { ...metadata }
+            
+            // Percentage normalization (ensure ends with %)
+            if (finalMetadata.black_ownership_percent) {
+                let val = finalMetadata.black_ownership_percent.replace(/\s+/g, '')
+                if (!val.endsWith('%')) val += '%'
+                finalMetadata.black_ownership_percent = val
+            }
+
+            // Fallback upper-casing for MAAA
+            if (finalMetadata.maaa_number) {
+                finalMetadata.maaa_number = finalMetadata.maaa_number.toUpperCase()
+            }
+
+            const { error } = await CompanyService.uploadComplianceDoc(fileToUpload, category, docType, finalMetadata)
             if (error) throw new Error(error)
 
             onSuccess()
@@ -158,6 +178,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                 <UploadCloud className="w-10 h-10 text-gray-400 mx-auto mb-3" />
                                 <p className="text-sm font-medium text-gray-900">Click to upload or drag and drop</p>
                                 <p className="text-xs text-gray-500 mt-1">PDF or Image up to 10MB</p>
+                                <p className="text-[10px] text-gray-400 mt-3 absolute bottom-2 w-full text-center left-0">For testing, structured internal QA documents are accepted.</p>
                             </div>
                         </div>
                     ) : (
@@ -271,9 +292,19 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                             type={field.type || "text"}
                                             required={field.required}
                                             placeholder={field.placeholder}
+                                            pattern={field.validationRegex}
+                                            title={field.validationMessage}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-primary focus:border-primary"
                                             value={metadata[field.key] || ""}
-                                            onChange={(e) => setMetadata({ ...metadata, [field.key]: e.target.value })}
+                                            onChange={(e) => {
+                                                let val = e.target.value
+                                                // Real-time normalization for strict alphanumeric fields
+                                                if (['pin', 'crs_number', 'maaa_number', 'vat_number', 'uif_number', 'registration_number'].includes(field.key)) {
+                                                    val = val.replace(/[\s-]/g, '')
+                                                    if (field.key === 'maaa_number') val = val.toUpperCase()
+                                                }
+                                                setMetadata({ ...metadata, [field.key]: val })
+                                            }}
                                         />
                                     )}
                                 </div>

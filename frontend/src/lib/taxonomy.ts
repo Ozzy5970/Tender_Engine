@@ -14,15 +14,10 @@ export const DOCUMENT_TYPES = {
         category: "COMPANY",
         mandatory: true,
         fields: [
-            {
-                key: "registration_number",
-                label: "Company Registration Number",
-                type: "text",
-                placeholder: "YYYY/NNNNNN/NN",
-                required: true,
-                validationRegex: "^\\d{4}/\\d{6}/\\d{2}$",
-                validationMessage: "Format must be YYYY/NNNNNN/NN"
-            }
+            { key: "registration_number", label: "Company Registration Number", type: "text", required: true, validationRegex: "^\\d{4}/\\d{6}/\\d{2}$", validationMessage: "Format YYYY/NNNNNN/NN" },
+            { key: "entity_name", label: "Entity Name", type: "text", required: true },
+            { key: "registration_date", label: "Registration Date", type: "date", required: false },
+            { key: "entity_status", label: "Entity Status", type: "text", required: false }
         ]
     },
     shareholding: { label: "Shareholding / Share Certificates", category: "COMPANY", mandatory: false },
@@ -34,29 +29,12 @@ export const DOCUMENT_TYPES = {
         mandatory: true,
         wMetadata: ["grade", "class"],
         fields: [
-            {
-                key: "grade",
-                label: "CIDB Grade",
-                type: "select",
-                options: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
-                required: true
-            },
-            {
-                key: "class",
-                label: "Class of Work",
-                type: "select",
-                options: ["CE", "GB", "ME", "EP", "EB", "SO", "SQ", "SH", "SI", "SJ", "SK", "SL"],
-                required: true
-            },
-            {
-                key: "crs_number",
-                label: "CRS Number",
-                type: "text",
-                placeholder: "e.g. 10012345",
-                required: true,
-                validationRegex: "^\\d{6,8}$",
-                validationMessage: "CRS Number should be 6-8 digits"
-            }
+            { key: "crs_number", label: "CRS Number", type: "text", required: true, validationRegex: "^\\d{6,8}$", validationMessage: "6-8 digits" },
+            { key: "grade", label: "CIDB Grade", type: "select", options: ["1", "2", "3", "4", "5", "6", "7", "8", "9"], required: true },
+            { key: "class_of_work", label: "Class of Work", type: "select", options: ["CE", "GB", "ME", "EP", "EB", "SO", "SQ", "SH", "SI", "SJ", "SK", "SL"], required: true },
+            { key: "entity_name", label: "Entity Name", type: "text", required: true },
+            { key: "expiry_date", label: "Expiry Date", type: "date", required: true },
+            { key: "status", label: "Status", type: "text", required: false }
         ]
     },
 
@@ -66,16 +44,11 @@ export const DOCUMENT_TYPES = {
         category: "TAX",
         mandatory: true,
         fields: [
-            {
-                key: "pin",
-                label: "10-digit Tax PIN",
-                type: "text",
-                placeholder: "e.g. A1B2C3D4E5",
-                required: true,
-                validationRegex: "^[A-Za-z0-9]{10}$",
-                validationMessage: "Must be exactly 10 alphanumeric characters"
-            },
-            // Expiry is handled by global field, but we can make it explicit in UI labels if needed
+            { key: "pin", label: "10-digit Tax PIN", type: "text", required: true, validationRegex: "^\\d{10}$", validationMessage: "10 digits" },
+            { key: "entity_name", label: "Entity Name", type: "text", required: true },
+            { key: "issue_date", label: "Issue Date", type: "date", required: false },
+            { key: "expiry_date", label: "Expiry Date", type: "date", required: false },
+            { key: "status", label: "Status", type: "text", required: true }
         ]
     },
     csd_summary: {
@@ -83,15 +56,11 @@ export const DOCUMENT_TYPES = {
         category: "TAX",
         mandatory: true,
         fields: [
-            {
-                key: "maaa_number",
-                label: "MAAA Number",
-                type: "text",
-                placeholder: "MAAAxxxxxxx",
-                required: true,
-                validationRegex: "^MAAA\\d{7}$",
-                validationMessage: "Must start with MAAA followed by 7 digits"
-            }
+            { key: "maaa_number", label: "MAAA Number", type: "text", required: true, validationRegex: "^MAAA\\d{7}$", validationMessage: "Starts with MAAA + 7 digits" },
+            { key: "supplier_name", label: "Supplier Name", type: "text", required: true },
+            { key: "registration_status", label: "Registration Status", type: "text", required: false },
+            { key: "issue_date", label: "Issue Date", type: "date", required: false },
+            { key: "expiry_date", label: "Expiry Date", type: "date", required: false }
         ]
     },
     vat_cert: {
@@ -99,15 +68,8 @@ export const DOCUMENT_TYPES = {
         category: "TAX",
         mandatory: false,
         fields: [
-            {
-                key: "vat_number",
-                label: "VAT Number",
-                type: "text",
-                placeholder: "4-series VAT number",
-                required: true,
-                validationRegex: "^4\\d{9}$",
-                validationMessage: "VAT Number must start with 4 and be 10 digits"
-            }
+            { key: "vat_number", label: "VAT Number", type: "text", required: true, validationRegex: "^4\\d{9}$", validationMessage: "Starts with 4, 10 digits" },
+            { key: "entity_name", label: "Entity Name", type: "text", required: true }
         ]
     },
     uif_reg: {
@@ -115,15 +77,8 @@ export const DOCUMENT_TYPES = {
         category: "TAX",
         mandatory: true,
         fields: [
-            {
-                key: "uif_number",
-                label: "UIF Reference Number",
-                type: "text",
-                placeholder: "e.g. 1234567/8",
-                required: true,
-                validationRegex: "^\\d{7,9}(/\\d)?$",
-                validationMessage: "Invalid UIF format (e.g. 1234567/8)"
-            }
+            { key: "uif_number", label: "UIF Reference Number", type: "text", required: true, validationRegex: "^\\d{7,9}(/\\d)?$", validationMessage: "e.g. 1234567/8" },
+            { key: "entity_name", label: "Entity Name", type: "text", required: true }
         ]
     },
     paye_reg: { label: "PAYE Registration", category: "TAX", mandatory: false },
@@ -135,32 +90,16 @@ export const DOCUMENT_TYPES = {
         mandatory: true,
         wMetadata: ["level"],
         fields: [
-            {
-                key: "level",
-                label: "B-BBEE Level",
-                type: "select",
-                options: ["1", "2", "3", "4", "5", "6", "7", "8", "Non-Compliant"],
-                required: true
-            },
-            {
-                key: "black_ownership",
-                label: "Black Ownership %",
-                type: "text",
-                placeholder: "e.g. 51%",
-                required: true,
-                validationRegex: "^\\d{1,3}(\\.\\d{1,2})?%?$",
-                validationMessage: "Enter a valid percentage (e.g. 51 or 51%)"
-            }
+            { key: "bbbee_level", label: "B-BBEE Level", type: "select", options: ["1", "2", "3", "4", "5", "6", "7", "8", "Non-Compliant"], required: true },
+            { key: "black_ownership_percent", label: "Black Ownership %", type: "text", required: true },
+            { key: "entity_name", label: "Entity Name", type: "text", required: true },
+            { key: "certificate_or_affidavit_number", label: "Certificate Number", type: "text", required: false },
+            { key: "issue_date", label: "Issue Date", type: "date", required: true },
+            { key: "expiry_date", label: "Expiry Date", type: "date", required: true },
+            { key: "issuing_body", label: "Issuing Body", type: "text", required: false }
         ]
     },
-    sbd_6_1: {
-        label: "SBD 6.1 Preference Points Claim",
-        category: "BBBEE",
-        mandatory: true,
-        fields: [
-            // Standard form, no specific extra metadata needed for V1
-        ]
-    },
+    sbd_6_1: { label: "SBD 6.1 Preference Points Claim", category: "BBBEE", mandatory: true },
 
     // Labour
     coid_letter: {
@@ -168,8 +107,11 @@ export const DOCUMENT_TYPES = {
         category: "LABOUR",
         mandatory: true,
         fields: [
-            // Expiry is global
-            { key: "coid_ref", label: "COID Reference", type: "text", placeholder: "e.g. 9900012345", required: false }
+            { key: "coid_ref", label: "COID Reference", type: "text", required: true },
+            { key: "entity_name", label: "Entity Name", type: "text", required: true },
+            { key: "issue_date", label: "Issue Date", type: "date", required: true },
+            { key: "expiry_date", label: "Expiry Date", type: "date", required: true },
+            { key: "status", label: "Status", type: "text", required: true }
         ]
     },
     ohs_plan: {
@@ -177,7 +119,8 @@ export const DOCUMENT_TYPES = {
         category: "LABOUR",
         mandatory: true,
         fields: [
-            { key: "revision_date", label: "Date of Last Revision", type: "date", required: true }
+            { key: "revision_date", label: "Date of Last Revision", type: "date", required: true },
+            { key: "entity_name", label: "Entity Name", type: "text", required: true }
         ]
     },
     she_file: { label: "SHE File Index", category: "LABOUR", mandatory: false },
@@ -188,10 +131,13 @@ export const DOCUMENT_TYPES = {
         category: "FINANCIAL",
         mandatory: true,
         fields: [
-            { key: "bank_name", label: "Bank Name", type: "text", placeholder: "e.g. FNB", required: true },
-            { key: "account_holder", label: "Account Holder Name", type: "text", placeholder: "Company Name", required: true }
+            { key: "bank_name", label: "Bank Name", type: "text", required: true },
+            { key: "account_holder", label: "Account Holder Name", type: "text", required: true },
+            { key: "account_number_last4", label: "Account Last 4", type: "text", required: false, validationRegex: "^\\d{4}$" },
+            { key: "issue_date", label: "Issue Date", type: "date", required: true },
+            { key: "branch_code", label: "Branch Code", type: "text", required: false }
         ]
-    },
+    }
 } as const;
 
 export type DocTypeKey = keyof typeof DOCUMENT_TYPES;
