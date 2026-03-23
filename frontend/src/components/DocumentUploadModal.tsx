@@ -144,19 +144,18 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                     // CIDB Certificate Custom Normalization
                     if (docType === "cidb_cert") {
                         if (!mappedData.crs_number) mappedData.crs_number = rawPayload.crs_number || rawPayload.crs || mappedData.reference_number || rawPayload.reference_number || ""
+                        
+                        const rawGrade = String(rawPayload.grade || normalizedAI['cidbgrade'] || "")
+                        const rawClass = String(rawPayload.class_of_work || normalizedAI['classofwork'] || normalizedAI['workclass'] || normalizedAI['cidbclass'] || "")
+                        const searchStr = `${rawGrade} ${rawClass} ${data.summary || ""}`.toUpperCase()
+
                         if (!mappedData.grade) {
-                            mappedData.grade = rawPayload.grade || normalizedAI['cidbgrade'] || ""
-                            if (typeof mappedData.grade === 'string' && mappedData.grade.length > 1) {
-                                const gradeMatch = mappedData.grade.match(/\d/)
-                                if (gradeMatch) mappedData.grade = gradeMatch[0]
-                            }
+                            const gradeMatch = searchStr.match(/([1-9])\s*(?:GB|CE|ME|EP|EB|SO|SQ|SH|SI|SJ|SK|SL)/) || searchStr.match(/\b([1-9])\b/)
+                            if (gradeMatch) mappedData.grade = gradeMatch[1]
                         }
                         if (!mappedData.class_of_work) {
-                            mappedData.class_of_work = rawPayload.class_of_work || normalizedAI['classofwork'] || normalizedAI['workclass'] || normalizedAI['cidbclass'] || ""
-                            if (typeof mappedData.class_of_work === 'string') {
-                                const classMatch = mappedData.class_of_work.match(/[A-Z]{2}/i)
-                                if (classMatch) mappedData.class_of_work = classMatch[0].toUpperCase()
-                            }
+                            const classMatch = searchStr.match(/(?:[1-9]\s*)?(GB|CE|ME|EP|EB|SO|SQ|SH|SI|SJ|SK|SL)\b/)
+                            if (classMatch) mappedData.class_of_work = classMatch[1]
                         }
                         if (!mappedData.status && data.valid !== undefined) mappedData.status = data.valid ? "Active" : "Suspended"
                     }
