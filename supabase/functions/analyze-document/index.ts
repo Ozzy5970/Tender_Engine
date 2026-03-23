@@ -53,13 +53,21 @@ Deno.serve(async (req) => {
             throw new Error('Unauthorized: Missing Authorization Header')
         }
 
+        // Parse explicit token for Edge Runtime verification
+        const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+        if (!token) {
+            throw new Error('Unauthorized: Malformed Bearer token')
+        }
+        console.log(`[EDGE FUNC PROOF] Bearer token extracted (first 10 chars): ${token.substring(0, 10)}...`)
+
         // Create client scoped to the user
         const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
             global: { headers: { Authorization: authHeader } }
         })
 
         // EXPLICIT AUTH VERIFICATION: Ensure token is deeply valid and not expired
-        const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
+        // Must pass explicit token in Edge Functions because there is no persistent LocalStorage
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
         if (authError || !user) {
             throw new Error(`Unauthorized: Invalid or expired token. ${authError?.message || ''}`)
         }
