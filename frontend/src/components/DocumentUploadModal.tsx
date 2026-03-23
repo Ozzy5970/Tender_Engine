@@ -91,10 +91,15 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                             else if (flexLabelVal !== undefined) mappedData[f.key] = flexLabelVal
                         })
                     }
-                    
-                    // Always extract these if present from AI, unifying naming
-                    mappedData.expiry_date = data.expiry_date || data.expiryDate || normalizedAI['expirydate'] || ""
-                    mappedData.issue_date = data.issue_date || data.issueDate || normalizedAI['issuedate'] || ""
+                    // Fallback date extraction allowing taxonomy matches to persist, trimming ISO formatting for HTML5 type="date"
+                    let rawExpiry = data.expiry_date || data.expiryDate || normalizedAI['expirydate'] || ""
+                    let rawIssue = data.issue_date || data.issueDate || normalizedAI['issuedate'] || ""
+
+                    if (rawExpiry && rawExpiry.includes('T')) rawExpiry = rawExpiry.split('T')[0]
+                    if (rawIssue && rawIssue.includes('T')) rawIssue = rawIssue.split('T')[0]
+
+                    mappedData.expiry_date = mappedData.expiry_date || rawExpiry
+                    mappedData.issue_date = mappedData.issue_date || rawIssue
 
                     console.log("[AI Mapped Fields]:", mappedData)
 
