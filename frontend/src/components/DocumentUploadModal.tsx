@@ -59,8 +59,9 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                 if (!userId) throw new Error("User not found")
 
                 const fileName = `${userId}/${category}/${docType}/${Date.now()}_${file.name}`
+                console.log("[FRONTEND PROOF] Uploading pre-analysis file to 'compliance' bucket at path:", fileName)
                 const { error: uploadError } = await supabase.storage
-                    .from('tenders_documents')
+                    .from('compliance')
                     .upload(fileName, file)
 
                 if (uploadError) throw uploadError
@@ -70,7 +71,10 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                 const rules = (DOCUMENT_TYPES as any)[docType] || {}
                 const { data, error: analyzeError } = await CompanyService.analyzeDocument(fileName, docType, rules)
 
-                if (analyzeError || (data && data.code === "GENERAL" && data.description?.includes("AI Analysis unavailable"))) {
+                // Detect explicit { error: "..." } or fallback payloads
+                const hasErrorPayload = data && (data.error || data.details?.includes('Edge Function Error Catch') || (data.code === "GENERAL" && data.description?.includes("AI Analysis unavailable")))
+                
+                if (analyzeError || hasErrorPayload) {
                     console.warn("AI Analysis failed or unavailable:", analyzeError || data)
                     setAiFailed(true)
                 } else if (data) {

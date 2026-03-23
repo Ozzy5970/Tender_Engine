@@ -85,15 +85,17 @@ Deno.serve(async (req) => {
         console.log(`[AI] Cross-referencing against profile: ${JSON.stringify(profileData)}`)
 
         // 3. Download File from Storage
+        console.log(`[EDGE FUNC PROOF] Attempting to download from bucket 'compliance' with path: ${file_path}`);
         const { data: fileData, error: downloadError } = await supabaseClient
             .storage
             .from('compliance')
             .download(file_path)
 
         if (downloadError) {
-            console.error("Download Error:", downloadError)
+            console.error(`[EDGE FUNC PROOF] Download Failed: ${downloadError.message}`)
             throw new Error(`Failed to download file: ${downloadError.message}`)
         }
+        console.log("[EDGE FUNC PROOF] File downloaded successfully, preparing Gemini prompt.")
 
         // 4. Prepare for Gemini
         const arrayBuffer = await fileData.arrayBuffer()
