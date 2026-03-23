@@ -91,7 +91,7 @@ export const DOCUMENT_TYPES = {
         wMetadata: ["level"],
         fields: [
             { key: "bbbee_level", label: "B-BBEE Level", type: "select", options: ["1", "2", "3", "4", "5", "6", "7", "8", "Non-Compliant"], required: true },
-            { key: "black_ownership_percent", label: "Black Ownership %", type: "text", required: true },
+            { key: "black_ownership_percent", label: "Black Ownership %", type: "text", required: true, validationRegex: "^\\d{1,3}(\\.\\d+)?\\s*%?$", validationMessage: "Enter valid percentage (e.g. 51 or 51%)" },
             { key: "entity_name", label: "Entity Name", type: "text", required: true },
             { key: "certificate_or_affidavit_number", label: "Certificate Number", type: "text", required: false },
             { key: "issue_date", label: "Issue Date", type: "date", required: true },
