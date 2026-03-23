@@ -56,6 +56,7 @@ export default function Compliance() {
             case "valid": return <CheckCircle2 className="w-5 h-5 text-green-600" />
             case "warning": return <AlertTriangle className="w-5 h-5 text-yellow-600" />
             case "expired": return <XCircle className="w-5 h-5 text-red-600" />
+            case "incomplete": return <AlertTriangle className="w-5 h-5 text-orange-500" />
             case "missing": return <div className="w-5 h-5 rounded-full border-2 border-gray-300 border-dashed" />
             default: return <div className="w-5 h-5" />
         }
@@ -150,7 +151,7 @@ export default function Compliance() {
                                     const isExpiringSoon = daysLeft !== null && daysLeft <= 90 && daysLeft > 0
 
                                     // Use computed status but upgrade to warning if expiring soon and not already error
-                                    let status = doc?.computed_status || (doc ? 'valid' : 'missing')
+                                    let status = doc?.metadata?.is_incomplete ? 'incomplete' : (doc?.computed_status || (doc ? 'valid' : 'missing'))
                                     if (isExpiringSoon && status === 'valid') status = 'warning'
 
                                     const isMissing = !doc
@@ -179,13 +180,18 @@ export default function Compliance() {
                                                             <FileText className="w-3.5 h-3.5" />
                                                             {doc.file_name || "Document Uploaded"}
                                                         </span>
-                                                        {doc.expiry_date && (
+                                                        {doc.expiry_date && status !== 'incomplete' && (
                                                             <span className={`flex items-center gap-1 ${status === 'expired' ? 'text-red-600 font-bold' : (isExpiringSoon ? 'text-amber-600 font-bold' : '')}`}>
                                                                 <Calendar className="w-3.5 h-3.5" />
                                                                 {status === 'expired'
                                                                     ? `Expired ${Math.abs(daysLeft || 0)} days ago`
                                                                     : (isExpiringSoon ? `Expires in ${daysLeft} days` : `Exp: ${doc.expiry_date}`)
                                                                 }
+                                                            </span>
+                                                        )}
+                                                        {status === 'incomplete' && (
+                                                            <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded text-xs font-bold border border-orange-200 flex items-center gap-1">
+                                                                <AlertTriangle className="w-3.5 h-3.5" /> Incomplete
                                                             </span>
                                                         )}
                                                         {(def as any).wMetadata?.includes('grade') && doc.metadata?.grade && (

@@ -141,6 +141,71 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                         }
                     }
 
+                    // CIDB Certificate Custom Normalization
+                    if (docType === "cidb_cert") {
+                        if (!mappedData.crs_number) mappedData.crs_number = rawPayload.crs_number || rawPayload.crs || mappedData.reference_number || rawPayload.reference_number || ""
+                        if (!mappedData.grade) {
+                            mappedData.grade = rawPayload.grade || normalizedAI['cidbgrade'] || ""
+                            if (typeof mappedData.grade === 'string' && mappedData.grade.length > 1) {
+                                const gradeMatch = mappedData.grade.match(/\d/)
+                                if (gradeMatch) mappedData.grade = gradeMatch[0]
+                            }
+                        }
+                        if (!mappedData.class_of_work) {
+                            mappedData.class_of_work = rawPayload.class_of_work || normalizedAI['classofwork'] || normalizedAI['workclass'] || normalizedAI['cidbclass'] || ""
+                            if (typeof mappedData.class_of_work === 'string') {
+                                const classMatch = mappedData.class_of_work.match(/[A-Z]{2}/i)
+                                if (classMatch) mappedData.class_of_work = classMatch[0].toUpperCase()
+                            }
+                        }
+                        if (!mappedData.status && data.valid !== undefined) mappedData.status = data.valid ? "Active" : "Suspended"
+                    }
+
+                    // B-BBEE Certificate Normalization
+                    if (docType === "bbbee_cert") {
+                        if (!mappedData.bbbee_level) {
+                            mappedData.bbbee_level = rawPayload.bbbee_level || normalizedAI['bbbeelevel'] || normalizedAI['level'] || ""
+                            if (typeof mappedData.bbbee_level === 'string' && mappedData.bbbee_level.toLowerCase().includes('non')) {
+                                mappedData.bbbee_level = "Non-Compliant"
+                            } else if (typeof mappedData.bbbee_level === 'string') {
+                                const levelMatch = mappedData.bbbee_level.match(/\d/)
+                                if (levelMatch) mappedData.bbbee_level = levelMatch[0]
+                            }
+                        }
+                        if (!mappedData.black_ownership_percent) mappedData.black_ownership_percent = rawPayload.black_ownership_percent || normalizedAI['blackownership'] || ""
+                        if (!mappedData.certificate_or_affidavit_number) mappedData.certificate_or_affidavit_number = mappedData.reference_number || rawPayload.reference_number || ""
+                    }
+
+                    // CSD Normalization
+                    if (docType === "csd_summary") {
+                        if (!mappedData.maaa_number) mappedData.maaa_number = rawPayload.maaa_number || mappedData.reference_number || rawPayload.reference_number || ""
+                        if (!mappedData.supplier_name) mappedData.supplier_name = mappedData.entity_name || ""
+                        if (!mappedData.registration_status && data.valid !== undefined) mappedData.registration_status = data.valid ? "Active" : "Inactive"
+                    }
+
+                    // COID Normalization
+                    if (docType === "coid_letter") {
+                        if (!mappedData.coid_ref) mappedData.coid_ref = rawPayload.coid_ref || mappedData.reference_number || rawPayload.reference_number || ""
+                        if (!mappedData.status && data.valid !== undefined) mappedData.status = data.valid ? "Valid" : "Invalid"
+                    }
+
+                    // CIPC Normalization
+                    if (docType === "cipc_cert") {
+                        if (!mappedData.registration_number) mappedData.registration_number = rawPayload.registration_number || mappedData.reference_number || rawPayload.reference_number || ""
+                        if (!mappedData.entity_status && data.valid !== undefined) mappedData.entity_status = data.valid ? "In Business" : "Deregistered"
+                    }
+
+                    // Bank Letter Normalization
+                    if (docType === "bank_letter") {
+                        if (!mappedData.bank_name) mappedData.bank_name = rawPayload.bank_name || ""
+                        if (!mappedData.account_holder) mappedData.account_holder = rawPayload.account_holder || mappedData.entity_name || ""
+                        if (!mappedData.account_number_last4) {
+                            const rawAcc = String(rawPayload.account_number || mappedData.reference_number || rawPayload.reference_number || "")
+                            if (rawAcc && rawAcc.length >= 4) mappedData.account_number_last4 = rawAcc.slice(-4)
+                        }
+                        if (!mappedData.branch_code) mappedData.branch_code = rawPayload.branch_code || ""
+                    }
+
                     console.log("[DEBUG 1] AI Raw Payload:", rawPayload)
                     console.log("[DEBUG 2] Normalized AI:", normalizedAI)
                     console.log("[DEBUG 3] Mapped Fields:", mappedData)
@@ -183,6 +248,11 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
             if (finalMetadata.maaa_number) {
                 finalMetadata.maaa_number = finalMetadata.maaa_number.toUpperCase()
             }
+
+            // Compute Incomplete State based on strict taxonomy
+            const def = (DOCUMENT_TYPES as any)[docType] || {}
+            const isComplete = !('fields' in def) || def.fields.filter((f: any) => f.required).every((f: any) => !!finalMetadata[f.key])
+            finalMetadata.is_incomplete = !isComplete
 
             const { error } = await CompanyService.uploadComplianceDoc(fileToUpload, category, docType, finalMetadata)
             if (error) throw new Error(error)
@@ -242,7 +312,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                             </div>
                         </div>
                     ) : (
-                        <form onSubmit={handleSave} className="space-y-4">
+                        <form onSubmit={handleSave} className="space-y-4" noValidate>
                             {/* File Preview */}
                             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm text-gray-700">
                                 <FileText className="w-5 h-5 text-gray-400" />
@@ -277,6 +347,17 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                         <p className="text-xs text-orange-700 mt-2 opacity-80">
                                             This can happen due to network issues or unrecognizable formatting.
                                         </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Incomplete Status Warning */}
+                            {('fields' in def) && def.fields.filter((f: any) => f.required).some((f: any) => !metadata[f.key]) && (
+                                <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-2">
+                                    <AlertTriangle className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
+                                    <div>
+                                        <h4 className="text-sm font-bold text-orange-900">Incomplete Document</h4>
+                                        <p className="text-xs text-orange-800 mt-0.5">Some required fields are missing. You can save now and complete them later.</p>
                                     </div>
                                 </div>
                             )}
@@ -324,12 +405,14 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                             {/* Dynamic Fields from Taxonomy */}
                             {'fields' in def && (def as any).fields?.map((field: any) => (
                                 <div key={field.key}>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">{field.label}</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        {field.label}
+                                        {field.required && <span className="text-red-500 ml-1">*</span>}
+                                    </label>
 
                                     {field.type === 'select' ? (
                                         <select
-                                            required={field.required}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-primary focus:border-primary"
+                                            className={`w-full px-3 py-2 border rounded-lg text-sm bg-white focus:ring-primary focus:border-primary ${field.required && !metadata[field.key] ? 'border-orange-300' : 'border-gray-300'}`}
                                             value={metadata[field.key] || ""}
                                             onChange={(e) => setMetadata({ ...metadata, [field.key]: e.target.value })}
                                         >
@@ -344,7 +427,6 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                         <>
                                             <input
                                                 type={field.type || "text"}
-                                                required={field.required}
                                                 placeholder={field.placeholder}
                                                 pattern={field.validationRegex}
                                                 title={field.validationMessage}
