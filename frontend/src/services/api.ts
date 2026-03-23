@@ -347,8 +347,15 @@ export const CompanyService = {
 
     async analyzeDocument(filePath: string, docType: string, validationRules: Record<string, unknown> = {}) {
         try {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (!session) throw new Error("User not authenticated")
+
             const { data, error } = await supabase.functions.invoke('analyze-document', {
-                body: { file_path: filePath, doc_type: docType, validationRules }
+                body: { file_path: filePath, doc_type: docType, validationRules },
+                headers: {
+                    // Explicitly inject the Authorization header in case the custom storage client fails to auto-attach it
+                    Authorization: `Bearer ${session.access_token}`
+                }
             })
 
             if (error) throw error
