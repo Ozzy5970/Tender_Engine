@@ -23,6 +23,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
     const [fileToUpload, setFileToUpload] = useState<File | null>(null)
     const [isValid, setIsValid] = useState<boolean>(true)
     const [override, setOverride] = useState(false)
+    const [aiFailed, setAiFailed] = useState(false)
     const warnings = metadata.warnings || []
 
     // Explicit validation failure message from AI
@@ -41,6 +42,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
             setUploading(false)
             setIsValid(true)
             setOverride(false)
+            setAiFailed(false)
         }
     }, [isOpen])
 
@@ -68,7 +70,11 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                 const rules = (DOCUMENT_TYPES as any)[docType] || {}
                 const { data, error: analyzeError } = await CompanyService.analyzeDocument(fileName, docType, rules)
 
-                if (data) {
+                if (analyzeError || (data && data.code === "GENERAL" && data.description?.includes("AI Analysis unavailable"))) {
+                    console.warn("AI Analysis failed or unavailable:", analyzeError || data)
+                    setAiFailed(true)
+                } else if (data) {
+                    setAiFailed(false)
                     // Safe mapping: The AI sometimes returns a wrapped object { valid, metadata } or just { fields }
                     const rawPayload = data.metadata || data.fields || data
                     console.log("[AI Raw Extraction]:", rawPayload)
@@ -125,8 +131,6 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                     } else {
                         setIsValid(true)
                     }
-                } else if (analyzeError) {
-                    console.warn("AI Analysis failed:", analyzeError)
                 }
 
             } catch (err) {
@@ -226,6 +230,11 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                         <Loader2 className="w-4 h-4 mr-1 animate-spin" />
                                         Scanning...
                                     </div>
+                                ) : aiFailed ? (
+                                    <div className="flex items-center text-orange-600 text-xs font-medium">
+                                        <AlertTriangle className="w-4 h-4 mr-1" />
+                                        Manual Entry
+                                    </div>
                                 ) : (
                                     <div className="flex items-center text-green-600 text-xs font-medium">
                                         <Sparkles className="w-4 h-4 mr-1" />
@@ -233,6 +242,22 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                     </div>
                                 )}
                             </div>
+
+                            {/* AI Failure Block */}
+                            {aiFailed && (
+                                <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-3">
+                                    <AlertTriangle className="w-5 h-5 text-orange-600 mt-0.5 shrink-0" />
+                                    <div>
+                                        <h4 className="text-sm font-bold text-orange-900">AI Analysis Failed</h4>
+                                        <p className="text-sm text-orange-800 mt-1">
+                                            We couldn't automatically extract information from this document. Please review and enter the details manually.
+                                        </p>
+                                        <p className="text-xs text-orange-700 mt-2 opacity-80">
+                                            This can happen due to network issues or unrecognizable formatting.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Validation Warnings */}
                             {warnings.length > 0 && (
