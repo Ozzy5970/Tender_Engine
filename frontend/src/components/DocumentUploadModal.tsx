@@ -69,20 +69,22 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                 const { data, error: analyzeError } = await CompanyService.analyzeDocument(fileName, docType, rules)
 
                 if (data) {
-                    console.log("[AI Raw Extraction]:", data)
+                    // Safe mapping: The AI sometimes returns a wrapped object { valid, metadata } or just { fields }
+                    const rawPayload = data.metadata || data.fields || data
+                    console.log("[AI Raw Extraction]:", rawPayload)
                     
                     const mappedData: any = {}
                     const normalizedAI: any = {}
                     
                     // Normalize all AI keys for flexible matching
-                    Object.entries(data).forEach(([k, v]) => {
+                    Object.entries(rawPayload).forEach(([k, v]) => {
                         normalizedAI[k.toLowerCase().replace(/[_\s-]/g, '')] = v
                     })
 
                     // Strict mapping: check exact key, flexible key, or flexible label
                     if (rules.fields) {
                         rules.fields.forEach((f: any) => {
-                            const exactVal = data[f.key]
+                            const exactVal = rawPayload[f.key]
                             const flexKeyVal = normalizedAI[f.key.toLowerCase().replace(/[_\s-]/g, '')]
                             const flexLabelVal = normalizedAI[f.label.toLowerCase().replace(/[_\s-]/g, '')]
 
@@ -92,8 +94,8 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                         })
                     }
                     // Fallback date extraction allowing taxonomy matches to persist, trimming ISO formatting for HTML5 type="date"
-                    let rawExpiry = data.expiry_date || data.expiryDate || normalizedAI['expirydate'] || ""
-                    let rawIssue = data.issue_date || data.issueDate || normalizedAI['issuedate'] || ""
+                    let rawExpiry = rawPayload.expiry_date || rawPayload.expiryDate || normalizedAI['expirydate'] || ""
+                    let rawIssue = rawPayload.issue_date || rawPayload.issueDate || normalizedAI['issuedate'] || ""
 
                     if (rawExpiry && rawExpiry.includes('T')) rawExpiry = rawExpiry.split('T')[0]
                     if (rawIssue && rawIssue.includes('T')) rawIssue = rawIssue.split('T')[0]
@@ -260,34 +262,6 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                 </div>
                             )}
 
-                            {/* Expiry Date (Strict Future Check) */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
-                                <input
-                                    type="date"
-                                    required
-                                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-primary focus:border-primary ${metadata.expiry_date && new Date(metadata.expiry_date) < new Date() ? 'border-red-300 bg-red-50 text-red-900' : 'border-gray-300'
-                                        }`}
-                                    value={metadata.expiry_date || ""}
-                                    onChange={(e) => {
-                                        setMetadata({ ...metadata, expiry_date: e.target.value })
-                                        // Real-time check
-                                        const date = new Date(e.target.value)
-                                        const now = new Date()
-                                        if (date < now) {
-                                            // Soft block - we set isValid to false but user can override if strictly needed (handled by isValid logic above)
-                                            setIsValid(false)
-                                            setMetadata((prev: any) => ({ ...prev, reason: "Document has already expired." }))
-                                        } else {
-                                            setIsValid(true)
-                                        }
-                                    }}
-                                />
-                                {metadata.expiry_date && new Date(metadata.expiry_date) < new Date() && (
-                                    <p className="text-xs text-red-600 mt-1 font-medium">Warning: This date is in the past.</p>
-                                )}
-                            </div>
-
                             {/* Dynamic Fields from Taxonomy */}
                             {'fields' in def && (def as any).fields?.map((field: any) => (
                                 <div key={field.key}>
@@ -308,24 +282,39 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                     ) : field.type === 'info' ? (
                                         <p className="text-sm text-red-600 font-medium">{field.label}</p>
                                     ) : (
-                                        <input
-                                            type={field.type || "text"}
-                                            required={field.required}
-                                            placeholder={field.placeholder}
-                                            pattern={field.validationRegex}
-                                            title={field.validationMessage}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-primary focus:border-primary"
-                                            value={metadata[field.key] || ""}
-                                            onChange={(e) => {
-                                                let val = e.target.value
-                                                // Real-time normalization for strict alphanumeric fields
-                                                if (['pin', 'crs_number', 'maaa_number', 'vat_number', 'uif_number', 'registration_number'].includes(field.key)) {
-                                                    val = val.replace(/[\s-]/g, '')
-                                                    if (field.key === 'maaa_number') val = val.toUpperCase()
-                                                }
-                                                setMetadata({ ...metadata, [field.key]: val })
-                                            }}
-                                        />
+                                        <>
+                                            <input
+                                                type={field.type || "text"}
+                                                required={field.required}
+                                                placeholder={field.placeholder}
+                                                pattern={field.validationRegex}
+                                                title={field.validationMessage}
+                                                className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-primary focus:border-primary ${field.key === 'expiry_date' && metadata.expiry_date && new Date().getTime() > new Date(metadata.expiry_date).getTime() ? 'border-red-300 bg-red-50 text-red-900' : ''}`}
+                                                value={metadata[field.key] || ""}
+                                                onChange={(e) => {
+                                                    let val = e.target.value
+                                                    // Real-time normalization for strict alphanumeric fields
+                                                    if (['pin', 'crs_number', 'maaa_number', 'vat_number', 'uif_number', 'registration_number'].includes(field.key)) {
+                                                        val = val.replace(/[\s-]/g, '')
+                                                        if (field.key === 'maaa_number') val = val.toUpperCase()
+                                                    }
+                                                    // Real-time date validation for expiry
+                                                    if (field.key === 'expiry_date') {
+                                                        const date = new Date(val)
+                                                        if (new Date().getTime() > date.getTime()) {
+                                                            setIsValid(false)
+                                                            setMetadata((prev: any) => ({ ...prev, reason: "Document has already expired." }))
+                                                        } else {
+                                                            setIsValid(true)
+                                                        }
+                                                    }
+                                                    setMetadata((prev: any) => ({ ...prev, [field.key]: val }))
+                                                }}
+                                            />
+                                            {field.key === 'expiry_date' && metadata.expiry_date && new Date().getTime() > new Date(metadata.expiry_date).getTime() && (
+                                                <p className="text-xs text-red-600 mt-1 font-medium">Warning: This date is in the past.</p>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             ))}
