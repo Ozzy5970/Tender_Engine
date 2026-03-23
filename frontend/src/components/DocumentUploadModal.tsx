@@ -123,6 +123,24 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                             || ""
                     }
 
+                    // SARS_PIN Specific Normalization Layer
+                    if (docType === "sars_pin") {
+                        if (!mappedData.pin) {
+                            mappedData.pin = rawPayload.pin || mappedData.reference_number || rawPayload.reference_number || ""
+                        }
+                        if (!mappedData.status && data.valid !== undefined) {
+                            mappedData.status = data.valid ? "Compliant" : "Non-Compliant"
+                        }
+                        // Fallback entity name extraction from strongly quoted strings in summary if missing
+                        if (!mappedData.entity_name && data.summary) {
+                            // Target common South African company formatting heavily quoted by the AI
+                            const quotedMatch = data.summary.match(/['"]((?:[^'"]+)?(?:Pty|Ltd|CC|Inc|Projects|Trading|Civil|Construction)(?:[^'"]+)?)['"]/i)
+                            if (quotedMatch && quotedMatch[1]) {
+                                mappedData.entity_name = quotedMatch[1]
+                            }
+                        }
+                    }
+
                     console.log("[DEBUG 1] AI Raw Payload:", rawPayload)
                     console.log("[DEBUG 2] Normalized AI:", normalizedAI)
                     console.log("[DEBUG 3] Mapped Fields:", mappedData)

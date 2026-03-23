@@ -144,10 +144,14 @@ Deno.serve(async (req) => {
           "confidence": number, // 0-100
           "reason": "Short explanation of validity/mismatch judgment",
           "doc_type_detected": "What you think it is",
+          "entity_name": "Exact Extracted Company Name/Entity" or null,
           "expiry_date": "YYYY-MM-DD" or null,
-          "reference_number": "Main extracted ID" or null,
+          "issue_date": "YYYY-MM-DD" or null,
+          "reference_number": "Main extracted ID (e.g. PIN or Reg No)" or null,
+          "pin": "SARS PIN if applicable" or null,
+          "status": "E.g. Compliant or Non-Compliant based on context" or null,
           "summary": "Brief 2 sentence summary",
-          "risks": ["Risk 1", "Risk 2"],
+          "risks": ["Risk 1"],
           "strategic_value": "High/Medium/Low",
           "strategy_tips": "One key tip"
         }
