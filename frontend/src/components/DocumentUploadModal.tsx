@@ -6,6 +6,31 @@ import { DOCUMENT_TYPES } from "@/lib/taxonomy"
 import { CompanyService } from "@/services/api"
 // import type { DocTypeKey } from "@/lib/taxonomy"
 
+type ParsedCIDB = {
+    grade?: string;
+    class_of_work?: string;
+};
+
+function parseCIDB(input: string, validClasses: string[]): ParsedCIDB {
+    if (!input || !validClasses || validClasses.length === 0) return {};
+
+    const cleaned = input.toUpperCase().replace(/\s+/g, "");
+
+    const classPattern = `(${validClasses.join('|')})`;
+    const regex = new RegExp(`(\\d{1})${classPattern}`);
+
+    const match = cleaned.match(regex);
+
+    if (match) {
+        return {
+            grade: match[1],
+            class_of_work: match[2],
+        };
+    }
+
+    return {};
+}
+
 interface DocumentUploadModalProps {
     isOpen: boolean
     onClose: () => void
@@ -73,7 +98,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
 
                 // Detect explicit { error: "..." } or fallback payloads
                 const hasErrorPayload = data && (data.error || data.details?.includes('Edge Function Error Catch') || (data.code === "GENERAL" && data.description?.includes("AI Analysis unavailable")))
-                
+
                 if (analyzeError || hasErrorPayload) {
                     console.warn("AI Analysis failed or unavailable:", analyzeError || data)
                     setAiFailed(true)
@@ -82,10 +107,10 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                     // Safe mapping: The AI sometimes returns a wrapped object { valid, metadata } or just { fields }
                     const rawPayload = data.metadata || data.fields || data
                     console.log("[AI Raw Extraction]:", rawPayload)
-                    
+
                     const mappedData: any = {}
                     const normalizedAI: any = {}
-                    
+
                     // Normalize all AI keys for flexible matching
                     Object.entries(rawPayload).forEach(([k, v]) => {
                         normalizedAI[k.toLowerCase().replace(/[_\s-]/g, '')] = v
@@ -115,11 +140,11 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
 
                     // Fallback entity_name extraction for robust mapping
                     if (!mappedData.entity_name) {
-                        mappedData.entity_name = rawPayload.entity_name || rawPayload.entityName 
-                            || normalizedAI['entityname'] 
-                            || normalizedAI['companyname'] 
-                            || normalizedAI['legalentityname'] 
-                            || normalizedAI['suppliername'] 
+                        mappedData.entity_name = rawPayload.entity_name || rawPayload.entityName
+                            || normalizedAI['entityname']
+                            || normalizedAI['companyname']
+                            || normalizedAI['legalentityname']
+                            || normalizedAI['suppliername']
                             || ""
                     }
 
@@ -144,19 +169,29 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                     // CIDB Certificate Custom Normalization
                     if (docType === "cidb_cert") {
                         if (!mappedData.crs_number) mappedData.crs_number = rawPayload.crs_number || rawPayload.crs || mappedData.reference_number || rawPayload.reference_number || ""
-                        
+
+                        const cidbFields = (DOCUMENT_TYPES.cidb_cert as any).fields;
+                        const VALID_GRADES: string[] = cidbFields.find((f: any) => f.key === "grade")?.options || [];
+                        const VALID_CLASSES: string[] = cidbFields.find((f: any) => f.key === "class_of_work")?.options || [];
+
                         const rawGrade = String(rawPayload.grade || normalizedAI['cidbgrade'] || "")
                         const rawClass = String(rawPayload.class_of_work || normalizedAI['classofwork'] || normalizedAI['workclass'] || normalizedAI['cidbclass'] || "")
-                        const searchStr = `${rawGrade} ${rawClass} ${data.summary || ""}`.toUpperCase()
+                        const searchStr = `${mappedData.grade || ""} ${mappedData.class_of_work || ""} ${rawGrade} ${rawClass}`
 
-                        if (!mappedData.grade) {
-                            const gradeMatch = searchStr.match(/([1-9])\s*(?:GB|CE|ME|EP|EB|SO|SQ|SH|SI|SJ|SK|SL)/) || searchStr.match(/\b([1-9])\b/)
-                            if (gradeMatch) mappedData.grade = gradeMatch[1]
+                        const parsed = parseCIDB(searchStr, VALID_CLASSES)
+
+                        if (parsed.grade && VALID_GRADES.includes(parsed.grade)) {
+                            mappedData.grade = parsed.grade
+                        } else if (mappedData.grade && !VALID_GRADES.includes(mappedData.grade)) {
+                            mappedData.grade = ""
                         }
-                        if (!mappedData.class_of_work) {
-                            const classMatch = searchStr.match(/(?:[1-9]\s*)?(GB|CE|ME|EP|EB|SO|SQ|SH|SI|SJ|SK|SL)\b/)
-                            if (classMatch) mappedData.class_of_work = classMatch[1]
+
+                        if (parsed.class_of_work && VALID_CLASSES.includes(parsed.class_of_work)) {
+                            mappedData.class_of_work = parsed.class_of_work
+                        } else if (mappedData.class_of_work && !VALID_CLASSES.includes(mappedData.class_of_work)) {
+                            mappedData.class_of_work = ""
                         }
+
                         if (!mappedData.status && data.valid !== undefined) mappedData.status = data.valid ? "Active" : "Suspended"
                     }
 
@@ -235,7 +270,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
         try {
             // Pre-save normalization (canonical formatting)
             const finalMetadata = { ...metadata }
-            
+
             // Percentage normalization (ensure ends with %)
             if (finalMetadata.black_ownership_percent) {
                 let val = finalMetadata.black_ownership_percent.replace(/\s+/g, '')
