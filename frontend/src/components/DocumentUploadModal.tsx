@@ -175,21 +175,25 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                         const VALID_CLASSES: string[] = cidbFields.find((f: any) => f.key === "class_of_work")?.options || [];
 
                         const rawGrade = String(rawPayload.grade || normalizedAI['cidbgrade'] || "")
-                        const rawClass = String(rawPayload.class_of_work || normalizedAI['classofwork'] || normalizedAI['workclass'] || normalizedAI['cidbclass'] || "")
+                        const rawClass = String(rawPayload.class_of_work || rawPayload.class || normalizedAI['classofwork'] || normalizedAI['workclass'] || normalizedAI['cidbclass'] || normalizedAI['class'] || "")
                         const searchStr = `${mappedData.grade || ""} ${mappedData.class_of_work || ""} ${rawGrade} ${rawClass}`
 
                         const parsed = parseCIDB(searchStr, VALID_CLASSES)
 
                         if (parsed.grade && VALID_GRADES.includes(parsed.grade)) {
                             mappedData.grade = parsed.grade
-                        } else if (mappedData.grade && !VALID_GRADES.includes(mappedData.grade)) {
+                        } else if (mappedData.grade && !VALID_GRADES.includes(String(mappedData.grade))) {
                             mappedData.grade = ""
+                        } else if (mappedData.grade) {
+                            mappedData.grade = String(mappedData.grade)
                         }
 
                         if (parsed.class_of_work && VALID_CLASSES.includes(parsed.class_of_work)) {
                             mappedData.class_of_work = parsed.class_of_work
-                        } else if (mappedData.class_of_work && !VALID_CLASSES.includes(mappedData.class_of_work)) {
+                        } else if (mappedData.class_of_work && !VALID_CLASSES.includes(String(mappedData.class_of_work))) {
                             mappedData.class_of_work = ""
+                        } else if (mappedData.class_of_work) {
+                            mappedData.class_of_work = String(mappedData.class_of_work)
                         }
 
                         if (!mappedData.status && data.valid !== undefined) mappedData.status = data.valid ? "Active" : "Suspended"
@@ -239,6 +243,17 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                         }
                         if (!mappedData.branch_code) mappedData.branch_code = rawPayload.branch_code || ""
                     }
+
+                    console.log("=== PROOF LOGS (CIDB SELECT BINDING) ===")
+                    if (docType === "cidb_cert") {
+                        const cidbF = (DOCUMENT_TYPES.cidb_cert as any).fields;
+                        console.log("mappedData.grade:", mappedData.grade, typeof mappedData.grade);
+                        console.log("mappedData.class_of_work:", mappedData.class_of_work, typeof mappedData.class_of_work);
+                        console.log("VALID_GRADES options:", cidbF.find((f:any)=>f.key==="grade")?.options);
+                        console.log("VALID_CLASSES options:", cidbF.find((f:any)=>f.key==="class_of_work")?.options);
+                        console.log("Field keys for binding:", "grade", "class_of_work");
+                    }
+                    console.log("========================================")
 
                     console.log("[DEBUG 1] AI Raw Payload:", rawPayload)
                     console.log("[DEBUG 2] Normalized AI:", normalizedAI)
@@ -386,7 +401,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                             )}
 
                             {/* Incomplete Status Warning */}
-                            {('fields' in def) && def.fields.filter((f: any) => f.required).some((f: any) => !metadata[f.key]) && (
+                            {!analyzing && ('fields' in def) && def.fields.filter((f: any) => f.required).some((f: any) => !metadata[f.key]) && (
                                 <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-2">
                                     <AlertTriangle className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
                                     <div>
