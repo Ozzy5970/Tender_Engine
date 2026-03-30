@@ -133,6 +133,7 @@ Deno.serve(async (req) => {
         3. **EXTRACT**: Extract fields.
            - Look for Expiry Dates.
            - Look for Reference Numbers.
+           - For CIPC Certificates, you MUST extract "registration_date" (YYYY-MM-DD).
            - For CIDB Contractor Certificates, you MUST extract:
              - grade: The CIDB contractor grade (a single digit from 1 to 9)
              - class_of_work: The CIDB class of work (e.g. GB, CE, ME, etc.)
@@ -163,6 +164,7 @@ Deno.serve(async (req) => {
           "entity_name": "Exact Extracted Company Name/Entity" or null,
           "expiry_date": "YYYY-MM-DD" or null,
           "issue_date": "YYYY-MM-DD" or null,
+          "registration_date": "YYYY-MM-DD" or null,
           "reference_number": "Main extracted ID (e.g. PIN or Reg No)" or null,
           "pin": "SARS PIN if applicable" or null,
           "crs_number": "CIDB CRS Number if applicable" or null,

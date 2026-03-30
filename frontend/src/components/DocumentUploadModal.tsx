@@ -4,7 +4,7 @@ import { X, UploadCloud, FileText, Loader2, Save, Sparkles, AlertTriangle } from
 import { supabase } from "@/lib/supabase"
 import { DOCUMENT_TYPES } from "@/lib/taxonomy"
 import { CompanyService } from "@/services/api"
-// import type { DocTypeKey } from "@/lib/taxonomy"
+import { toast } from "sonner"
 
 // Helper functions integrated inline
 
@@ -213,6 +213,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                     // CIPC Normalization
                     if (docType === "cipc_cert") {
                         if (!mappedData.registration_number) mappedData.registration_number = rawPayload.registration_number || mappedData.reference_number || rawPayload.reference_number || ""
+                        if (!mappedData.registration_date) mappedData.registration_date = rawPayload.registration_date || mappedData.issue_date || rawPayload.issue_date || ""
                         if (!mappedData.entity_status && data.valid !== undefined) mappedData.entity_status = data.valid ? "In Business" : "Deregistered"
                     }
 
@@ -300,11 +301,19 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
             const { error } = await CompanyService.uploadComplianceDoc(fileToUpload, category, docType, finalMetadata)
             if (error) throw new Error(error)
 
+            if (finalMetadata.is_incomplete) {
+                toast.success("Document saved as incomplete. You can finish it later.")
+            } else {
+                toast.success("Your compliance document was uploaded successfully.")
+            }
+
             onSuccess()
             onClose()
         } catch (error) {
             console.error(error)
-            alert("Failed to save document")
+            toast.error("Upload Failed", { 
+                description: "We couldn’t save this document right now. Your file details are still here, so you can retry." 
+            })
         } finally {
             setUploading(false)
         }

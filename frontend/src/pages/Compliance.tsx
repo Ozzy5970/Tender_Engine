@@ -16,6 +16,7 @@ interface ComplianceDocument {
     file_name: string
     expiry_date: string | null
     metadata: Record<string, any>
+    file_url?: string
 }
 
 export default function Compliance() {
@@ -171,7 +172,7 @@ export default function Compliance() {
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2">
                                                     <h4 className="font-medium text-gray-900">{def.label}</h4>
-                                                    {def.mandatory && <span className="text-[10px] uppercase tracking-wider text-red-600 font-bold bg-red-50 px-1.5 py-0.5 rounded">Required</span>}
+                                                    {def.mandatory && isMissing && <span className="text-[10px] uppercase tracking-wider text-red-600 font-bold bg-red-50 px-1.5 py-0.5 rounded">Required</span>}
                                                 </div>
 
                                                 {doc ? (
@@ -215,6 +216,18 @@ export default function Compliance() {
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
+                                                    )}
+                                                    {!isMissing && doc?.file_url && (
+                                                        <a
+                                                            href={doc.file_url}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            title="View Document"
+                                                            className="flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                                                        >
+                                                            <FileText className="w-4 h-4 mr-2" />
+                                                            View
+                                                        </a>
                                                     )}
                                                     <button
                                                         onClick={() => {
