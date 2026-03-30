@@ -414,10 +414,11 @@ export const CompanyService = {
                 file_url: storagePath,
 
                 status: "valid",
-                expiry_date: metadata.expiry_date ?? null,
-                reference_number: metadata.reference_number ?? null,
+                // Strict conversion: Empty strings must be mapped to SQL NULL for Postgres DATE column integrity
+                expiry_date: (metadata.expiry_date && metadata.expiry_date.trim() !== "") ? metadata.expiry_date : null,
+                reference_number: (metadata.reference_number && metadata.reference_number.trim() !== "") ? metadata.reference_number : null,
                 metadata,
-                issue_date: metadata.issue_date ?? new Date().toISOString()
+                issue_date: (metadata.issue_date && metadata.issue_date.trim() !== "") ? metadata.issue_date : null
             })
         )
     },
