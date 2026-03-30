@@ -133,6 +133,22 @@ Deno.serve(async (req) => {
         3. **EXTRACT**: Extract fields.
            - Look for Expiry Dates.
            - Look for Reference Numbers.
+           - For CIDB Contractor Certificates, you MUST extract:
+             - grade: The CIDB contractor grade (a single digit from 1 to 9)
+             - class_of_work: The CIDB class of work (e.g. GB, CE, ME, etc.)
+             
+             These values are typically found:
+             - Near the company name
+             - In formats such as:
+               - '6GB'
+               - 'Grade 6 GB'
+               - 'CIDB Grade: 6, Class: GB'
+             
+             If combined (e.g. '6GB'):
+             - grade = "6"
+             - class_of_work = "GB"
+             
+             If not found, return null.
 
         4. **VALIDATE**: 
            - If a "required" field is missing or expired, mark as "valid": false.
@@ -150,8 +166,8 @@ Deno.serve(async (req) => {
           "reference_number": "Main extracted ID (e.g. PIN or Reg No)" or null,
           "pin": "SARS PIN if applicable" or null,
           "crs_number": "CIDB CRS Number if applicable" or null,
-          "grade": "CIDB Grade (1-9) if applicable" or null,
-          "class_of_work": "CIDB Class (e.g. GB, CE) if applicable" or null,
+          "grade": "string or null",
+          "class_of_work": "string or null",
           "bbbee_level": "B-BBEE Level (1-8) if applicable" or null,
           "black_ownership_percent": "Black Ownership % if applicable" or null,
           "maaa_number": "CSD MAAA Number if applicable" or null,
