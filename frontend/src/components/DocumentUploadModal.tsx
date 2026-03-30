@@ -25,6 +25,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
     const [metadata, setMetadata] = useState<any>({})
     const [fileToUpload, setFileToUpload] = useState<File | null>(null)
     const [aiFailed, setAiFailed] = useState(false)
+    const [isHydrating, setIsHydrating] = useState(false)
     const warnings = metadata.warnings || []
 
     // Only used for rendering fields, not storage
@@ -39,10 +40,23 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
             setAnalyzing(false)
             setUploading(false)
             setAiFailed(false)
+            setIsHydrating(false)
         } else if (initialData) {
-            setMetadata(initialData.metadata || {})
+            setIsHydrating(true)
+            console.log("[EDIT MODE] Hydrating from initialData.id:", initialData.id)
+            
+            const baseMeta = { ...(initialData.metadata || {}) }
+            if (initialData.issue_date) baseMeta.issue_date = initialData.issue_date
+            if (initialData.expiry_date) baseMeta.expiry_date = initialData.expiry_date
+            if (initialData.reference_number) baseMeta.reference_number = initialData.reference_number
+
+            console.log("[EDIT MODE] Raw Metadata:", initialData.metadata)
+            console.log("[EDIT MODE] Hydrated Form State:", baseMeta)
+            
+            setMetadata(baseMeta)
             setAnalyzing(false)
             setAiFailed(false)
+            setIsHydrating(false)
         }
     }, [isOpen, initialData])
 
@@ -415,7 +429,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                             )}
 
                             {/* Incomplete Status Warning */}
-                            {!analyzing && ('fields' in def) && def.fields.filter((f: any) => f.required).some((f: any) => !metadata[f.key]) && (
+                            {!analyzing && !isHydrating && ('fields' in def) && def.fields.filter((f: any) => f.required).some((f: any) => !metadata[f.key]) && (
                                 <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-2">
                                     <AlertTriangle className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
                                     <div>
