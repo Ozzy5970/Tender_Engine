@@ -1,35 +1,12 @@
 
 import { useState, useEffect } from "react"
-import { X, UploadCloud, FileText, Loader2, Save, Sparkles, AlertTriangle, XCircle } from "lucide-react"
+import { X, UploadCloud, FileText, Loader2, Save, Sparkles, AlertTriangle } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { DOCUMENT_TYPES } from "@/lib/taxonomy"
 import { CompanyService } from "@/services/api"
 // import type { DocTypeKey } from "@/lib/taxonomy"
 
-type ParsedCIDB = {
-    grade?: string;
-    class_of_work?: string;
-};
-
-function parseCIDB(input: string, validClasses: string[]): ParsedCIDB {
-    if (!input || !validClasses || validClasses.length === 0) return {};
-
-    const cleaned = input.toUpperCase().replace(/\s+/g, "");
-
-    const classPattern = `(${validClasses.join('|')})`;
-    const regex = new RegExp(`(\\d{1})${classPattern}`);
-
-    const match = cleaned.match(regex);
-
-    if (match) {
-        return {
-            grade: match[1],
-            class_of_work: match[2],
-        };
-    }
-
-    return {};
-}
+// Helper functions integrated inline
 
 interface DocumentUploadModalProps {
     isOpen: boolean
@@ -46,13 +23,8 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
     const [analyzing, setAnalyzing] = useState(false)
     const [metadata, setMetadata] = useState<any>({})
     const [fileToUpload, setFileToUpload] = useState<File | null>(null)
-    const [isValid, setIsValid] = useState<boolean>(true)
-    const [override, setOverride] = useState(false)
     const [aiFailed, setAiFailed] = useState(false)
     const warnings = metadata.warnings || []
-
-    // Explicit validation failure message from AI
-    const validationError = !isValid ? (metadata.reason || "Document does not look correct.") : null
 
     // Only used for rendering fields, not storage
     // @ts-ignore
@@ -65,8 +37,6 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
             setMetadata({})
             setAnalyzing(false)
             setUploading(false)
-            setIsValid(true)
-            setOverride(false)
             setAiFailed(false)
         }
     }, [isOpen])
@@ -174,27 +144,40 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                         const VALID_GRADES: string[] = cidbFields.find((f: any) => f.key === "grade")?.options || [];
                         const VALID_CLASSES: string[] = cidbFields.find((f: any) => f.key === "class_of_work")?.options || [];
 
-                        const rawGrade = String(rawPayload.grade || normalizedAI['cidbgrade'] || "")
-                        const rawClass = String(rawPayload.class_of_work || rawPayload.class || normalizedAI['classofwork'] || normalizedAI['workclass'] || normalizedAI['cidbclass'] || normalizedAI['class'] || "")
-                        const searchStr = `${mappedData.grade || ""} ${mappedData.class_of_work || ""} ${rawGrade} ${rawClass}`
+                        const logRawG = String(rawPayload.grade || rawPayload.cidb_grade || normalizedAI['grade'] || normalizedAI['cidbgrade'] || mappedData.grade || "");
+                        const logRawC = String(rawPayload.class_of_work || rawPayload.class || rawPayload.cidb_class || normalizedAI['classofwork'] || normalizedAI['class'] || normalizedAI['cidbclass'] || mappedData.class_of_work || "");
 
-                        const parsed = parseCIDB(searchStr, VALID_CLASSES)
+                        let candG = logRawG.toUpperCase();
+                        let candC = logRawC.toUpperCase();
+                        let searchStr = "";
 
-                        if (parsed.grade && VALID_GRADES.includes(parsed.grade)) {
-                            mappedData.grade = parsed.grade
-                        } else if (mappedData.grade && !VALID_GRADES.includes(String(mappedData.grade))) {
-                            mappedData.grade = ""
-                        } else if (mappedData.grade) {
-                            mappedData.grade = String(mappedData.grade)
+                        if (!VALID_GRADES.includes(candG) || !VALID_CLASSES.includes(candC)) {
+                            searchStr = `${candG} ${candC} ${data.summary || rawPayload.summary || ""} ${data.reason || rawPayload.reason || ""} ${data.doc_type_detected || rawPayload.doc_type_detected || ""} ${mappedData.reference_number || rawPayload.reference_number || ""}`.toUpperCase();
+                            const clsP = VALID_CLASSES.join('|');
+                            
+                            const combo = searchStr.match(new RegExp(`\\b([1-9])\\s*(${clsP})\\b`));
+                            if (combo) {
+                                if (!VALID_GRADES.includes(candG)) candG = combo[1]; 
+                                if (!VALID_CLASSES.includes(candC)) candC = combo[2];
+                            } else {
+                                if (!VALID_GRADES.includes(candG)) {
+                                    const eG = searchStr.match(/(?:GRADE|CIDB)\\s*([1-9])\\b/);
+                                    if (eG) candG = eG[1];
+                                }
+
+                                if (!VALID_CLASSES.includes(candC)) {
+                                    const cM = searchStr.match(new RegExp(`\\b(${clsP})\\b`));
+                                    if (cM) candC = cM[1];
+                                }
+                            }
                         }
 
-                        if (parsed.class_of_work && VALID_CLASSES.includes(parsed.class_of_work)) {
-                            mappedData.class_of_work = parsed.class_of_work
-                        } else if (mappedData.class_of_work && !VALID_CLASSES.includes(String(mappedData.class_of_work))) {
-                            mappedData.class_of_work = ""
-                        } else if (mappedData.class_of_work) {
-                            mappedData.class_of_work = String(mappedData.class_of_work)
-                        }
+                        candG = String(candG).trim().replace(/[^0-9]/g, '');
+                        candC = String(candC).trim().replace(/[^A-Z]/g, '');
+
+                        mappedData.grade = VALID_GRADES.includes(candG) ? candG : "";
+                        mappedData.class_of_work = VALID_CLASSES.includes(candC) ? candC : "";
+                        mappedData._cidbSearchStr = searchStr;
 
                         if (!mappedData.status && data.valid !== undefined) mappedData.status = data.valid ? "Active" : "Suspended"
                     }
@@ -244,29 +227,40 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                         if (!mappedData.branch_code) mappedData.branch_code = rawPayload.branch_code || ""
                     }
 
-                    console.log("=== PROOF LOGS (CIDB SELECT BINDING) ===")
+                    console.log("=== PROOF LOGS FOR CIDB ONLY ===")
                     if (docType === "cidb_cert") {
                         const cidbF = (DOCUMENT_TYPES.cidb_cert as any).fields;
-                        console.log("mappedData.grade:", mappedData.grade, typeof mappedData.grade);
-                        console.log("mappedData.class_of_work:", mappedData.class_of_work, typeof mappedData.class_of_work);
-                        console.log("VALID_GRADES options:", cidbF.find((f:any)=>f.key==="grade")?.options);
-                        console.log("VALID_CLASSES options:", cidbF.find((f:any)=>f.key==="class_of_work")?.options);
-                        console.log("Field keys for binding:", "grade", "class_of_work");
+                        console.log("rawPayload.grade:", rawPayload.grade);
+                        console.log("rawPayload.class_of_work:", rawPayload.class_of_work);
+                        console.log("rawPayload.class:", rawPayload.class);
+                        console.log("rawPayload.summary:", data.summary || rawPayload.summary);
+                        console.log("rawPayload.reason:", data.reason || rawPayload.reason);
+                        console.log("final search string used:", mappedData._cidbSearchStr);
+                        console.log("final mappedData.grade:", mappedData.grade);
+                        console.log("final mappedData.class_of_work:", mappedData.class_of_work);
+                        console.log("exact allowed grade options:", cidbF.find((f:any)=>f.key==="grade")?.options);
+                        console.log("exact allowed class options:", cidbF.find((f:any)=>f.key==="class_of_work")?.options);
+                        delete mappedData._cidbSearchStr;
                     }
-                    console.log("========================================")
+                    console.log("================================")
 
                     console.log("[DEBUG 1] AI Raw Payload:", rawPayload)
                     console.log("[DEBUG 2] Normalized AI:", normalizedAI)
                     console.log("[DEBUG 3] Mapped Fields:", mappedData)
 
-                    setMetadata(mappedData)
+                    if (docType === "cidb_cert") {
+                        console.log("=== FINAL SELECT DEBUG ===");
+                        console.log("grade value:", mappedData.grade, typeof mappedData.grade);
+                        console.log("class value:", mappedData.class_of_work, typeof mappedData.class_of_work);
 
-                    // Strict Validation Handling
-                    if (data.valid === false) {
-                        setIsValid(false)
-                    } else {
-                        setIsValid(true)
+                        const cidbF = (DOCUMENT_TYPES.cidb_cert as any).fields;
+                        console.log("grade options:", cidbF.find((f:any)=>f.key==="grade")?.options);
+                        console.log("class options:", cidbF.find((f:any)=>f.key==="class_of_work")?.options);
+                        console.log("==========================");
                     }
+
+                    setMetadata(mappedData)
+                    // Validation blockers removed to allow unhindered partial save.
                 }
 
             } catch (err) {
@@ -425,31 +419,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                 </div>
                             )}
 
-                            {/* CRITICAL VALIDATION ERROR */}
-                            {!isValid && (
-                                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                                    <div className="flex items-start gap-3">
-                                        <XCircle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
-                                        <div className="space-y-2">
-                                            <h4 className="text-sm font-bold text-red-900">Validation Failed</h4>
-                                            <p className="text-sm text-red-800">{validationError}</p>
-
-                                            <div className="pt-2 flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    id="override"
-                                                    checked={override}
-                                                    onChange={(e) => setOverride(e.target.checked)}
-                                                    className="rounded border-red-300 text-red-600 focus:ring-red-500"
-                                                />
-                                                <label htmlFor="override" className="text-sm font-medium text-red-900 cursor-pointer">
-                                                    I confirm this document is correct and want to force save.
-                                                </label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                            {/* Critical validation blockers removed to support partial saves */}
 
                             {/* Dynamic Fields from Taxonomy */}
                             {'fields' in def && (def as any).fields?.map((field: any) => (
@@ -488,16 +458,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                                         val = val.replace(/[\s-]/g, '')
                                                         if (field.key === 'maaa_number') val = val.toUpperCase()
                                                     }
-                                                    // Real-time date validation for expiry
-                                                    if (field.key === 'expiry_date') {
-                                                        const date = new Date(val)
-                                                        if (new Date().getTime() > date.getTime()) {
-                                                            setIsValid(false)
-                                                            setMetadata((prev: any) => ({ ...prev, reason: "Document has already expired." }))
-                                                        } else {
-                                                            setIsValid(true)
-                                                        }
-                                                    }
+                                                    // Date validated at render level, no longer blocking save
                                                     setMetadata((prev: any) => ({ ...prev, [field.key]: val }))
                                                 }}
                                             />
@@ -519,7 +480,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={uploading || analyzing || (!isValid && !override)}
+                                    disabled={uploading || analyzing}
                                     className="flex items-center px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {uploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
