@@ -15,10 +15,11 @@ interface DocumentUploadModalProps {
     category: string
     docType: string
     title: string
-    existingDoc?: boolean // New prop to signal replacement
+    existingDoc?: boolean
+    initialData?: any
 }
 
-export default function DocumentUploadModal({ isOpen, onClose, onSuccess, category, docType, title, existingDoc = false }: DocumentUploadModalProps) {
+export default function DocumentUploadModal({ isOpen, onClose, onSuccess, category, docType, title, existingDoc = false, initialData }: DocumentUploadModalProps) {
     const [uploading, setUploading] = useState(false)
     const [analyzing, setAnalyzing] = useState(false)
     const [metadata, setMetadata] = useState<any>({})
@@ -30,7 +31,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
     // @ts-ignore
     const def = DOCUMENT_TYPES[docType] || {}
 
-    // Reset when modal opens/closes
+    // Reset or Initialize when modal opens/closes
     useEffect(() => {
         if (!isOpen) {
             setFileToUpload(null)
@@ -38,8 +39,12 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
             setAnalyzing(false)
             setUploading(false)
             setAiFailed(false)
+        } else if (initialData) {
+            setMetadata(initialData.metadata || {})
+            setAnalyzing(false)
+            setAiFailed(false)
         }
-    }, [isOpen])
+    }, [isOpen, initialData])
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -274,7 +279,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!fileToUpload) return
+        if (!fileToUpload && !initialData) return
 
         setUploading(true)
         try {
@@ -298,8 +303,14 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
             const isComplete = !('fields' in def) || def.fields.filter((f: any) => f.required).every((f: any) => !!finalMetadata[f.key])
             finalMetadata.is_incomplete = !isComplete
 
-            const { error } = await CompanyService.uploadComplianceDoc(fileToUpload, category, docType, finalMetadata)
-            if (error) throw new Error(error)
+            if (initialData?.id && !fileToUpload) {
+                const { error } = await CompanyService.updateComplianceDoc(initialData.id, finalMetadata)
+                if (error) throw new Error(error)
+            } else {
+                if (!fileToUpload) throw new Error("File required")
+                const { error } = await CompanyService.uploadComplianceDoc(fileToUpload, category, docType, finalMetadata)
+                if (error) throw new Error(error)
+            }
 
             if (finalMetadata.is_incomplete) {
                 toast.success("Document saved as incomplete. You can finish it later.")
@@ -336,7 +347,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
 
                 <div className="overflow-y-auto p-6">
                     {/* REPLACEMENT WARNING */}
-                    {existingDoc && !fileToUpload && (
+                    {existingDoc && !fileToUpload && !initialData && (
                         <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-3">
                             <AlertTriangle className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
                             <div>
@@ -348,7 +359,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                         </div>
                     )}
 
-                    {!fileToUpload ? (
+                    {!fileToUpload && !initialData ? (
                         <div className="text-center">
                             <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 hover:border-primary transition-colors cursor-pointer relative">
                                 <input
@@ -368,7 +379,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                             {/* File Preview */}
                             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm text-gray-700">
                                 <FileText className="w-5 h-5 text-gray-400" />
-                                <span className="truncate flex-1">{fileToUpload.name}</span>
+                                <span className="truncate flex-1">{fileToUpload?.name || initialData?.file_name}</span>
                                 {analyzing ? (
                                     <div className="flex items-center text-primary text-xs font-medium">
                                         <Loader2 className="w-4 h-4 mr-1 animate-spin" />

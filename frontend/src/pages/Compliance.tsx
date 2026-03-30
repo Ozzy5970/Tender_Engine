@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { CheckCircle2, AlertTriangle, XCircle, Upload, FileText, Loader2, Calendar, Trash2 } from "lucide-react"
+import { CheckCircle2, AlertTriangle, XCircle, Upload, FileText, Loader2, Calendar, Trash2, Pencil } from "lucide-react"
 import { CompanyService } from "@/services/api"
 import { useFetch } from "@/hooks/useFetch"
 import { supabase } from "@/lib/supabase"
@@ -26,6 +26,7 @@ export default function Compliance() {
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [selectedDocType, setSelectedDocType] = useState<DocTypeKey | null>(null)
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+    const [initialDocData, setInitialDocData] = useState<ComplianceDocument | null>(null)
 
     // Delete Confirmation State
     const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -229,10 +230,26 @@ export default function Compliance() {
                                                             View
                                                         </a>
                                                     )}
+                                                    {doc?.id && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedDocType(typeKey as DocTypeKey)
+                                                                setSelectedCategory(catKey)
+                                                                setInitialDocData(doc as ComplianceDocument)
+                                                                setIsModalOpen(true)
+                                                            }}
+                                                            title="Edit Details"
+                                                            className="flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                                                        >
+                                                            <Pencil className="w-4 h-4 mr-2" />
+                                                            Edit
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={() => {
                                                             setSelectedDocType(typeKey as DocTypeKey)
                                                             setSelectedCategory(catKey)
+                                                            setInitialDocData(null)
                                                             setIsModalOpen(true)
                                                         }}
                                                         className={`flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border shadow-sm ${isMissing
@@ -261,6 +278,7 @@ export default function Compliance() {
                 docType={selectedDocType || ""}
                 title={selectedDocType ? DOCUMENT_TYPES[selectedDocType]?.label : "Document"}
                 existingDoc={!!(selectedDocType && findDoc(selectedDocType))}
+                initialData={initialDocData}
             />
 
             <ConfirmationModal

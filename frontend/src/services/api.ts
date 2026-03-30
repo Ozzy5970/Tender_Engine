@@ -423,6 +423,27 @@ export const CompanyService = {
         )
     },
 
+    async updateComplianceDoc(
+        docId: string,
+        metadata: Record<string, any> = {}
+    ) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return { data: null, error: "User not authenticated", status: 401 }
+
+        return handleRequest(
+            supabase.from("compliance_documents")
+            .update({
+                status: metadata.is_incomplete ? "incomplete" : "valid",
+                expiry_date: (metadata.expiry_date && metadata.expiry_date.trim() !== "") ? metadata.expiry_date : null,
+                reference_number: (metadata.reference_number && metadata.reference_number.trim() !== "") ? metadata.reference_number : null,
+                metadata,
+                issue_date: (metadata.issue_date && metadata.issue_date.trim() !== "") ? metadata.issue_date : null
+            })
+            .eq('id', docId)
+            .eq('user_id', user.id)
+        )
+    },
+
     async deleteComplianceDoc(id: string) {
         // 1. Atomic DB Delete via RPC
         // Deletes the row and returns the storage path in one go
