@@ -237,6 +237,16 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                         }
                         if (!mappedData.black_ownership_percent) mappedData.black_ownership_percent = rawPayload.black_ownership_percent || normalizedAI['blackownership'] || ""
                         
+                        let certNumFallback = ""
+                        let issuerFallback = ""
+                        const combinedText = String(data.summary || rawPayload.summary || "") + " " + String(data.reason || rawPayload.reason || "")
+                        
+                        const certMatch = combinedText.match(/(?:certificate number|affidavit number|ref number|reference|number is|cert no)[^\w]*([\w\-/]+)/i)
+                        if (certMatch && certMatch[1] && certMatch[1].length > 3) certNumFallback = certMatch[1].trim()
+                        
+                        const issuerMatch = combinedText.match(/(?:issued by|verification agency|verified by)\s+([A-Z][a-zA-Z0-9\s&]+?)(?=\.|\n|,| and | on |$)/i)
+                        if (issuerMatch && issuerMatch[1]) issuerFallback = issuerMatch[1].trim()
+
                         if (!mappedData.certificate_or_affidavit_number) {
                             mappedData.certificate_or_affidavit_number = rawPayload.certificate_or_affidavit_number 
                                 || rawPayload.certificate_number 
@@ -247,7 +257,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                 || normalizedAI['certificatenumber']
                                 || normalizedAI['affidavitnumber']
                                 || normalizedAI['referencenumber']
-                                || ""
+                                || certNumFallback
                         }
 
                         if (!mappedData.issuing_body) {
@@ -259,17 +269,21 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                 || normalizedAI['issuer']
                                 || normalizedAI['issuingagency']
                                 || normalizedAI['verificationagency']
-                                || ""
+                                || issuerFallback
                         }
 
                         console.log("=== PROOF LOGS FOR B-BBEE ONLY ===")
+                        console.log("rawPayload:", JSON.stringify(rawPayload, null, 2))
                         console.log("rawPayload.issuing_body:", rawPayload.issuing_body)
                         console.log("rawPayload.issuer:", rawPayload.issuer)
+                        console.log("rawPayload.issuing_agency:", rawPayload.issuing_agency)
                         console.log("rawPayload.verification_agency:", rawPayload.verification_agency)
                         console.log("rawPayload.certificate_or_affidavit_number:", rawPayload.certificate_or_affidavit_number)
                         console.log("rawPayload.certificate_number:", rawPayload.certificate_number)
                         console.log("rawPayload.affidavit_number:", rawPayload.affidavit_number)
                         console.log("rawPayload.reference_number:", rawPayload.reference_number)
+                        console.log("rawPayload.summary:", data.summary || rawPayload.summary)
+                        console.log("rawPayload.reason:", data.reason || rawPayload.reason)
                         console.log("final mappedData.issuing_body:", mappedData.issuing_body)
                         console.log("final mappedData.certificate_or_affidavit_number:", mappedData.certificate_or_affidavit_number)
                         console.log("==================================")
