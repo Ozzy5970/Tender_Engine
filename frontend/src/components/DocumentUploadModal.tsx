@@ -236,7 +236,43 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                             }
                         }
                         if (!mappedData.black_ownership_percent) mappedData.black_ownership_percent = rawPayload.black_ownership_percent || normalizedAI['blackownership'] || ""
-                        if (!mappedData.certificate_or_affidavit_number) mappedData.certificate_or_affidavit_number = mappedData.reference_number || rawPayload.reference_number || ""
+                        
+                        if (!mappedData.certificate_or_affidavit_number) {
+                            mappedData.certificate_or_affidavit_number = rawPayload.certificate_or_affidavit_number 
+                                || rawPayload.certificate_number 
+                                || rawPayload.affidavit_number 
+                                || mappedData.reference_number 
+                                || rawPayload.reference_number 
+                                || normalizedAI['certificateoraffidavitnumber']
+                                || normalizedAI['certificatenumber']
+                                || normalizedAI['affidavitnumber']
+                                || normalizedAI['referencenumber']
+                                || ""
+                        }
+
+                        if (!mappedData.issuing_body) {
+                            mappedData.issuing_body = rawPayload.issuing_body 
+                                || rawPayload.issuer 
+                                || rawPayload.issuing_agency 
+                                || rawPayload.verification_agency 
+                                || normalizedAI['issuingbody']
+                                || normalizedAI['issuer']
+                                || normalizedAI['issuingagency']
+                                || normalizedAI['verificationagency']
+                                || ""
+                        }
+
+                        console.log("=== PROOF LOGS FOR B-BBEE ONLY ===")
+                        console.log("rawPayload.issuing_body:", rawPayload.issuing_body)
+                        console.log("rawPayload.issuer:", rawPayload.issuer)
+                        console.log("rawPayload.verification_agency:", rawPayload.verification_agency)
+                        console.log("rawPayload.certificate_or_affidavit_number:", rawPayload.certificate_or_affidavit_number)
+                        console.log("rawPayload.certificate_number:", rawPayload.certificate_number)
+                        console.log("rawPayload.affidavit_number:", rawPayload.affidavit_number)
+                        console.log("rawPayload.reference_number:", rawPayload.reference_number)
+                        console.log("final mappedData.issuing_body:", mappedData.issuing_body)
+                        console.log("final mappedData.certificate_or_affidavit_number:", mappedData.certificate_or_affidavit_number)
+                        console.log("==================================")
                     }
 
                     // CSD Normalization

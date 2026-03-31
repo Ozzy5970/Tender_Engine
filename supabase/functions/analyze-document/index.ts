@@ -172,6 +172,8 @@ Deno.serve(async (req) => {
           "class_of_work": "string or null",
           "bbbee_level": "B-BBEE Level (1-8) if applicable" or null,
           "black_ownership_percent": "Black Ownership % if applicable" or null,
+          "issuing_body": "Name of issuer/verification agency if applicable" or null,
+          "certificate_or_affidavit_number": "Certificate/Affidavit tracking number if applicable" or null,
           "maaa_number": "CSD MAAA Number if applicable" or null,
           "bank_name": "Bank Name if applicable" or null,
           "account_holder": "Bank Account Holder if applicable" or null,
