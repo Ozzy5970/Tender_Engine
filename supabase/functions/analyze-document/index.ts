@@ -159,6 +159,7 @@ Deno.serve(async (req) => {
              These may appear as labels such as: "Issuing body", "Issuer", "Verification agency", "Agency", "Certificate number", "Affidavit number", "Ref number", "Verification number".
              If present anywhere, return the exact visible value. Only return null if the field is truly absent.
              [DEBUG INSTRUCTION]: If you fail to find issuing_body or certificate_or_affidavit_number, but suspect they exist, you MUST mention their values explicitly inside the 'reason' or 'summary' field so we can manually parse them.
+           - For Bank Confirmation Letters, extract the full branch code (preserving any leading zeroes) and the EXACT last 4 digits of the account number.
 
         4. **VALIDATE**: 
            - If a "required" field is missing or expired, mark as "valid": false.
@@ -186,6 +187,8 @@ Deno.serve(async (req) => {
           "maaa_number": "CSD MAAA Number if applicable" or null,
           "bank_name": "Bank Name if applicable" or null,
           "account_holder": "Bank Account Holder if applicable" or null,
+          "account_number_last4": "Only the EXACT last 4 digits of the account number" or null,
+          "branch_code": "Exact branch code string (preserve leading zeroes)" or null,
           "status": "E.g. Compliant, Active, or Non-Compliant based on context" or null,
           "summary": "Brief 2 sentence summary",
           "risks": ["Risk 1"],

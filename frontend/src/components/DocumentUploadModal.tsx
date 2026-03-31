@@ -314,11 +314,52 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                     if (docType === "bank_letter") {
                         if (!mappedData.bank_name) mappedData.bank_name = rawPayload.bank_name || ""
                         if (!mappedData.account_holder) mappedData.account_holder = rawPayload.account_holder || mappedData.entity_name || ""
+                        
                         if (!mappedData.account_number_last4) {
-                            const rawAcc = String(rawPayload.account_number || mappedData.reference_number || rawPayload.reference_number || "")
-                            if (rawAcc && rawAcc.length >= 4) mappedData.account_number_last4 = rawAcc.slice(-4)
+                            const rawAcc = String(rawPayload.account_number_last4 
+                                || rawPayload.accountlast4 
+                                || rawPayload.last4 
+                                || rawPayload.account_number 
+                                || normalizedAI['accountnumberlast4']
+                                || normalizedAI['accountlast4']
+                                || normalizedAI['last4']
+                                || normalizedAI['accountnumber']
+                                || mappedData.reference_number 
+                                || rawPayload.reference_number 
+                                || "").replace(/\D/g, '')
+
+                            if (rawAcc && rawAcc.length >= 4) {
+                                mappedData.account_number_last4 = rawAcc.slice(-4)
+                            } else if (rawAcc) {
+                                mappedData.account_number_last4 = rawAcc // Fallback
+                            }
                         }
-                        if (!mappedData.branch_code) mappedData.branch_code = rawPayload.branch_code || ""
+                        
+                        if (!mappedData.branch_code) {
+                            mappedData.branch_code = String(rawPayload.branch_code 
+                                || rawPayload.branchcode 
+                                || rawPayload.bank_branch_code 
+                                || rawPayload.code 
+                                || normalizedAI['branchcode']
+                                || normalizedAI['bankbranchcode']
+                                || normalizedAI['code']
+                                || "").trim()
+                        }
+
+                        console.log("=== PROOF LOGS FOR BANK LETTER ONLY ===")
+                        console.log("rawPayload.branch_code:", rawPayload.branch_code)
+                        console.log("rawPayload.branchcode:", rawPayload.branchcode)
+                        console.log("rawPayload.bank_branch_code:", rawPayload.bank_branch_code)
+                        console.log("rawPayload.code:", rawPayload.code)
+                        console.log("rawPayload.account_number_last4:", rawPayload.account_number_last4)
+                        console.log("rawPayload.accountlast4:", rawPayload.accountlast4)
+                        console.log("rawPayload.last4:", rawPayload.last4)
+                        console.log("rawPayload.account_number:", rawPayload.account_number)
+                        console.log("rawPayload.summary:", data.summary || rawPayload.summary)
+                        console.log("rawPayload.reason:", data.reason || rawPayload.reason)
+                        console.log("final mappedData.branch_code:", mappedData.branch_code)
+                        console.log("final mappedData.account_number_last4:", mappedData.account_number_last4)
+                        console.log("=======================================")
                     }
 
                     console.log("=== PROOF LOGS FOR CIDB ONLY ===")
