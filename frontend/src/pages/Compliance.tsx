@@ -233,6 +233,7 @@ export default function Compliance() {
                                                     {doc?.id && (
                                                         <button
                                                             onClick={() => {
+                                                                console.log("[COMPLIANCE EDIT] Full doc passed to modal:", doc)
                                                                 setSelectedDocType(typeKey as DocTypeKey)
                                                                 setSelectedCategory(catKey)
                                                                 setInitialDocData(doc as ComplianceDocument)

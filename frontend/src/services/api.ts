@@ -295,17 +295,28 @@ export const CompanyService = {
     },
 
     async getCompliance() {
-        // 1. Fetch from View (now includes storage_path)
-        // We use 'any' to bypass strict typing for the new column until types are regenerated
+        // 1. Fetch from canonical table to ensure ALL fields (metadata, issue_date etc) are returned
         const response = await handleRequest<any[]>(
-            supabase.from('view_compliance_summary').select('*')
+            supabase.from('compliance_documents').select('*')
         )
 
         if (response.error || !response.data) return response
 
-        // 2. Generate Signed URLs at Runtime
-        // This ensures no expired public links are ever stored
+        const now = new Date();
+        const thirtyDaysFromNow = new Date();
+        thirtyDaysFromNow.setDate(now.getDate() + 30);
+
+        // 2. Generate Signed URLs at Runtime and Compute Status
         const signedDocs = await Promise.all(response.data.map(async (doc) => {
+            // Replicate view_compliance_summary logic
+            let computed_status = 'valid';
+            if (doc.status === 'expired' || (doc.expiry_date && new Date(doc.expiry_date) < now)) {
+                computed_status = 'expired';
+            } else if (doc.expiry_date && new Date(doc.expiry_date) < thirtyDaysFromNow) {
+                computed_status = 'warning';
+            }
+            doc.computed_status = computed_status;
+
             const path = doc.storage_path || doc.file_url
             const bucket = doc.bucket || 'compliance'
 
