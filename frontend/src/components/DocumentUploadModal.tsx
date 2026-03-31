@@ -244,7 +244,8 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                         const certMatch = combinedText.match(/(?:certificate number|affidavit number|ref number|reference|number is|cert no)[^\w]*([\w\-/]+)/i)
                         if (certMatch && certMatch[1] && certMatch[1].length > 3) certNumFallback = certMatch[1].trim()
                         
-                        const issuerMatch = combinedText.match(/(?:issued by|verification agency|verified by)\s+([A-Z][a-zA-Z0-9\s&]+?)(?=\.|\n|,| and | on |$)/i)
+                        const issuerMatch = combinedText.match(/(?:issuing body|issuer|verification agency)[\s:]+([^.,\n]+)/i) 
+                            || combinedText.match(/(?:issued by|verified by)\s+([A-Z][a-zA-Z0-9\s&]+?)(?=\.|\n|,| and | on |$)/i)
                         if (issuerMatch && issuerMatch[1]) issuerFallback = issuerMatch[1].trim()
 
                         if (!mappedData.certificate_or_affidavit_number) {
