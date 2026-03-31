@@ -315,6 +315,16 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                         if (!mappedData.bank_name) mappedData.bank_name = rawPayload.bank_name || ""
                         if (!mappedData.account_holder) mappedData.account_holder = rawPayload.account_holder || mappedData.entity_name || ""
                         
+                        let bankLast4Fallback = ""
+                        let bankBranchFallback = ""
+                        const combinedBankText = String(data.summary || rawPayload.summary || "") + " " + String(data.reason || rawPayload.reason || "")
+                        
+                        const accMatch = combinedBankText.match(/(?:last 4|last four|last 4 digits|account last 4|account number \(last 4\))[\D]*(\d{4})\b/i)
+                        if (accMatch && accMatch[1]) bankLast4Fallback = accMatch[1]
+                        
+                        const branchMatch = combinedBankText.match(/branch code[\s:]*(\d+)/i)
+                        if (branchMatch && branchMatch[1]) bankBranchFallback = branchMatch[1]
+
                         if (!mappedData.account_number_last4) {
                             const rawAcc = String(rawPayload.account_number_last4 
                                 || rawPayload.accountlast4 
@@ -326,6 +336,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                 || normalizedAI['accountnumber']
                                 || mappedData.reference_number 
                                 || rawPayload.reference_number 
+                                || bankLast4Fallback
                                 || "").replace(/\D/g, '')
 
                             if (rawAcc && rawAcc.length >= 4) {
@@ -343,10 +354,12 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                 || normalizedAI['branchcode']
                                 || normalizedAI['bankbranchcode']
                                 || normalizedAI['code']
+                                || bankBranchFallback
                                 || "").trim()
                         }
 
                         console.log("=== PROOF LOGS FOR BANK LETTER ONLY ===")
+                        console.log("rawPayload:", JSON.stringify(rawPayload, null, 2))
                         console.log("rawPayload.branch_code:", rawPayload.branch_code)
                         console.log("rawPayload.branchcode:", rawPayload.branchcode)
                         console.log("rawPayload.bank_branch_code:", rawPayload.bank_branch_code)
@@ -355,6 +368,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                         console.log("rawPayload.accountlast4:", rawPayload.accountlast4)
                         console.log("rawPayload.last4:", rawPayload.last4)
                         console.log("rawPayload.account_number:", rawPayload.account_number)
+                        console.log("rawPayload.reference_number:", rawPayload.reference_number)
                         console.log("rawPayload.summary:", data.summary || rawPayload.summary)
                         console.log("rawPayload.reason:", data.reason || rawPayload.reason)
                         console.log("final mappedData.branch_code:", mappedData.branch_code)
