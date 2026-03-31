@@ -45,20 +45,43 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
             setIsHydrating(true)
             console.log("[EDIT MODE] Hydrating from initialData.id:", initialData.id)
             
-            const baseMeta = { ...(initialData.metadata || {}) }
-            if (initialData.issue_date) baseMeta.issue_date = initialData.issue_date
-            if (initialData.expiry_date) baseMeta.expiry_date = initialData.expiry_date
+            // 1. Defend against stringified JSON bugs
+            let parsedMeta = initialData.metadata || {}
+            if (typeof parsedMeta === 'string') {
+                try {
+                    parsedMeta = JSON.parse(parsedMeta)
+                } catch (e) {
+                    console.error("[EDIT MODE] Failed to parse stringified metadata", e)
+                }
+            }
+
+            const baseMeta = { ...parsedMeta }
+            
+            // 2. Strip ISO timestamps for HTML5 date input compatibility
+            if (initialData.issue_date) {
+                baseMeta.issue_date = initialData.issue_date.includes('T') ? initialData.issue_date.split('T')[0] : initialData.issue_date
+            }
+            if (initialData.expiry_date) {
+                baseMeta.expiry_date = initialData.expiry_date.includes('T') ? initialData.expiry_date.split('T')[0] : initialData.expiry_date
+            }
             if (initialData.reference_number) baseMeta.reference_number = initialData.reference_number
 
             console.log("[EDIT MODE] Raw Metadata:", initialData.metadata)
             console.log("[EDIT MODE] Hydrated Form State:", baseMeta)
+            
+            // 3. Output PROOF logs to verify field key alignment
+            const renderedKeys = def && 'fields' in def ? (def as any).fields.map((f: any) => f.key) : []
+            console.log("[EDIT MODE] Rendered Field Keys:", renderedKeys)
+            renderedKeys.forEach((key: string) => {
+                console.log(`[EDIT MODE] field [${key}] value ->`, baseMeta[key])
+            })
             
             setMetadata(baseMeta)
             setAnalyzing(false)
             setAiFailed(false)
             setIsHydrating(false)
         }
-    }, [isOpen, initialData])
+    }, [isOpen, initialData, docType])
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
