@@ -151,6 +151,15 @@ Deno.serve(async (req) => {
              
              If not found, return null.
 
+           - For B-BBEE Certificates or Affidavits, do NOT only summarize validity.
+             You must perform literal field extraction for:
+             1. 'issuing_body'
+             2. 'certificate_or_affidavit_number'
+             Search the FULL page carefully including headers, footers, agency sections, near logos, verification panels, and small text blocks outside the main body.
+             These may appear as labels such as: "Issuing body", "Issuer", "Verification agency", "Agency", "Certificate number", "Affidavit number", "Ref number", "Verification number".
+             If present anywhere, return the exact visible value. Only return null if the field is truly absent.
+             [DEBUG INSTRUCTION]: If you fail to find issuing_body or certificate_or_affidavit_number, but suspect they exist, you MUST mention their values explicitly inside the 'reason' or 'summary' field so we can manually parse them.
+
         4. **VALIDATE**: 
            - If a "required" field is missing or expired, mark as "valid": false.
            - "valid" should be boolean.
