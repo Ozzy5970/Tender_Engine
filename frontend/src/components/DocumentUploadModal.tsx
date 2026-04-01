@@ -413,7 +413,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                         })
 
                         if (!mappedData.certificate_number) {
-                            mappedData.certificate_number = rawPayload.certificate_number || rawPayload.cert_number || rawPayload.certificate_no || normalizedAI['certificatenumber'] || normalizedAI['certificateno'] || normalizedAI['certno'] || mappedData.reference_number || rawPayload.reference_number || ""
+                            mappedData.certificate_number = rawPayload.certificate_number || rawPayload.cert_number || rawPayload.certificate_no || rawPayload.id_number || rawPayload.id || rawPayload.identification_number || normalizedAI['certificatenumber'] || normalizedAI['certificateno'] || normalizedAI['certno'] || normalizedAI['idnumber'] || normalizedAI['identificationnumber'] || mappedData.reference_number || rawPayload.reference_number || ""
                         }
                         if (!mappedData.shareholder_name) {
                             mappedData.shareholder_name = rawPayload.shareholder_name || rawPayload.shareholder || rawPayload.name || normalizedAI['shareholdername'] || normalizedAI['shareholder'] || mappedData.entity_name || ""
