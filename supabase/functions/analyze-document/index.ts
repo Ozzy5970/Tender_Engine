@@ -159,7 +159,38 @@ Deno.serve(async (req) => {
              These may appear as labels such as: "Issuing body", "Issuer", "Verification agency", "Agency", "Certificate number", "Affidavit number", "Ref number", "Verification number".
              If present anywhere, return the exact visible value. Only return null if the field is truly absent.
              [DEBUG INSTRUCTION]: If you fail to find issuing_body or certificate_or_affidavit_number, but suspect they exist, you MUST mention their values explicitly inside the 'reason' or 'summary' field so we can manually parse them.
-           - For Bank Confirmation Letters, extract the full branch code (preserving any leading zeroes) and the EXACT last 4 digits of the account number.
+           - - For Bank Confirmation Letters, do NOT only summarize validity.
+  You must perform literal field extraction for:
+  1. 'branch_code'
+  2. 'account_number_last4'
+
+  Search the FULL page carefully including:
+  - headers
+  - footers
+  - account detail sections
+  - banking tables
+  - side panels
+  - boxed account information
+  - small-print sections
+
+  These values may appear with labels such as:
+  - "Branch Code"
+  - "Branch code"
+  - "Branch No"
+  - "Branch Number"
+  - "Account Number (Last 4)"
+  - "Last 4 digits"
+  - "Account last 4"
+  - "Last four digits of account number"
+
+  Extraction rules:
+  - branch_code: return the exact visible branch code as a string and preserve leading zeroes
+  - account_number_last4: return only the exact final 4 digits of the visible account number
+  - if the values are present anywhere on the page, return them
+  - only return null if they are truly absent
+  - do NOT hallucinate or invent values
+
+  [DEBUG INSTRUCTION]: If branch_code or account_number_last4 cannot be returned in structured JSON but appear visibly on the document, mention them explicitly inside 'reason' or 'summary' for debugging.
 
         4. **VALIDATE**: 
            - If a "required" field is missing or expired, mark as "valid": false.

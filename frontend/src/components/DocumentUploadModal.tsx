@@ -17,9 +17,10 @@ interface DocumentUploadModalProps {
     title: string
     existingDoc?: boolean
     initialData?: any
+    isManualEntry?: boolean
 }
 
-export default function DocumentUploadModal({ isOpen, onClose, onSuccess, category, docType, title, existingDoc = false, initialData }: DocumentUploadModalProps) {
+export default function DocumentUploadModal({ isOpen, onClose, onSuccess, category, docType, title, existingDoc = false, initialData, isManualEntry = false }: DocumentUploadModalProps) {
     const [uploading, setUploading] = useState(false)
     const [analyzing, setAnalyzing] = useState(false)
     const [metadata, setMetadata] = useState<any>({})
@@ -422,7 +423,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!fileToUpload && !initialData) return
+        if (!fileToUpload && !initialData && !isManualEntry) return
 
         setUploading(true)
         try {
@@ -450,7 +451,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                 const { error } = await CompanyService.updateComplianceDoc(initialData.id, finalMetadata)
                 if (error) throw new Error(error)
             } else {
-                if (!fileToUpload) throw new Error("File required")
+                if (!fileToUpload && !isManualEntry) throw new Error("File required")
                 const { error } = await CompanyService.uploadComplianceDoc(fileToUpload, category, docType, finalMetadata)
                 if (error) throw new Error(error)
             }
@@ -502,7 +503,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                         </div>
                     )}
 
-                    {!fileToUpload && !initialData ? (
+                    {!fileToUpload && !initialData && !isManualEntry ? (
                         <div className="text-center">
                             <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 hover:border-primary transition-colors cursor-pointer relative">
                                 <input
@@ -522,7 +523,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                             {/* File Preview */}
                             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm text-gray-700">
                                 <FileText className="w-5 h-5 text-gray-400" />
-                                <span className="truncate flex-1">{fileToUpload?.name || initialData?.file_name}</span>
+                                <span className="truncate flex-1">{fileToUpload?.name || initialData?.file_name || "Manual Entry Metadata"}</span>
                                 {analyzing ? (
                                     <div className="flex items-center text-primary text-xs font-medium">
                                         <Loader2 className="w-4 h-4 mr-1 animate-spin" />

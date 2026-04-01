@@ -309,11 +309,13 @@ export const CompanyService = {
         // 2. Generate Signed URLs at Runtime and Compute Status
         const signedDocs = await Promise.all(response.data.map(async (doc) => {
             // Replicate view_compliance_summary logic
-            let computed_status = 'valid';
-            if (doc.status === 'expired' || (doc.expiry_date && new Date(doc.expiry_date) < now)) {
-                computed_status = 'expired';
-            } else if (doc.expiry_date && new Date(doc.expiry_date) < thirtyDaysFromNow) {
-                computed_status = 'warning';
+            let computed_status = doc.status === 'incomplete' ? 'incomplete' : 'valid';
+            if (computed_status !== 'incomplete') {
+                if (doc.status === 'expired' || (doc.expiry_date && new Date(doc.expiry_date) < now)) {
+                    computed_status = 'expired';
+                } else if (doc.expiry_date && new Date(doc.expiry_date) < thirtyDaysFromNow) {
+                    computed_status = 'warning';
+                }
             }
             doc.computed_status = computed_status;
 
@@ -393,7 +395,7 @@ export const CompanyService = {
     },
 
     async uploadComplianceDoc(
-        file: File,
+        file: File | null,
         category: string,
         docType: string,
         metadata: Record<string, any> = {}
@@ -402,36 +404,67 @@ export const CompanyService = {
         if (!user) return { data: null, error: "User not authenticated", status: 401 }
 
         const bucket = "compliance"
-        const storagePath = `${user.id}/${category}/${docType}/${Date.now()}_${file.name}`
+        let storagePath: string | null = null;
+        let fileName: string | null = null;
 
-        const { error: uploadError } = await supabase.storage
-            .from(bucket)
-            .upload(storagePath, file, { contentType: file.type, upsert: false })
+        if (file) {
+            storagePath = `${user.id}/${category}/${docType}/${Date.now()}_${file.name}`
+            fileName = file.name
 
-        if (uploadError) return { data: null, error: uploadError.message, status: 500 }
+            const { error: uploadError } = await supabase.storage
+                .from(bucket)
+                .upload(storagePath, file, { contentType: file.type, upsert: false })
 
-        return handleRequest(
-            supabase.from("compliance_documents").insert({
-                user_id: user.id,
-                category,
-                doc_type: docType,
-                title: file.name,
-                file_name: file.name,
+            if (uploadError) return { data: null, error: uploadError.message, status: 500 }
+        }
 
-                bucket,
-                storage_path: storagePath,
+        const { data: existing } = await supabase
+            .from("compliance_documents")
+            .select("id, storage_path")
+            .eq("user_id", user.id)
+            .eq("category", category)
+            .eq("doc_type", docType)
+            .maybeSingle()
 
-                // IMPORTANT: store a storage KEY, not a full URL
-                file_url: storagePath,
+        const payload: any = {
+            category,
+            status: metadata.is_incomplete ? "incomplete" : "valid",
+            expiry_date: (metadata.expiry_date && metadata.expiry_date.trim() !== "") ? metadata.expiry_date : null,
+            reference_number: (metadata.reference_number && metadata.reference_number.trim() !== "") ? metadata.reference_number : null,
+            metadata,
+            issue_date: (metadata.issue_date && metadata.issue_date.trim() !== "") ? metadata.issue_date : null
+        }
 
-                status: metadata.is_incomplete ? "incomplete" : "valid",
-                // Strict conversion: Empty strings must be mapped to SQL NULL for Postgres DATE column integrity
-                expiry_date: (metadata.expiry_date && metadata.expiry_date.trim() !== "") ? metadata.expiry_date : null,
-                reference_number: (metadata.reference_number && metadata.reference_number.trim() !== "") ? metadata.reference_number : null,
-                metadata,
-                issue_date: (metadata.issue_date && metadata.issue_date.trim() !== "") ? metadata.issue_date : null
-            })
-        )
+        if (file) {
+            payload.title = fileName
+            payload.file_name = fileName
+            payload.bucket = bucket
+            payload.storage_path = storagePath
+            payload.file_url = storagePath
+        } else if (!existing) {
+            payload.title = `${docType.replace(/_/g, ' ').toUpperCase()} (Manual Entry)`
+            payload.file_name = null
+            payload.bucket = null
+            payload.storage_path = null
+            payload.file_url = null
+        }
+
+        let dbQuery;
+        if (existing) {
+            dbQuery = supabase.from("compliance_documents").update(payload).eq("id", existing.id)
+        } else {
+            payload.user_id = user.id
+            payload.doc_type = docType
+            dbQuery = supabase.from("compliance_documents").insert(payload)
+        }
+
+        const response = await handleRequest(dbQuery)
+
+        if (!response.error && file && existing && existing.storage_path && existing.storage_path !== storagePath) {
+            supabase.storage.from(bucket).remove([existing.storage_path]).catch(err => console.warn("Failed to delete overwritten file:", err))
+        }
+
+        return response
     },
 
     async updateComplianceDoc(

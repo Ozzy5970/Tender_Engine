@@ -27,6 +27,7 @@ export default function Compliance() {
     const [selectedDocType, setSelectedDocType] = useState<DocTypeKey | null>(null)
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
     const [initialDocData, setInitialDocData] = useState<ComplianceDocument | null>(null)
+    const [isManualEntryMode, setIsManualEntryMode] = useState(false)
 
     // Delete Confirmation State
     const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -153,7 +154,7 @@ export default function Compliance() {
                                     const isExpiringSoon = daysLeft !== null && daysLeft <= 90 && daysLeft > 0
 
                                     // Use computed status but upgrade to warning if expiring soon and not already error
-                                    let status = doc?.metadata?.is_incomplete ? 'incomplete' : (doc?.computed_status || (doc ? 'valid' : 'missing'))
+                                    let status = doc?.computed_status || 'missing'
                                     if (isExpiringSoon && status === 'valid') status = 'warning'
 
                                     const isMissing = !doc
@@ -173,7 +174,7 @@ export default function Compliance() {
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2">
                                                     <h4 className="font-medium text-gray-900">{def.label}</h4>
-                                                    {def.mandatory && isMissing && <span className="text-[10px] uppercase tracking-wider text-red-600 font-bold bg-red-50 px-1.5 py-0.5 rounded">Required</span>}
+                                                    {isMissing && <span className="text-[10px] uppercase tracking-wider text-red-600 font-bold bg-red-50 px-1.5 py-0.5 rounded">Required</span>}
                                                 </div>
 
                                                 {doc ? (
@@ -246,11 +247,28 @@ export default function Compliance() {
                                                             Edit
                                                         </button>
                                                     )}
+                                                    {isMissing && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedDocType(typeKey as DocTypeKey)
+                                                                setSelectedCategory(catKey)
+                                                                setInitialDocData(null)
+                                                                setIsManualEntryMode(true)
+                                                                setIsModalOpen(true)
+                                                            }}
+                                                            title="Add Details Manually"
+                                                            className="flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border shadow-sm bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                                                        >
+                                                            <Pencil className="w-4 h-4 mr-2" />
+                                                            Add Details
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={() => {
                                                             setSelectedDocType(typeKey as DocTypeKey)
                                                             setSelectedCategory(catKey)
                                                             setInitialDocData(null)
+                                                            setIsManualEntryMode(false)
                                                             setIsModalOpen(true)
                                                         }}
                                                         className={`flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border shadow-sm ${isMissing
@@ -273,13 +291,17 @@ export default function Compliance() {
 
             <DocumentUploadModal
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={() => {
+                    setIsModalOpen(false)
+                    setIsManualEntryMode(false)
+                }}
                 onSuccess={refetch}
                 category={selectedCategory || "General"}
                 docType={selectedDocType || ""}
                 title={selectedDocType ? DOCUMENT_TYPES[selectedDocType]?.label : "Document"}
                 existingDoc={!!(selectedDocType && findDoc(selectedDocType))}
                 initialData={initialDocData}
+                isManualEntry={isManualEntryMode}
             />
 
             <ConfirmationModal
