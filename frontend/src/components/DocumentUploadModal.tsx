@@ -391,6 +391,27 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
 
                     // Shareholding Normalization
                     if (docType === "shareholding") {
+                        console.log("[Shareholding Debug] certificate candidates:", {
+                            "raw.certificate_number": rawPayload.certificate_number, "raw.cert_number": rawPayload.cert_number, "raw.certificate_no": rawPayload.certificate_no,
+                            "norm.certificatenumber": normalizedAI['certificatenumber'], "norm.certificateno": normalizedAI['certificateno'], "norm.certno": normalizedAI['certno']
+                        })
+                        console.log("[Shareholding Debug] shareholder_type candidates:", {
+                            "raw.shareholder_type": rawPayload.shareholder_type, "raw.shareholder_category": rawPayload.shareholder_category, "raw.type": rawPayload.type,
+                            "norm.shareholdertype": normalizedAI['shareholdertype'], "norm.shareholdercategory": normalizedAI['shareholdercategory']
+                        })
+                        console.log("[Shareholding Debug] shares candidates:", {
+                            "raw.number_of_shares": rawPayload.number_of_shares, "raw.shares": rawPayload.shares, "raw.total_shares": rawPayload.total_shares,
+                            "norm.numberofshares": normalizedAI['numberofshares'], "norm.shares": normalizedAI['shares']
+                        })
+                        console.log("[Shareholding Debug] share_class candidates:", {
+                            "raw.share_class": rawPayload.share_class, "raw.class": rawPayload.class, "raw.class_of_shares": rawPayload.class_of_shares,
+                            "norm.shareclass": normalizedAI['shareclass'], "norm.class": normalizedAI['class']
+                        })
+                        console.log("[Shareholding Debug] ownership candidates:", {
+                            "raw.ownership_percent": rawPayload.ownership_percent, "raw.ownership_percentage": rawPayload.ownership_percentage, "raw.percentage": rawPayload.percentage,
+                            "norm.ownershippercent": normalizedAI['ownershippercent'], "norm.ownershippercentage": normalizedAI['ownershippercentage'], "norm.percentage": normalizedAI['percentage']
+                        })
+
                         if (!mappedData.certificate_number) {
                             mappedData.certificate_number = rawPayload.certificate_number || rawPayload.cert_number || rawPayload.certificate_no || normalizedAI['certificatenumber'] || normalizedAI['certificateno'] || normalizedAI['certno'] || mappedData.reference_number || rawPayload.reference_number || ""
                         }
