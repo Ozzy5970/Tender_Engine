@@ -389,6 +389,35 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                         console.log("=======================================")
                     }
 
+                    // Shareholding Normalization
+                    if (docType === "shareholding") {
+                        if (!mappedData.certificate_number) {
+                            mappedData.certificate_number = rawPayload.certificate_number || rawPayload.cert_number || rawPayload.certificate_no || normalizedAI['certificatenumber'] || normalizedAI['certificateno'] || normalizedAI['certno'] || mappedData.reference_number || rawPayload.reference_number || ""
+                        }
+                        if (!mappedData.shareholder_name) {
+                            mappedData.shareholder_name = rawPayload.shareholder_name || rawPayload.shareholder || rawPayload.name || normalizedAI['shareholdername'] || normalizedAI['shareholder'] || mappedData.entity_name || ""
+                        }
+                        if (!mappedData.shareholder_type) {
+                            mappedData.shareholder_type = rawPayload.shareholder_type || rawPayload.shareholder_category || rawPayload.type || normalizedAI['shareholdertype'] || normalizedAI['shareholdercategory'] || ""
+                            if (mappedData.shareholder_type) {
+                                const st = String(mappedData.shareholder_type).toLowerCase()
+                                if (st.includes("indiv") || st.includes("person") || st.includes("human")) mappedData.shareholder_type = "Individual"
+                                else if (st.includes("comp") || st.includes("pty") || st.includes("ltd") || st.includes("cc") || st.includes("inc")) mappedData.shareholder_type = "Company"
+                                else if (st.includes("trust")) mappedData.shareholder_type = "Trust"
+                                else if (st !== "Individual" && st !== "Company" && st !== "Trust") mappedData.shareholder_type = "Other"
+                            }
+                        }
+                        if (!mappedData.number_of_shares) {
+                            mappedData.number_of_shares = rawPayload.number_of_shares || rawPayload.shares || rawPayload.total_shares || normalizedAI['numberofshares'] || normalizedAI['shares'] || ""
+                        }
+                        if (!mappedData.share_class) {
+                            mappedData.share_class = rawPayload.share_class || rawPayload.class || rawPayload.class_of_shares || normalizedAI['shareclass'] || normalizedAI['class'] || ""
+                        }
+                        if (!mappedData.ownership_percent) {
+                            mappedData.ownership_percent = rawPayload.ownership_percent || rawPayload.ownership_percentage || rawPayload.percentage || normalizedAI['ownershippercent'] || normalizedAI['ownershippercentage'] || normalizedAI['percentage'] || ""
+                        }
+                    }
+
                     console.log("=== PROOF LOGS FOR CIDB ONLY ===")
                     if (docType === "cidb_cert") {
                         const cidbF = (DOCUMENT_TYPES.cidb_cert as any).fields;
