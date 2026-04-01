@@ -20,7 +20,20 @@ export const DOCUMENT_TYPES = {
             { key: "entity_status", label: "Entity Status", type: "text", required: false }
         ]
     },
-    shareholding: { label: "Shareholding / Share Certificates", category: "COMPANY", mandatory: false },
+    shareholding: {
+        label: "Shareholding / Share Certificates",
+        category: "COMPANY",
+        mandatory: false,
+        fields: [
+            { key: "certificate_number", label: "Certificate Number", type: "text", required: false },
+            { key: "shareholder_name", label: "Shareholder Name", type: "text", required: false },
+            { key: "shareholder_type", label: "Shareholder Type", type: "select", options: ["Individual", "Company", "Trust", "Other"], required: false },
+            { key: "number_of_shares", label: "Number of Shares", type: "text", required: false },
+            { key: "share_class", label: "Share Class", type: "text", required: false },
+            { key: "ownership_percent", label: "Ownership %", type: "text", required: false },
+            { key: "issue_date", label: "Issue Date", type: "date", required: false }
+        ]
+    },
 
     // CIDB
     cidb_cert: {
