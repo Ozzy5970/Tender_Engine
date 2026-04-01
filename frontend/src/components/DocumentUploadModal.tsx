@@ -92,6 +92,10 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
             try {
                 setAnalyzing(true)
 
+                if (docType === 'shareholding') {
+                    console.log(`[Shareholding Debug] analysis start - docType: ${docType}, file: ${file.name}`)
+                }
+
                 // 1. Upload to storage to get a path for analysis
                 const userId = (await supabase.auth.getUser()).data.user?.id
                 if (!userId) throw new Error("User not found")
@@ -121,6 +125,10 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                     const rawPayload = data.metadata || data.fields || data
                     console.log("[AI Raw Extraction]:", rawPayload)
 
+                    if (docType === 'shareholding') {
+                        console.log("[Shareholding Debug] raw ai response:", rawPayload)
+                    }
+
                     const mappedData: any = {}
                     const normalizedAI: any = {}
 
@@ -128,6 +136,10 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                     Object.entries(rawPayload).forEach(([k, v]) => {
                         normalizedAI[k.toLowerCase().replace(/[_\s-]/g, '')] = v
                     })
+
+                    if (docType === 'shareholding') {
+                        console.log("[Shareholding Debug] normalized metadata:", normalizedAI)
+                    }
 
                     // Strict mapping: check exact key, flexible key, or flexible label
                     if (rules.fields) {
@@ -407,6 +419,10 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                         console.log("grade options:", cidbF.find((f:any)=>f.key==="grade")?.options);
                         console.log("class options:", cidbF.find((f:any)=>f.key==="class_of_work")?.options);
                         console.log("==========================");
+                    }
+
+                    if (docType === 'shareholding') {
+                        console.log("[Shareholding Debug] final hydrated metadata:", mappedData)
                     }
 
                     setMetadata(mappedData)
