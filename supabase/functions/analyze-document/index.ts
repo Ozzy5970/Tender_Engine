@@ -159,7 +159,16 @@ Deno.serve(async (req) => {
              These may appear as labels such as: "Issuing body", "Issuer", "Verification agency", "Agency", "Certificate number", "Affidavit number", "Ref number", "Verification number".
              If present anywhere, return the exact visible value. Only return null if the field is truly absent.
              [DEBUG INSTRUCTION]: If you fail to find issuing_body or certificate_or_affidavit_number, but suspect they exist, you MUST mention their values explicitly inside the 'reason' or 'summary' field so we can manually parse them.
-           - - For Bank Confirmation Letters, do NOT only summarize validity.
+           - For Shareholding / Share Certificates, extract the following if present:
+             1. 'certificate_number' (the certificate ID or serial number)
+             2. 'shareholder_name' (name of person, company, or trust the shares are issued to)
+             3. 'shareholder_type' (classify as "Individual", "Company", "Trust", or "Other")
+             4. 'number_of_shares' (explicit total count of shares)
+             5. 'share_class' (class of shares, e.g., 'Ordinary', 'Preference')
+             6. 'ownership_percent' (percentage of ownership, e.g., '50%')
+             Do not hallucinate. If the value is not visibly present on the document, return null.
+
+           - For Bank Confirmation Letters, do NOT only summarize validity.
   You must perform literal field extraction for:
   1. 'branch_code'
   2. 'account_number_last4'
@@ -220,6 +229,12 @@ Deno.serve(async (req) => {
           "account_holder": "Bank Account Holder if applicable" or null,
           "account_number_last4": "Only the EXACT last 4 digits of the account number" or null,
           "branch_code": "Exact branch code string (preserve leading zeroes)" or null,
+          "certificate_number": "Share Certificate Number if applicable" or null,
+          "shareholder_name": "Name of shareholder if applicable" or null,
+          "shareholder_type": "Individual/Company/Trust/Other" or null,
+          "number_of_shares": "Count of shares if applicable (e.g. 100)" or null,
+          "share_class": "Class of shares if applicable (e.g. Ordinary)" or null,
+          "ownership_percent": "Ownership percentage if applicable" or null,
           "status": "E.g. Compliant, Active, or Non-Compliant based on context" or null,
           "summary": "Brief 2 sentence summary",
           "risks": ["Risk 1"],
