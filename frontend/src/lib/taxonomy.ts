@@ -154,7 +154,18 @@ export const DOCUMENT_TYPES = {
             { key: "status", label: "Status", type: "text", required: false }
         ]
     },
-    she_file: { label: "SHE File Index", category: "LABOUR", mandatory: false },
+    she_file: {
+        label: "SHE File Index",
+        category: "LABOUR",
+        mandatory: false,
+        fields: [
+            { key: "entity_name", label: "Entity Name", type: "text", required: false },
+            { key: "prepared_by", label: "Prepared By", type: "text", required: false },
+            { key: "issue_date", label: "Issue Date", type: "date", required: false },
+            { key: "document_version", label: "Document Version", type: "text", required: false },
+            { key: "status", label: "Status", type: "text", required: false }
+        ]
+    },
 
     // Financial
     bank_letter: {

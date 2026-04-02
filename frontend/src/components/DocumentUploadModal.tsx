@@ -495,6 +495,42 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                         }
                     }
 
+                    // OHS Plan Normalization
+                    if (docType === "ohs_plan") {
+                        if (!mappedData.plan_number) {
+                            mappedData.plan_number = rawPayload.plan_number || rawPayload.plan_no || rawPayload.document_number || rawPayload.document_no || rawPayload.doc_no || rawPayload.ref_no || rawPayload.reference_number || rawPayload.plan_id || normalizedAI['plannumber'] || normalizedAI['planno'] || normalizedAI['documentnumber'] || normalizedAI['documentno'] || normalizedAI['docno'] || normalizedAI['refno'] || normalizedAI['referencenumber'] || normalizedAI['planid'] || ""
+                        }
+                        if (!mappedData.safety_officer) {
+                            mappedData.safety_officer = rawPayload.safety_officer || rawPayload.safety_representative || rawPayload.ohs_representative || rawPayload.responsible_person || rawPayload.prepared_by || rawPayload.prepared_for_safety || normalizedAI['safetyofficer'] || normalizedAI['safetyrepresentative'] || normalizedAI['ohsrepresentative'] || normalizedAI['responsibleperson'] || normalizedAI['preparedby'] || normalizedAI['preparedforsafety'] || ""
+                        }
+                        if (!mappedData.revision_date) {
+                            let revDate = rawPayload.revision_date || rawPayload.date_of_last_revision || rawPayload.last_revision || rawPayload.last_updated || rawPayload.review_date || rawPayload.version_date || rawPayload.revision || normalizedAI['revisiondate'] || normalizedAI['dateoflastrevision'] || normalizedAI['lastrevision'] || normalizedAI['lastupdated'] || normalizedAI['reviewdate'] || normalizedAI['versiondate'] || normalizedAI['revision'] || ""
+                            if (revDate && revDate.includes('T')) revDate = revDate.split('T')[0]
+                            mappedData.revision_date = revDate
+                        }
+                    }
+
+                    // SHE File Normalization
+                    if (docType === "she_file") {
+                        if (!mappedData.entity_name) {
+                            mappedData.entity_name = rawPayload.entity_name || rawPayload.company_name || normalizedAI['entityname'] || normalizedAI['companyname'] || ""
+                        }
+                        if (!mappedData.prepared_by) {
+                            mappedData.prepared_by = rawPayload.prepared_by || rawPayload.compiled_by || rawPayload.author || rawPayload.responsible_person || normalizedAI['preparedby'] || normalizedAI['compiledby'] || normalizedAI['author'] || normalizedAI['responsibleperson'] || ""
+                        }
+                        if (!mappedData.issue_date) {
+                            let issDate = rawPayload.issue_date || rawPayload.issued_date || rawPayload.date_issued || rawPayload.effective_date || normalizedAI['issuedate'] || normalizedAI['dateissued'] || normalizedAI['effectivedate'] || ""
+                            if (issDate && issDate.includes('T')) issDate = issDate.split('T')[0]
+                            mappedData.issue_date = issDate
+                        }
+                        if (!mappedData.document_version) {
+                            mappedData.document_version = rawPayload.document_version || rawPayload.version || rawPayload.revision || rawPayload.rev || rawPayload.version_number || rawPayload.doc_version || normalizedAI['documentversion'] || normalizedAI['version'] || normalizedAI['revision'] || normalizedAI['rev'] || normalizedAI['versionnumber'] || normalizedAI['docversion'] || ""
+                        }
+                        if (!mappedData.status) {
+                            mappedData.status = rawPayload.status || rawPayload.document_status || rawPayload.approval_status || normalizedAI['status'] || normalizedAI['documentstatus'] || normalizedAI['approvalstatus'] || ""
+                        }
+                    }
+
                     console.log("=== PROOF LOGS FOR CIDB ONLY ===")
                     if (docType === "cidb_cert") {
                         const cidbF = (DOCUMENT_TYPES.cidb_cert as any).fields;

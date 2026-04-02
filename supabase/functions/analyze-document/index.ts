@@ -199,8 +199,22 @@ Deno.serve(async (req) => {
   - "Last four digits of account number"
 
   Extraction rules:
+  
+  [For Financial Documents]
   - branch_code: return the exact visible branch code as a string and preserve leading zeroes
   - account_number_last4: return only the exact final 4 digits of the visible account number
+  
+  [For OHS Plans]
+  - plan_number: check for 'Plan Number', 'Plan No', 'Document Number', 'Document No', 'Doc No', 'Ref No', 'Reference Number', 'Plan ID'
+  - safety_officer: check for 'Safety Officer', 'Safety Representative', 'OHS Representative', 'Responsible Person', 'Prepared By', 'Prepared by', 'Prepared For Safety'
+  - revision_date: check for 'Date of Last Revision', 'Revision Date', 'Last Revision', 'Last Updated', 'Review Date', 'Version Date', 'Revision'
+  
+  [For SHE Files]
+  - prepared_by: check for 'Prepared By', 'Prepared by', 'Compiled By', 'Compiled by', 'Author', 'Responsible Person'
+  - document_version: check for 'Document Version', 'Version', 'Revision', 'Rev', 'Version Number', 'Doc Version'
+  - issue_date: check for 'Issue Date', 'Issued Date', 'Date Issued', 'Effective Date'
+
+  [General Rules]
   - if the values are present anywhere on the page, return them
   - only return null if they are truly absent
   - do NOT hallucinate or invent values
@@ -221,6 +235,8 @@ Deno.serve(async (req) => {
           "expiry_date": "YYYY-MM-DD" or null,
           "issue_date": "YYYY-MM-DD" or null,
           "registration_date": "YYYY-MM-DD" or null,
+          "revision_date": "YYYY-MM-DD" or null,
+          "document_version": "Document Version or Revision Number" or null,
           "reference_number": "Main extracted ID (e.g. PIN or Reg No)" or null,
           "pin": "SARS PIN if applicable" or null,
           "crs_number": "CIDB CRS Number if applicable" or null,
@@ -244,6 +260,9 @@ Deno.serve(async (req) => {
           "number_of_shares": "Count of shares if applicable (e.g. 100)" or null,
           "share_class": "Class of shares if applicable (e.g. Ordinary)" or null,
           "ownership_percent": "Ownership percentage if applicable" or null,
+          "plan_number": "OHS Plan number or tracking ID" or null,
+          "safety_officer": "Name of the safety officer or responsible agent" or null,
+          "prepared_by": "Name of the author or compiler" or null,
           "status": "E.g. Compliant, Active, or Non-Compliant based on context" or null,
           "summary": "Brief 2 sentence summary",
           "risks": ["Risk 1"],
