@@ -82,7 +82,9 @@ export const DOCUMENT_TYPES = {
         mandatory: false,
         fields: [
             { key: "vat_number", label: "VAT Number", type: "text", required: true, validationRegex: "^4\\d{9}$", validationMessage: "Starts with 4, 10 digits" },
-            { key: "entity_name", label: "Entity Name", type: "text", required: true }
+            { key: "entity_name", label: "Entity Name", type: "text", required: true },
+            { key: "registration_date", label: "Registration Date", type: "date", required: false },
+            { key: "status", label: "Status", type: "text", required: false }
         ]
     },
     uif_reg: {

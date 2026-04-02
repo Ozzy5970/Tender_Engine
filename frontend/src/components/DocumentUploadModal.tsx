@@ -644,16 +644,6 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                 })()
                             )}
 
-                            {/* Incomplete Status Warning */}
-                            {!analyzing && !isHydrating && ('fields' in def) && def.fields.filter((f: any) => f.required).some((f: any) => !metadata[f.key]) && (
-                                <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-2">
-                                    <AlertTriangle className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
-                                    <div>
-                                        <h4 className="text-sm font-bold text-orange-900">Incomplete Document</h4>
-                                        <p className="text-xs text-orange-800 mt-0.5">Some required fields are missing. You can save now and complete them later.</p>
-                                    </div>
-                                </div>
-                            )}
 
                             {/* Validation Warnings */}
                             {warnings.length > 0 && (
