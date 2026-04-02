@@ -78,6 +78,22 @@ export default function Compliance() {
         return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
     }
 
+    const resolveDocStatus = (doc: ComplianceDocument | undefined): string => {
+        if (!doc) return 'missing'
+        
+        let status = doc.computed_status || (doc as any).status || 'missing'
+        
+        const daysLeft = doc.expiry_date ? getDaysRemaining(doc.expiry_date) : null
+        
+        if (daysLeft !== null && daysLeft <= 0) {
+            status = 'expired'
+        } else if (daysLeft !== null && daysLeft <= 90 && status === 'valid') {
+            status = 'warning'
+        }
+        
+        return status
+    }
+
     // Temporary Test Data Injection
     const injectTestData = async () => {
         const confirm = window.confirm("This will clear your current documents and add test data (Expired, Expiring, Valid). Continue?")
@@ -140,7 +156,8 @@ export default function Compliance() {
                     const missingRequiredCount = typeEntries.filter(([typeKey, def]) => {
                         if (!(def as any).mandatory) return false;
                         const doc = findDoc(typeKey);
-                        return !doc || doc.computed_status === 'expired';
+                        const status = resolveDocStatus(doc);
+                        return status === 'missing' || status === 'expired';
                     }).length;
 
                     return (
@@ -155,15 +172,10 @@ export default function Compliance() {
                             <div className="divide-y divide-gray-100">
                                 {typeEntries.map(([typeKey, def]) => {
                                     const doc = findDoc(typeKey)
-                                    // Override status logic for 90-day warning in UI
+                                    const status = resolveDocStatus(doc)
                                     const daysLeft = doc?.expiry_date ? getDaysRemaining(doc.expiry_date) : null
                                     const isExpiringSoon = daysLeft !== null && daysLeft <= 90 && daysLeft > 0
-
-                                    // Use computed status but upgrade to warning if expiring soon and not already error
-                                    let status = doc?.computed_status || 'missing'
-                                    if (isExpiringSoon && status === 'valid') status = 'warning'
-
-                                    const isMissing = !doc
+                                    const isMissing = status === 'missing'
 
                                     return (
                                         <div key={typeKey} className="p-6 flex items-start gap-4 hover:bg-gray-50/50 transition-colors">
