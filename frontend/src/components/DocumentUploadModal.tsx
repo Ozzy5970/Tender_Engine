@@ -512,6 +512,15 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
 
                     // SHE File Normalization
                     if (docType === "she_file") {
+                        console.log("[SHE Debug] prepared_by candidates:", JSON.stringify({
+                            "raw.prepared_by": rawPayload.prepared_by, "raw.compiled_by": rawPayload.compiled_by, "raw.author": rawPayload.author, "raw.responsible_person": rawPayload.responsible_person,
+                            "norm.preparedby": normalizedAI['preparedby'], "norm.compiledby": normalizedAI['compiledby'], "norm.author": normalizedAI['author'], "norm.responsibleperson": normalizedAI['responsibleperson']
+                        }, null, 2))
+                        console.log("[SHE Debug] document_version candidates:", JSON.stringify({
+                            "raw.document_version": rawPayload.document_version, "raw.version": rawPayload.version, "raw.revision": rawPayload.revision, "raw.rev": rawPayload.rev, "raw.version_number": rawPayload.version_number, "raw.doc_version": rawPayload.doc_version,
+                            "norm.documentversion": normalizedAI['documentversion'], "norm.version": normalizedAI['version'], "norm.revision": normalizedAI['revision'], "norm.rev": normalizedAI['rev'], "norm.versionnumber": normalizedAI['versionnumber'], "norm.docversion": normalizedAI['docversion']
+                        }, null, 2))
+
                         if (!mappedData.entity_name) {
                             mappedData.entity_name = rawPayload.entity_name || rawPayload.company_name || normalizedAI['entityname'] || normalizedAI['companyname'] || ""
                         }
