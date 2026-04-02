@@ -192,13 +192,6 @@ export default function Compliance() {
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2">
                                                     <h4 className="font-medium text-gray-900">{def.label}</h4>
-                                                    <span className={`text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded ${
-                                                        (def as any).mandatory 
-                                                            ? "text-gray-500 bg-gray-100" 
-                                                            : "text-gray-400 bg-gray-50 border border-gray-100"
-                                                    }`}>
-                                                        {(def as any).mandatory ? 'Required' : 'Optional'}
-                                                    </span>
                                                     {isMissing && <span className="text-[10px] uppercase tracking-wider text-red-600 font-bold bg-red-50 px-1.5 py-0.5 rounded ml-auto">Missing</span>}
                                                 </div>
 

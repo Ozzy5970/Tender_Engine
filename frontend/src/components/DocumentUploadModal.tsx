@@ -725,7 +725,7 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                         {field.required ? (
                                             <span className="text-red-500">*</span>
                                         ) : (
-                                            <span className="text-[10px] text-gray-400 font-normal uppercase tracking-wider bg-gray-100 px-1.5 py-0.5 rounded">Optional</span>
+                                            <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded">Optional</span>
                                         )}
                                     </label>
 
