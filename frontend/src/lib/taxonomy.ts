@@ -146,8 +146,12 @@ export const DOCUMENT_TYPES = {
         category: "LABOUR",
         mandatory: true,
         fields: [
+            { key: "entity_name", label: "Entity Name", type: "text", required: true },
+            { key: "plan_number", label: "Plan Number", type: "text", required: false },
+            { key: "safety_officer", label: "Safety Officer", type: "text", required: false },
+            { key: "issue_date", label: "Issue Date", type: "date", required: false },
             { key: "revision_date", label: "Date of Last Revision", type: "date", required: true },
-            { key: "entity_name", label: "Entity Name", type: "text", required: true }
+            { key: "status", label: "Status", type: "text", required: false }
         ]
     },
     she_file: { label: "SHE File Index", category: "LABOUR", mandatory: false },
