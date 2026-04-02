@@ -656,12 +656,12 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                         <AlertTriangle className="w-4 h-4 mr-1" />
                                         Manual Entry
                                     </div>
-                                ) : (
+                                ) : fileToUpload ? (
                                     <div className="flex items-center text-green-600 text-xs font-medium">
                                         <Sparkles className="w-4 h-4 mr-1" />
                                         AI Analyzed
                                     </div>
-                                )}
+                                ) : null}
                             </div>
 
                             {/* AI Failure Block */}
