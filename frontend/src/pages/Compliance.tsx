@@ -137,12 +137,18 @@ export default function Compliance() {
                     const typeEntries = Object.entries(DOCUMENT_TYPES).filter(([_, def]) => def.category === catKey)
                     if (typeEntries.length === 0) return null
 
+                    const missingRequiredCount = typeEntries.filter(([typeKey, def]) => {
+                        if (!(def as any).mandatory) return false;
+                        const doc = findDoc(typeKey);
+                        return !doc;
+                    }).length;
+
                     return (
                         <div key={catKey} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                             <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                                 <h3 className="font-semibold text-gray-900">{catLabel}</h3>
-                                <span className="text-xs bg-white border border-gray-200 px-2 py-1 rounded text-gray-500">
-                                    {typeEntries.length} Required
+                                <span className={`text-xs border px-2 py-1 rounded font-medium ${missingRequiredCount > 0 ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-green-50 border-green-200 text-green-700'}`}>
+                                    {missingRequiredCount > 0 ? `${missingRequiredCount} Required` : 'Complete'}
                                 </span>
                             </div>
 

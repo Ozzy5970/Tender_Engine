@@ -172,6 +172,8 @@ Deno.serve(async (req) => {
 
            - For UIF Registrations, you must extract the 'uif_number'. Look heavily near labels like "UIF Reference Number", "UIF Reference", "UIF Number", "UIF No", "Fund Reference Number", or "Reference Number". Return exactly the number as it appears.
 
+           - For PAYE Registrations, you must extract the 'paye_number'. Look heavily near labels like "PAYE Number", "PAYE Reference Number", "PAYE No", or "Employer Reference Number". Return exactly the number as it appears.
+
            - For Bank Confirmation Letters, do NOT only summarize validity.
   You must perform literal field extraction for:
   1. 'branch_code'
@@ -224,6 +226,7 @@ Deno.serve(async (req) => {
           "crs_number": "CIDB CRS Number if applicable" or null,
           "vat_number": "VAT Registration Number if applicable" or null,
           "uif_number": "UIF Reference Number if applicable" or null,
+          "paye_number": "PAYE Registration Number if applicable" or null,
           "grade": "string or null",
           "class_of_work": "string or null",
           "bbbee_level": "B-BBEE Level (1-8) if applicable" or null,

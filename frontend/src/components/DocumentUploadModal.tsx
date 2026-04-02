@@ -210,6 +210,25 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                         }
                     }
 
+                    // PAYE Registration Normalization
+                    if (docType === "paye_reg") {
+                        if (!mappedData.paye_number) {
+                            mappedData.paye_number = rawPayload.paye_number 
+                                || rawPayload.paye_no
+                                || rawPayload.paye_reference
+                                || rawPayload.paye_reference_number
+                                || rawPayload.employer_reference_number
+                                || normalizedAI['payenumber']
+                                || normalizedAI['payeno']
+                                || normalizedAI['payereference']
+                                || normalizedAI['payereferencenumber']
+                                || normalizedAI['employerreferencenumber']
+                                || mappedData.reference_number 
+                                || rawPayload.reference_number 
+                                || ""
+                        }
+                    }
+
                     // SARS_PIN Specific Normalization Layer
                     if (docType === "sars_pin") {
                         if (!mappedData.pin) {
