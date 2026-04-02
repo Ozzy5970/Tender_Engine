@@ -140,7 +140,7 @@ export default function Compliance() {
                     const missingRequiredCount = typeEntries.filter(([typeKey, def]) => {
                         if (!(def as any).mandatory) return false;
                         const doc = findDoc(typeKey);
-                        return !doc;
+                        return !doc || doc.computed_status === 'expired';
                     }).length;
 
                     return (
@@ -193,7 +193,7 @@ export default function Compliance() {
                                                             <span className={`flex items-center gap-1 ${status === 'expired' ? 'text-red-600 font-bold' : (isExpiringSoon ? 'text-amber-600 font-bold' : '')}`}>
                                                                 <Calendar className="w-3.5 h-3.5" />
                                                                 {status === 'expired'
-                                                                    ? `Expired ${Math.abs(daysLeft || 0)} days ago`
+                                                                    ? `Expired`
                                                                     : (isExpiringSoon ? `Expires in ${daysLeft} days` : `Exp: ${doc.expiry_date}`)
                                                                 }
                                                             </span>
