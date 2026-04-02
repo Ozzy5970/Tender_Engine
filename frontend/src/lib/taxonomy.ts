@@ -98,7 +98,17 @@ export const DOCUMENT_TYPES = {
             { key: "status", label: "Status", type: "text", required: false }
         ]
     },
-    paye_reg: { label: "PAYE Registration", category: "TAX", mandatory: false },
+    paye_reg: {
+        label: "PAYE Registration",
+        category: "TAX",
+        mandatory: false,
+        fields: [
+            { key: "paye_number", label: "PAYE Number", type: "text", required: true, validationRegex: "^\\d{10}$", validationMessage: "10 digits" },
+            { key: "entity_name", label: "Entity Name", type: "text", required: true },
+            { key: "registration_date", label: "Registration Date", type: "date", required: false },
+            { key: "status", label: "Status", type: "text", required: false }
+        ]
+    },
 
     // BBBEE
     bbbee_cert: {
