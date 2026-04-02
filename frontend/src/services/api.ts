@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase"
 import type { ApiResponse } from "@/types/api"
+import { DOCUMENT_TYPES } from "@/lib/taxonomy"
 
 /**
  * Standardized response handler
@@ -339,22 +340,52 @@ export const CompanyService = {
     },
 
     async getComplianceStats() {
-        const { data, error } = await supabase.from('view_compliance_summary').select('computed_status')
+        const { data, error } = await supabase.from('compliance_documents').select('*')
 
         if (error || !data) return { score: 0, expiring: 0, error }
 
-        const total = data.length
-        if (total === 0) return { score: 0, expiring: 0, error: null }
+        const mandatoryEntries = Object.entries(DOCUMENT_TYPES).filter(([_, def]) => (def as any).mandatory)
+        if (mandatoryEntries.length === 0) return { score: 100, expiring: 0, error: null }
 
-        const validCount = data.filter(d => d.computed_status === 'valid').length
-        const expiringCount = data.filter(d => d.computed_status === 'warning' || d.computed_status === 'expired').length
+        let validMandatoryCount = 0
+        let expiringCount = 0
 
-        // Total required documents (Hardcoded to 9 based on user feedback)
-        const TOTAL_REQUIRED_DOCS = 9;
+        mandatoryEntries.forEach(([typeKey, def]) => {
+            const doc = data.find(d => d.doc_type === typeKey)
+            if (!doc) return // Missing required document
 
-        // Cap status at 100%
-        const score = Math.min(Math.round((validCount / TOTAL_REQUIRED_DOCS) * 100), 100)
+            const payloadDef = def as any
+            let isValid = true
 
+            // 1. Is it legally expired?
+            const isExpiredState = doc.status === 'expired' || doc.computed_status === 'expired' || 
+                                   (doc.expiry_date && new Date(doc.expiry_date) < new Date());
+            
+            if (isExpiredState) {
+                isValid = false
+            }
+
+            // 2. Or is it missing absolutely required gate-check fields?
+            if (isValid && payloadDef.fields) {
+                const isMissingGateCheck = payloadDef.fields.some((f: any) => {
+                    return f.required && (!doc.metadata || !doc.metadata[f.key])
+                })
+                if (isMissingGateCheck) {
+                    isValid = false
+                }
+            }
+
+            if (isValid) {
+                validMandatoryCount++
+            }
+
+            // Track purely expiring metrics
+            if (isExpiredState || doc.status === 'warning' || doc.computed_status === 'warning') {
+                expiringCount++
+            }
+        })
+
+        const score = Math.floor((validMandatoryCount / mandatoryEntries.length) * 100)
         return { score, expiring: expiringCount, error: null }
     },
 

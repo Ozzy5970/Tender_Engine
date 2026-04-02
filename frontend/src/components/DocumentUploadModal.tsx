@@ -720,9 +720,13 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                             {/* Dynamic Fields from Taxonomy */}
                             {'fields' in def && (def as any).fields?.map((field: any) => (
                                 <div key={field.key}>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
                                         {field.label}
-                                        {field.required && <span className="text-red-500 ml-1">*</span>}
+                                        {field.required ? (
+                                            <span className="text-red-500">*</span>
+                                        ) : (
+                                            <span className="text-[10px] text-gray-400 font-normal uppercase tracking-wider bg-gray-100 px-1.5 py-0.5 rounded">Optional</span>
+                                        )}
                                     </label>
 
                                     {field.type === 'select' ? (
