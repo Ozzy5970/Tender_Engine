@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
              If present anywhere, return the exact visible value. Only return null if the field is truly absent.
              [DEBUG INSTRUCTION]: If you fail to find issuing_body or certificate_or_affidavit_number, but suspect they exist, you MUST mention their values explicitly inside the 'reason' or 'summary' field so we can manually parse them.
            - For Shareholding / Share Certificates, extract the following if present:
-             1. 'certificate_number' (Search heavily in headers, boxed details, and corner reference text. Look near labels like "Certificate Number", "Certificate No", "Cert No", "Share Certificate No", "Number", "Serial Number", or "Cert Ref")
+             1. 'certificate_number' (Search heavily in headers, boxed details, and corner reference text. Look near labels like "Certificate Number", "Certificate No", "Cert No", "Share Certificate Number", "Share Certificate No", "Serial Number", "Cert Ref", "ID Number", "Identification Number", or "ID No". If the document uses "ID Number" / "Identification Number" / "ID No" as the primary certificate identifier, return that EXACT value under 'certificate_number' and do NOT return it under a different key. Do NOT hallucinate. If not clearly present, return null.)
              2. 'shareholder_name' (name of person, company, or trust the shares are issued to)
              3. 'shareholder_type' (classify as "Individual", "Company", "Trust", or "Other")
              4. 'number_of_shares' (explicit total count of shares)

@@ -624,6 +624,26 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                                 </div>
                             )}
 
+                            {/* Partial Analysis Block */}
+                            {!analyzing && !isHydrating && !aiFailed && fileToUpload && 'fields' in def && (
+                                (() => {
+                                    const taxonomyFields = (def as any).fields.map((f: any) => f.key)
+                                    const filledCount = taxonomyFields.filter((k: string) => !!metadata[k]).length
+                                    if (filledCount > 0 && filledCount < taxonomyFields.length) {
+                                        return (
+                                            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
+                                                <Sparkles className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-blue-900">Partial Analysis</h4>
+                                                    <p className="text-xs text-blue-800 mt-0.5">AI extracted some details, but a few fields still need manual review.</p>
+                                                </div>
+                                            </div>
+                                        )
+                                    }
+                                    return null
+                                })()
+                            )}
+
                             {/* Incomplete Status Warning */}
                             {!analyzing && !isHydrating && ('fields' in def) && def.fields.filter((f: any) => f.required).some((f: any) => !metadata[f.key]) && (
                                 <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-2">
