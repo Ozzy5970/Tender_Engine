@@ -210,8 +210,8 @@ Deno.serve(async (req) => {
   - revision_date: check for 'Date of Last Revision', 'Revision Date', 'Last Revision', 'Last Updated', 'Review Date', 'Version Date', 'Revision'
   
   [For SHE Files]
-  - prepared_by: check for 'Prepared By', 'Prepared by', 'Compiled By', 'Compiled by', 'Author', 'Responsible Person'
-  - document_version: check for 'Document Version', 'Version', 'Revision', 'Rev', 'Version Number', 'Doc Version'
+  - prepared_by: search headers, cover page blocks, author/preparer sections, footer/compiler sections, and signature/prepared-by boxes. Check for: 'Prepared By', 'Prepared by', 'Compiled By', 'Compiled by', 'Author', 'Responsible Person', 'Prepared For', 'Prepared For Safety', 'SHE Officer', 'Safety Officer (only if clearly acting as preparer/author)'
+  - document_version: search top-right document info boxes, footer version blocks, revision/version tables, and cover page metadata boxes. Check for: 'Document Version', 'Version', 'Revision', 'Rev', 'Version Number', 'Doc Version', 'Document No / Version', 'Revision Number', 'Issue / Revision'
   - issue_date: check for 'Issue Date', 'Issued Date', 'Date Issued', 'Effective Date'
 
   [General Rules]
@@ -219,7 +219,10 @@ Deno.serve(async (req) => {
   - only return null if they are truly absent
   - do NOT hallucinate or invent values
 
-  [DEBUG INSTRUCTION]: If branch_code or account_number_last4 cannot be returned in structured JSON but appear visibly on the document, mention them explicitly inside 'reason' or 'summary' for debugging.
+  [DEBUG INSTRUCTION]: 
+  - If branch_code or account_number_last4 cannot be returned in structured JSON but appear visibly on the document, mention them explicitly inside 'reason' or 'summary' for debugging.
+  - If prepared_by is null but a likely nearby text snippet exists, mention it briefly in 'reason'.
+  - If document_version is null but a likely nearby text snippet exists, mention it briefly in 'reason'.
 
         4. **VALIDATE**: 
            - If a "required" field is missing or expired, mark as "valid": false.
