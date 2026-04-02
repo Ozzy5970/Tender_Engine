@@ -168,6 +168,10 @@ Deno.serve(async (req) => {
              6. 'ownership_percent' (percentage of ownership, e.g., '50%')
              Do not hallucinate. If the value is not visibly present on the document, return null.
 
+           - For VAT Registrations, you must extract the 'vat_number'. This is typically a 10-digit number starting with 4. Look heavily near labels like "VAT Number", "VAT Registration Number", "VAT No", or "Value Added Tax Number". Return exactly the number as it appears.
+
+           - For UIF Registrations, you must extract the 'uif_number'. Look heavily near labels like "UIF Reference Number", "UIF Reference", "UIF Number", "UIF No", "Fund Reference Number", or "Reference Number". Return exactly the number as it appears.
+
            - For Bank Confirmation Letters, do NOT only summarize validity.
   You must perform literal field extraction for:
   1. 'branch_code'
@@ -218,6 +222,8 @@ Deno.serve(async (req) => {
           "reference_number": "Main extracted ID (e.g. PIN or Reg No)" or null,
           "pin": "SARS PIN if applicable" or null,
           "crs_number": "CIDB CRS Number if applicable" or null,
+          "vat_number": "VAT Registration Number if applicable" or null,
+          "uif_number": "UIF Reference Number if applicable" or null,
           "grade": "string or null",
           "class_of_work": "string or null",
           "bbbee_level": "B-BBEE Level (1-8) if applicable" or null,

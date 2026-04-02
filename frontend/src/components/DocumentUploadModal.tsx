@@ -173,6 +173,43 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                             || ""
                     }
 
+                    // VAT Certificate Normalization
+                    if (docType === "vat_cert") {
+                        if (!mappedData.vat_number) {
+                            mappedData.vat_number = rawPayload.vat_number 
+                                || rawPayload.vat_no
+                                || rawPayload.vat_registration_number
+                                || normalizedAI['vatnumber']
+                                || normalizedAI['vatno']
+                                || normalizedAI['vatregistrationnumber']
+                                || normalizedAI['vatreference']
+                                || normalizedAI['vatref']
+                                || normalizedAI['valueaddedtaxnumber']
+                                || mappedData.reference_number 
+                                || rawPayload.reference_number 
+                                || ""
+                        }
+                    }
+
+                    // UIF Registration Normalization
+                    if (docType === "uif_reg") {
+                        if (!mappedData.uif_number) {
+                            mappedData.uif_number = rawPayload.uif_number 
+                                || rawPayload.uif_reference_number
+                                || rawPayload.uif_reference
+                                || rawPayload.uif_no
+                                || rawPayload.fund_reference_number
+                                || normalizedAI['uifnumber']
+                                || normalizedAI['uifreferencenumber']
+                                || normalizedAI['uifreference']
+                                || normalizedAI['uifno']
+                                || normalizedAI['fundreferencenumber']
+                                || mappedData.reference_number 
+                                || rawPayload.reference_number 
+                                || ""
+                        }
+                    }
+
                     // SARS_PIN Specific Normalization Layer
                     if (docType === "sars_pin") {
                         if (!mappedData.pin) {
