@@ -47,23 +47,39 @@ export default function TenderIngest() {
 
     const inputRef = useRef<HTMLInputElement>(null)
 
-    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files?.[0]) {
-            // Check Limits First
-            try {
-                const check = await TenderService.checkSubscriptionLimit()
-                if (!check.allowed) {
-                    setErrorMsg(check.reason || "Limit reached")
-                    setStatus("blocked")
-                    return
-                }
-            } catch (err) {
-                console.error("Limit check failed", err)
+    const processFile = async (rawFile: File) => {
+        console.log("[Tender Upload Debug] file selected/dropped:", rawFile.name)
+        try {
+            const check = await TenderService.checkSubscriptionLimit()
+            if (!check.allowed) {
+                setErrorMsg(check.reason || "Limit reached")
+                setStatus("blocked")
+                return
             }
+        } catch (err) {
+            console.error("Limit check failed", err)
+        }
 
-            setFile(e.target.files[0])
-            setStatus("idle")
-            setErrorMsg(null)
+        setFile(rawFile)
+        setStatus("idle")
+        setErrorMsg(null)
+    }
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files?.[0]) {
+            processFile(e.target.files[0])
+        }
+    }
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault()
+    }
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        console.log("[Tender Upload Debug] file dropped!")
+        if (e.dataTransfer.files?.[0]) {
+            processFile(e.dataTransfer.files[0])
         }
     }
 
@@ -216,10 +232,13 @@ export default function TenderIngest() {
             // 2. Analyzing
             setStatus("processing")
             setProcessStep("AI is reading the tender document...")
+            console.log("[Tender Upload Debug] starting AI analysis on:", fileName)
 
             const { data, error: analyzeError } = await CompanyService.analyzeDocument(fileName, 'tender_document')
 
             if (analyzeError) throw new Error(analyzeError)
+
+            console.log("[Tender Upload Debug] AI result:", data)
 
             // 3. Populate Form & Switch to Manual for Review
             setManualForm(prev => ({
@@ -481,6 +500,8 @@ export default function TenderIngest() {
                 {ingestMode === 'upload' && status === "idle" && !file && (
                     <div
                         onClick={() => inputRef.current?.click()}
+                        onDragOver={handleDragOver}
+                        onDrop={handleDrop}
                         className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center hover:border-primary hover:bg-primary/5 transition-all cursor-pointer"
                     >
                         <input ref={inputRef} type="file" className="hidden" accept=".pdf,.docx" onChange={handleFileSelect} />
