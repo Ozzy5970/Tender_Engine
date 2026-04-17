@@ -26,7 +26,7 @@ export const DOCUMENT_TYPES = {
         mandatory: false,
         fields: [
             { key: "certificate_number", label: "Certificate Number", type: "text", required: false },
-            { key: "shareholder_name", label: "Shareholder Name", type: "text", required: false },
+            { key: "shareholder_name", label: "Shareholder Name", type: "text", required: true },
             { key: "shareholder_type", label: "Shareholder Type", type: "select", options: ["Individual", "Company", "Trust", "Other"], required: false },
             { key: "number_of_shares", label: "Number of Shares", type: "text", required: false },
             { key: "share_class", label: "Share Class", type: "text", required: false },
@@ -160,7 +160,7 @@ export const DOCUMENT_TYPES = {
         category: "LABOUR",
         mandatory: false,
         fields: [
-            { key: "entity_name", label: "Entity Name", type: "text", required: false },
+            { key: "entity_name", label: "Entity Name", type: "text", required: true },
             { key: "plan_number", label: "Plan Number", type: "text", required: false },
             { key: "safety_officer", label: "Safety Officer", type: "text", required: false },
             { key: "issue_date", label: "Issue Date", type: "date", required: false },
@@ -173,7 +173,7 @@ export const DOCUMENT_TYPES = {
         category: "LABOUR",
         mandatory: false,
         fields: [
-            { key: "entity_name", label: "Entity Name", type: "text", required: false },
+            { key: "entity_name", label: "Entity Name", type: "text", required: true },
             { key: "prepared_by", label: "Prepared By", type: "text", required: false },
             { key: "issue_date", label: "Issue Date", type: "date", required: false },
             { key: "document_version", label: "Document Version", type: "text", required: false },

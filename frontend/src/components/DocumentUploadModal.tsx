@@ -621,6 +621,17 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
             // Pre-save normalization (canonical formatting)
             const finalMetadata = { ...metadata }
 
+            const hasMeaningfulMeta = Object.keys(finalMetadata).some(k => 
+                k !== 'is_incomplete' && finalMetadata[k] !== null && finalMetadata[k] !== undefined && finalMetadata[k] !== ''
+            )
+            const hasFile = !!fileToUpload || !!(initialData && initialData.file_name && initialData.file_name !== 'Manual Entry')
+
+            if (!hasFile && !hasMeaningfulMeta) {
+                toast.error("Please upload a document or fill in at least one metadata field.")
+                setUploading(false)
+                return
+            }
+
             // Percentage normalization (ensure ends with %)
             if (finalMetadata.black_ownership_percent) {
                 let val = finalMetadata.black_ownership_percent.replace(/\s+/g, '')
