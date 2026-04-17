@@ -348,8 +348,8 @@ export const CompanyService = {
         if (mandatoryEntries.length === 0) return { score: 100, expiring: 0, error: null }
 
         let validMandatoryCount = 0
-        let expiringCount = 0
 
+        // 1. Calculate Mandatory Compliance Score
         mandatoryEntries.forEach(([typeKey, def]) => {
             const doc = data.find(d => d.doc_type === typeKey)
             if (!doc) return // Missing required document
@@ -357,7 +357,7 @@ export const CompanyService = {
             const payloadDef = def as any
             let isValid = true
 
-            // 1. Is it legally expired?
+            // Is it legally expired?
             const isExpiredState = doc.status === 'expired' || doc.computed_status === 'expired' || 
                                    (doc.expiry_date && new Date(doc.expiry_date) < new Date());
             
@@ -365,7 +365,7 @@ export const CompanyService = {
                 isValid = false
             }
 
-            // 2. Or is it missing absolutely required gate-check fields?
+            // Or is it missing absolutely required gate-check fields?
             if (isValid && payloadDef.fields) {
                 const isMissingGateCheck = payloadDef.fields.some((f: any) => {
                     return f.required && (!doc.metadata || !doc.metadata[f.key])
@@ -378,15 +378,26 @@ export const CompanyService = {
             if (isValid) {
                 validMandatoryCount++
             }
+        })
 
-            // Track purely expiring metrics
-            if (isExpiredState || doc.status === 'warning' || doc.computed_status === 'warning') {
+        // 2. Calculate Expiry Metrics Across ALL Uploaded Documents
+        let expiredCount = 0
+        let expiringCount = 0
+
+        data.forEach(doc => {
+            const isExpiredState = doc.status === 'expired' || doc.computed_status === 'expired' || 
+                                   (doc.expiry_date && new Date(doc.expiry_date) < new Date());
+            
+            if (isExpiredState) {
+                expiredCount++
+            } else if (doc.status === 'warning' || doc.computed_status === 'warning' || 
+                      (doc.expiry_date && new Date(doc.expiry_date) <= new Date(Date.now() + 90 * 24 * 60 * 60 * 1000))) {
                 expiringCount++
             }
         })
 
         const score = Math.floor((validMandatoryCount / mandatoryEntries.length) * 100)
-        return { score, expiring: expiringCount, error: null }
+        return { score, expiring: expiringCount, expired: expiredCount, error: null }
     },
 
     async analyzeDocument(filePath: string, docType: string, validationRules: Record<string, unknown> = {}) {

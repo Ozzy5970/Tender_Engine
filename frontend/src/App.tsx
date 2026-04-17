@@ -136,6 +136,7 @@ function Dashboard() {
   const [avgReadiness, setAvgReadiness] = useState<number | null>(null)
   const [complianceScore, setComplianceScore] = useState<number | null>(null)
   const [expiringDocs, setExpiringDocs] = useState<number>(0)
+  const [expiredDocs, setExpiredDocs] = useState<number>(0)
   const [recentTenders, setRecentTenders] = useState<any[]>([])
 
   useEffect(() => {
@@ -149,9 +150,10 @@ function Dashboard() {
       setAvgReadiness(avg)
 
       // 3. Compliance Stats
-      const { score, expiring } = await CompanyService.getComplianceStats()
+      const { score, expiring, expired } = await CompanyService.getComplianceStats()
       setComplianceScore(score)
-      setExpiringDocs(expiring)
+      setExpiringDocs(expiring || 0)
+      setExpiredDocs(expired || 0)
 
       // 4. Recent Activity
       const { data } = await TenderService.getRecent()
@@ -235,16 +237,31 @@ function Dashboard() {
         <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 cursor-pointer hover:border-orange-300 transition-colors" onClick={() => navigate('/compliance')}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Compliance Health</p>
+              <p className="text-sm font-medium text-gray-500" title="Percentage of mandatory documents that are valid and unexpired">Valid Compliance</p>
               <h3 className="text-2xl font-bold text-gray-900 mt-1">{complianceScore !== null ? complianceScore + '%' : '-'}</h3>
             </div>
             <div className="p-2 bg-orange-50 rounded-lg">
               <CheckCircle className="h-5 w-5 text-orange-600" />
             </div>
           </div>
-          <div className={`mt-4 flex items-center text-xs ${expiringDocs > 0 ? 'text-red-600 font-bold' : 'text-gray-500'}`}>
-            {expiringDocs > 0 && <AlertTriangle className="h-3 w-3 mr-1" />}
-            <span>{expiringDocs} document{expiringDocs !== 1 ? 's' : ''} expiring soon</span>
+          <div className="mt-4 flex flex-col gap-1.5">
+            {expiredDocs > 0 && (
+              <div className="flex items-center text-xs text-red-600 font-bold">
+                <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+                <span>{expiredDocs} document{expiredDocs !== 1 ? 's' : ''} expired</span>
+              </div>
+            )}
+            {expiringDocs > 0 && (
+              <div className="flex items-center text-xs text-amber-600 font-bold">
+                <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+                <span>{expiringDocs} document{expiringDocs !== 1 ? 's' : ''} expiring soon</span>
+              </div>
+            )}
+            {expiredDocs === 0 && expiringDocs === 0 && (
+              <div className="flex items-center text-xs text-gray-500">
+                <span>All mandatory docs valid</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
