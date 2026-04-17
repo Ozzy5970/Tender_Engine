@@ -214,6 +214,13 @@ Deno.serve(async (req) => {
   - document_version: search top-right document info boxes, footer version blocks, revision/version tables, and cover page metadata boxes. Check for: 'Document Version', 'Version', 'Revision', 'Rev', 'Version Number', 'Doc Version', 'Document No / Version', 'Revision Number', 'Issue / Revision'
   - issue_date: check for 'Issue Date', 'Issued Date', 'Date Issued', 'Effective Date'
 
+  [For SBD 6.1]
+  - tender_number: check for 'Tender Number', 'Bid Number', 'RFQ Number'
+  - bbbee_level: check for 'B-BBEE Level', 'BBBEE Status Level' 
+  - claiming_points: check for 'Preference Points Claimed', 'Points Claimed'
+  - representative_name: check for 'Authorized Signatory', 'Signatory', 'Name'
+  - signature_date: check for 'Signature Date', 'Signed Date', 'Date'
+
   [General Rules]
   - if the values are present anywhere on the page, return them
   - only return null if they are truly absent
@@ -266,6 +273,10 @@ Deno.serve(async (req) => {
           "plan_number": "OHS Plan number or tracking ID" or null,
           "safety_officer": "Name of the safety officer or responsible agent" or null,
           "prepared_by": "Name of the author or compiler" or null,
+          "tender_number": "Tender or Bid Number if applicable" or null,
+          "claiming_points": "Preference points claimed if applicable" or null,
+          "representative_name": "Name of the authorized signatory" or null,
+          "signature_date": "YYYY-MM-DD" or null,
           "status": "E.g. Compliant, Active, or Non-Compliant based on context" or null,
           "summary": "Brief 2 sentence summary",
           "risks": ["Risk 1"],

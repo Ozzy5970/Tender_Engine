@@ -540,6 +540,30 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                         }
                     }
 
+                    // SBD 6.1 Normalization
+                    if (docType === "sbd_6_1") {
+                        if (!mappedData.entity_name) {
+                            mappedData.entity_name = rawPayload.entity_name || rawPayload.company_name || normalizedAI['entityname'] || normalizedAI['companyname'] || ""
+                        }
+                        if (!mappedData.tender_number) {
+                            mappedData.tender_number = rawPayload.tender_number || rawPayload.bid_number || rawPayload.rfq_number || normalizedAI['tendernumber'] || normalizedAI['bidnumber'] || normalizedAI['rfqnumber'] || ""
+                        }
+                        if (!mappedData.bbbee_level) {
+                            mappedData.bbbee_level = rawPayload.bbbee_level || rawPayload.bbbee_status_level || normalizedAI['bbbeelevel'] || normalizedAI['bbbeestatuslevel'] || ""
+                        }
+                        if (!mappedData.claiming_points) {
+                            mappedData.claiming_points = rawPayload.claiming_points || rawPayload.preference_points_claimed || rawPayload.points_claimed || normalizedAI['claimingpoints'] || normalizedAI['preferencepointsclaimed'] || normalizedAI['pointsclaimed'] || ""
+                        }
+                        if (!mappedData.representative_name) {
+                            mappedData.representative_name = rawPayload.representative_name || rawPayload.authorized_signatory || rawPayload.signatory || rawPayload.name || normalizedAI['representativename'] || normalizedAI['authorizedsignatory'] || normalizedAI['signatory'] || normalizedAI['name'] || ""
+                        }
+                        if (!mappedData.signature_date) {
+                            let sigDate = rawPayload.signature_date || rawPayload.signed_date || rawPayload.date || normalizedAI['signaturedate'] || normalizedAI['signeddate'] || normalizedAI['date'] || ""
+                            if (sigDate && sigDate.includes('T')) sigDate = sigDate.split('T')[0]
+                            mappedData.signature_date = sigDate
+                        }
+                    }
+
                     console.log("=== PROOF LOGS FOR CIDB ONLY ===")
                     if (docType === "cidb_cert") {
                         const cidbF = (DOCUMENT_TYPES.cidb_cert as any).fields;

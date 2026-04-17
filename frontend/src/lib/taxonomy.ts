@@ -126,7 +126,21 @@ export const DOCUMENT_TYPES = {
             { key: "issuing_body", label: "Issuing Body", type: "text", required: false }
         ]
     },
-    sbd_6_1: { label: "SBD 6.1 Preference Points Claim", category: "BBBEE", mandatory: false }, // Tender-specific form (not compliance vault doc)
+    sbd_6_1: {
+        label: "SBD 6.1 Preference Points Claim",
+        category: "BBBEE",
+        mandatory: false,
+        fields: [
+            { key: "entity_name", label: "Entity Name", type: "text", required: true },
+            { key: "tender_number", label: "Tender Number", type: "text", required: true },
+            { key: "tender_description", label: "Tender Description", type: "text", required: false },
+            { key: "bbbee_level", label: "B-BBEE Level", type: "select", options: ["1", "2", "3", "4", "5", "6", "7", "8", "Non-Compliant"], required: true },
+            { key: "claiming_points", label: "Points Claimed", type: "text", required: true },
+            { key: "representative_name", label: "Authorized Signatory", type: "text", required: true },
+            { key: "signature_date", label: "Signature Date", type: "date", required: true },
+            { key: "status", label: "Status", type: "text", required: false }
+        ]
+    },
 
     // Labour
     coid_letter: {
