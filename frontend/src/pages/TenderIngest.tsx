@@ -15,15 +15,28 @@ export default function TenderIngest() {
     const [processStep, setProcessStep] = useState<string>("")
     const [ingestMode, setIngestMode] = useState<"upload" | "manual">("upload")
 
-    // Manual Form State
     const [manualForm, setManualForm] = useState({
         title: "",
         client: "",
+        tenderNumber: "",
         closingDate: "",
         grade: "1",
         class: "CE",
         bbbee: "1",
-        mandatory: false
+        prefPoints: "80/20",
+        compulsoryBriefing: false,
+        notes: "",
+        mandatoryDocs: {
+            cipc_cert: false,
+            sars_pin: false,
+            csd_summary: false,
+            coid_letter: false,
+            bbbee_cert: false,
+            bank_letter: false,
+            sbd_6_1: false,
+            ohs_plan: false,
+            she_file: false
+        } as Record<string, boolean>
     })
 
     const inputRef = useRef<HTMLInputElement>(null)
@@ -100,12 +113,16 @@ export default function TenderIngest() {
             const res = await TenderService.createManualTender({
                 title: manualForm.title,
                 client_name: manualForm.client,
+                tender_number: manualForm.tenderNumber,
                 closing_date: manualForm.closingDate,
+                compulsory_briefing: manualForm.compulsoryBriefing,
+                notes: manualForm.notes,
+                preference_points: manualForm.prefPoints,
                 requirements: {
                     cidb_grade: manualForm.grade,
                     cidb_class: manualForm.class,
                     min_bbbee_level: manualForm.bbbee,
-                    mandatory_docs: manualForm.mandatory
+                    mandatory_docs: Object.entries(manualForm.mandatoryDocs).filter(([_, v]) => v).map(([k]) => k)
                 }
             })
 
@@ -267,6 +284,16 @@ export default function TenderIngest() {
                                 onChange={e => setManualForm({ ...manualForm, title: e.target.value })}
                             />
                         </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Tender Number</label>
+                                <input
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                    placeholder="e.g. NRA-1234"
+                                    value={manualForm.tenderNumber}
+                                    onChange={e => setManualForm({ ...manualForm, tenderNumber: e.target.value })}
+                                />
+                            </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
                             <input
@@ -288,6 +315,7 @@ export default function TenderIngest() {
                             />
                         </div>
 
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Required CIDB Grade</label>
@@ -311,26 +339,80 @@ export default function TenderIngest() {
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Min B-BBEE Level</label>
-                            <select
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-                                value={manualForm.bbbee}
-                                onChange={e => setManualForm({ ...manualForm, bbbee: e.target.value })}
-                            >
-                                {[1, 2, 3, 4, 5, 6, 7, 8].map(l => <option key={l} value={l}>Level {l}</option>)}
-                            </select>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Min B-BBEE Level</label>
+                                <select
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                                    value={manualForm.bbbee}
+                                    onChange={e => setManualForm({ ...manualForm, bbbee: e.target.value })}
+                                >
+                                    {[1, 2, 3, 4, 5, 6, 7, 8].map(l => <option key={l} value={l}>Level {l}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Preference Points</label>
+                                <select
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                                    value={manualForm.prefPoints}
+                                    onChange={e => setManualForm({ ...manualForm, prefPoints: e.target.value })}
+                                >
+                                    <option value="80/20">80/20</option>
+                                    <option value="90/10">90/10</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div className="flex items-center gap-2 pt-2">
                             <input
                                 type="checkbox"
-                                id="mandatory"
-                                checked={manualForm.mandatory}
-                                onChange={e => setManualForm({ ...manualForm, mandatory: e.target.checked })}
+                                id="compulsoryBriefing"
+                                checked={manualForm.compulsoryBriefing}
+                                onChange={e => setManualForm({ ...manualForm, compulsoryBriefing: e.target.checked })}
                                 className="rounded border-gray-300 text-primary focus:ring-primary"
                             />
-                            <label htmlFor="mandatory" className="text-sm text-gray-700 cursor-pointer">Require Standard Mandatory Documents (Tax, CIPC, COID)</label>
+                            <label htmlFor="compulsoryBriefing" className="text-sm font-medium text-gray-700 cursor-pointer">Require Compulsory Briefing</label>
+                        </div>
+
+                        <div className="pt-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Required Standard Documents</label>
+                            <div className="grid grid-cols-2 gap-2 bg-gray-50 p-4 border border-gray-200 rounded-lg">
+                                {Object.entries({
+                                    cipc_cert: "CIPC Registration",
+                                    sars_pin: "SARS Tax PIN",
+                                    csd_summary: "CSD Summary Report",
+                                    coid_letter: "COID Letter of Good Standing",
+                                    bbbee_cert: "B-BBEE Certificate",
+                                    bank_letter: "Bank Confirmation",
+                                    sbd_6_1: "SBD 6.1 Form",
+                                    ohs_plan: "OHS Plan",
+                                    she_file: "SHE File"
+                                }).map(([key, label]) => (
+                                    <div key={key} className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id={`doc_${key}`}
+                                            checked={manualForm.mandatoryDocs[key as keyof typeof manualForm.mandatoryDocs]}
+                                            onChange={e => setManualForm({
+                                                ...manualForm,
+                                                mandatoryDocs: { ...manualForm.mandatoryDocs, [key]: e.target.checked }
+                                            })}
+                                            className="rounded border-gray-300 text-primary focus:ring-primary"
+                                        />
+                                        <label htmlFor={`doc_${key}`} className="text-sm text-gray-700 cursor-pointer">{label}</label>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Notes / Special Conditions</label>
+                            <textarea
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm min-h-[80px]"
+                                placeholder="e.g. Must attend site inspection, strict local content..."
+                                value={manualForm.notes}
+                                onChange={e => setManualForm({ ...manualForm, notes: e.target.value })}
+                            />
                         </div>
 
                         <button

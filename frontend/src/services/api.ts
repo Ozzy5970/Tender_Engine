@@ -82,11 +82,15 @@ export interface ManualTenderData {
     title: string
     client_name: string
     closing_date: string
+    tender_number?: string
+    compulsory_briefing?: boolean
+    notes?: string
+    preference_points?: string
     requirements: {
         cidb_grade?: string
         cidb_class?: string
         min_bbbee_level?: string
-        mandatory_docs?: boolean
+        mandatory_docs?: string[]
     }
 }
 
@@ -221,6 +225,7 @@ export const TenderService = {
                 user_id: user.id,
                 title: data.title,
                 client_name: data.client_name,
+                reference_number: data.tender_number || null,
                 closing_date: data.closing_date,
                 status: 'ANALYZING', // Will trigger readiness check (simulated) or just set to draft
                 compliance_score: 0,
@@ -256,14 +261,45 @@ export const TenderService = {
             })
         }
 
-        // Mandatory Docs (Simulated generic requirement for now)
-        if (data.requirements.mandatory_docs) {
+        // Mandatory Docs (Specific selection)
+        if (data.requirements.mandatory_docs && data.requirements.mandatory_docs.length > 0) {
             requirements.push({
                 tender_id: tender.id,
                 rule_category: 'MANDATORY_DOC',
                 description: `Standard Administrative Compliance`,
-                target_value: { docs: ['cipc_cert', 'sars_pin', 'csd_summary', 'coid_letter', 'uif_reg', 'bank_letter'] },
+                target_value: { docs: data.requirements.mandatory_docs },
                 is_killer: true
+            })
+        }
+
+        // Additional Metadata stored as rules
+        if (data.preference_points) {
+            requirements.push({
+                tender_id: tender.id,
+                rule_category: 'PREFERENCE_POINTS',
+                description: `Preference points system`,
+                target_value: { system: data.preference_points },
+                is_killer: false
+            })
+        }
+
+        if (data.compulsory_briefing) {
+            requirements.push({
+                tender_id: tender.id,
+                rule_category: 'COMPULSORY_BRIEFING',
+                description: `Compulsory Briefing Session Required`,
+                target_value: { required: true },
+                is_killer: true
+            })
+        }
+
+        if (data.notes) {
+            requirements.push({
+                tender_id: tender.id,
+                rule_category: 'SPECIAL_CONDITIONS',
+                description: data.notes,
+                target_value: { text: data.notes },
+                is_killer: false
             })
         }
 
