@@ -60,6 +60,7 @@ export default function Compliance() {
             case "warning": return <AlertTriangle className="w-5 h-5 text-yellow-600" />
             case "expired": return <XCircle className="w-5 h-5 text-red-600" />
             case "incomplete": return <AlertTriangle className="w-5 h-5 text-orange-500" />
+            case "needs_details": return <AlertTriangle className="w-5 h-5 text-blue-500" />
             case "missing": return <div className="w-5 h-5 rounded-full border-2 border-gray-300 border-dashed" />
             default: return <div className="w-5 h-5" />
         }
@@ -82,13 +83,47 @@ export default function Compliance() {
         if (!doc) return 'missing'
         
         let status = doc.computed_status || (doc as any).status || 'missing'
-        
         const daysLeft = doc.expiry_date ? getDaysRemaining(doc.expiry_date) : null
         
         if (daysLeft !== null && daysLeft <= 0) {
-            status = 'expired'
-        } else if (daysLeft !== null && daysLeft <= 90 && status === 'valid') {
-            status = 'warning'
+            return 'expired'
+        }
+
+        // Frontend validation for incomplete / needs_details
+        const docDef = DOCUMENT_TYPES[doc.doc_type as DocTypeKey]
+        if (docDef && docDef.fields) {
+            const requiredFields = docDef.fields.filter(f => f.required)
+            const md = doc.metadata || {}
+            
+            // Meaningfully filled check
+            const meaningfulKeys = Object.keys(md).filter(k => 
+                k !== 'is_incomplete' && 
+                md[k] !== null && 
+                md[k] !== undefined && 
+                md[k] !== ''
+            )
+
+            if (requiredFields.length > 0) {
+                const hasMissingReq = requiredFields.some(f => {
+                    const val = md[f.key]
+                    return val === null || val === undefined || val === ''
+                })
+                if (hasMissingReq) {
+                    return 'incomplete'
+                }
+            } else {
+                if (meaningfulKeys.length === 0) {
+                    return 'needs_details'
+                }
+            }
+        }
+
+        if (daysLeft !== null && daysLeft <= 90 && status === 'valid') {
+            return 'warning'
+        }
+        
+        if (status === 'missing' || status === 'incomplete' || status === 'needs_details') {
+            status = 'valid' // Fallback if none of the negative conditions trap it
         }
         
         return status
@@ -201,7 +236,7 @@ export default function Compliance() {
                                                             <FileText className="w-3.5 h-3.5" />
                                                             {doc.file_name || "Document Uploaded"}
                                                         </span>
-                                                        {doc.expiry_date && status !== 'incomplete' && (
+                                                        {doc.expiry_date && status !== 'incomplete' && status !== 'needs_details' && (
                                                             <span className={`flex items-center gap-1 ${status === 'expired' ? 'text-red-600 font-bold' : (isExpiringSoon ? 'text-amber-600 font-bold' : '')}`}>
                                                                 <Calendar className="w-3.5 h-3.5" />
                                                                 {status === 'expired'
@@ -213,6 +248,11 @@ export default function Compliance() {
                                                         {status === 'incomplete' && (
                                                             <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded text-xs font-bold border border-orange-200 flex items-center gap-1">
                                                                 <AlertTriangle className="w-3.5 h-3.5" /> Incomplete
+                                                            </span>
+                                                        )}
+                                                        {status === 'needs_details' && (
+                                                            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-bold border border-blue-200 flex items-center gap-1">
+                                                                <AlertTriangle className="w-3.5 h-3.5" /> Needs Details
                                                             </span>
                                                         )}
                                                         {(def as any).wMetadata?.includes('grade') && doc.metadata?.grade && (

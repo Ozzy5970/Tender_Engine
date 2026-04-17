@@ -216,6 +216,7 @@ Deno.serve(async (req) => {
 
   [For SBD 6.1]
   - tender_number: check for 'Tender Number', 'Bid Number', 'RFQ Number'
+  - tender_description: search tender headers, form title blocks, procurement summary sections, and project title lines near the tender number. Check for: 'Tender Description', 'Bid Description', 'Contract Description', 'Description of Bid', 'Project Description', 'Description', 'Tender / Bid Title', 'Works Description'
   - bbbee_level: check for 'B-BBEE Level', 'BBBEE Status Level' 
   - claiming_points: check for 'Preference Points Claimed', 'Points Claimed'
   - representative_name: check for 'Authorized Signatory', 'Signatory', 'Name'
@@ -274,6 +275,7 @@ Deno.serve(async (req) => {
           "safety_officer": "Name of the safety officer or responsible agent" or null,
           "prepared_by": "Name of the author or compiler" or null,
           "tender_number": "Tender or Bid Number if applicable" or null,
+          "tender_description": "Description of the tender or project if applicable" or null,
           "claiming_points": "Preference points claimed if applicable" or null,
           "representative_name": "Name of the authorized signatory" or null,
           "signature_date": "YYYY-MM-DD" or null,
