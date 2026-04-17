@@ -103,6 +103,8 @@ export default function TenderIngest() {
             return
         }
 
+        console.log("[Tender Debug] manual form state before save:", manualForm)
+
         setStatus("processing")
         setProcessStep("Creating tender record...")
 
@@ -122,9 +124,11 @@ export default function TenderIngest() {
                     cidb_grade: manualForm.grade,
                     cidb_class: manualForm.class,
                     min_bbbee_level: manualForm.bbbee,
-                    mandatory_docs: Object.entries(manualForm.mandatoryDocs).filter(([_, v]) => v).map(([k]) => k)
+                    mandatory_docs: manualForm.mandatoryDocs ? Object.entries(manualForm.mandatoryDocs).filter(([_, v]) => v).map(([k]) => k) : []
                 }
             })
+
+            console.log("[Tender Debug] saving manual tender result:", res)
 
             if (res.error) {
                 throw new Error(res.error)
@@ -210,15 +214,15 @@ export default function TenderIngest() {
             if (analyzeError) throw new Error(analyzeError)
 
             // 3. Populate Form & Switch to Manual for Review
-            setManualForm({
-                title: data.title || manualForm.title,
-                client: data.client_name || manualForm.client,
-                closingDate: data.closing_date ? data.closing_date.split('T')[0] : manualForm.closingDate,
-                grade: data.cidb_grade || manualForm.grade,
-                class: data.cidb_class || manualForm.class,
-                bbbee: data.min_bbbee_level || manualForm.bbbee,
-                mandatory: true // Assume true if we parsed it
-            })
+            setManualForm(prev => ({
+                ...prev,
+                title: data.title || prev.title,
+                client: data.client_name || prev.client,
+                closingDate: data.closing_date ? data.closing_date.split('T')[0] : prev.closingDate,
+                grade: data.cidb_grade || prev.grade,
+                class: data.cidb_class || prev.class,
+                bbbee: data.min_bbbee_level || prev.bbbee
+            }))
 
             setStatus("idle")
             setIngestMode("manual")
@@ -290,20 +294,22 @@ export default function TenderIngest() {
                                 <input
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                                     placeholder="e.g. NRA-1234"
-                                    value={manualForm.tenderNumber}
+                                    value={manualForm.tenderNumber || ''}
                                     onChange={e => setManualForm({ ...manualForm, tenderNumber: e.target.value })}
                                 />
                             </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
-                            <input
-                                required
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                placeholder="e.g. SANRAL"
-                                value={manualForm.client}
-                                onChange={e => setManualForm({ ...manualForm, client: e.target.value })}
-                            />
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                                <input
+                                    required
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                    placeholder="e.g. SANRAL"
+                                    value={manualForm.client}
+                                    onChange={e => setManualForm({ ...manualForm, client: e.target.value })}
+                                />
+                            </div>
                         </div>
+
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Closing Date</label>
                             <input
@@ -392,10 +398,10 @@ export default function TenderIngest() {
                                         <input
                                             type="checkbox"
                                             id={`doc_${key}`}
-                                            checked={manualForm.mandatoryDocs[key as keyof typeof manualForm.mandatoryDocs]}
+                                            checked={manualForm.mandatoryDocs?.[key as keyof typeof manualForm.mandatoryDocs] || false}
                                             onChange={e => setManualForm({
                                                 ...manualForm,
-                                                mandatoryDocs: { ...manualForm.mandatoryDocs, [key]: e.target.checked }
+                                                mandatoryDocs: { ...(manualForm.mandatoryDocs || {}), [key]: e.target.checked }
                                             })}
                                             className="rounded border-gray-300 text-primary focus:ring-primary"
                                         />
