@@ -83,6 +83,8 @@ export interface ManualTenderData {
     client_name: string
     closing_date: string
     tender_number?: string
+    tender_description?: string
+    additional_returnables?: string
     compulsory_briefing?: boolean
     notes?: string
     preference_points?: string
@@ -273,6 +275,26 @@ export const TenderService = {
         }
 
         // Additional Metadata stored as rules
+        if (data.tender_description) {
+            requirements.push({
+                tender_id: tender.id,
+                rule_category: 'TENDER_DESCRIPTION',
+                description: 'Tender Description',
+                target_value: { text: data.tender_description },
+                is_killer: false
+            })
+        }
+
+        if (data.additional_returnables) {
+            requirements.push({
+                tender_id: tender.id,
+                rule_category: 'ADDITIONAL_RETURNABLE',
+                description: 'Additional Mandatory Returnables',
+                target_value: { text: data.additional_returnables },
+                is_killer: true
+            })
+        }
+
         if (data.preference_points) {
             requirements.push({
                 tender_id: tender.id,

@@ -19,19 +19,25 @@ export default function TenderIngest() {
         title: "",
         client: "",
         tenderNumber: "",
+        tenderDescription: "",
         closingDate: "",
         grade: "1",
         class: "CE",
         bbbee: "1",
         prefPoints: "80/20",
         compulsoryBriefing: false,
+        additionalReturnables: "",
         notes: "",
         mandatoryDocs: {
             cipc_cert: false,
+            cidb_proof: false,
             sars_pin: false,
             csd_summary: false,
             coid_letter: false,
             bbbee_cert: false,
+            vat_reg: false,
+            uif_letter: false,
+            paye_reg: false,
             bank_letter: false,
             sbd_6_1: false,
             ohs_plan: false,
@@ -116,8 +122,10 @@ export default function TenderIngest() {
                 title: manualForm.title,
                 client_name: manualForm.client,
                 tender_number: manualForm.tenderNumber,
+                tender_description: manualForm.tenderDescription,
                 closing_date: manualForm.closingDate,
                 compulsory_briefing: manualForm.compulsoryBriefing,
+                additional_returnables: manualForm.additionalReturnables,
                 notes: manualForm.notes,
                 preference_points: manualForm.prefPoints,
                 requirements: {
@@ -218,6 +226,7 @@ export default function TenderIngest() {
                 ...prev,
                 title: data.title || prev.title,
                 client: data.client_name || prev.client,
+                tenderDescription: data.description || prev.tenderDescription,
                 closingDate: data.closing_date ? data.closing_date.split('T')[0] : prev.closingDate,
                 grade: data.cidb_grade || prev.grade,
                 class: data.cidb_class || prev.class,
@@ -277,121 +286,144 @@ export default function TenderIngest() {
 
                 {/* MANUAL FORM */}
                 {ingestMode === 'manual' && (status === 'idle' || status === 'processing' || status === 'error') && (
-                    <form onSubmit={submitManual} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Tender Name</label>
-                            <input
-                                required
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                placeholder="e.g. N2 Highway Maintenance"
-                                value={manualForm.title}
-                                onChange={e => setManualForm({ ...manualForm, title: e.target.value })}
-                            />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
+                    <form onSubmit={submitManual} className="space-y-8">
+                        {/* 1. Tender Basics */}
+                        <div className="space-y-4">
+                            <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">1. Tender Basics</h3>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Tender Number</label>
-                                <input
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                    placeholder="e.g. NRA-1234"
-                                    value={manualForm.tenderNumber || ''}
-                                    onChange={e => setManualForm({ ...manualForm, tenderNumber: e.target.value })}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Tender Name</label>
                                 <input
                                     required
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                    placeholder="e.g. SANRAL"
-                                    value={manualForm.client}
-                                    onChange={e => setManualForm({ ...manualForm, client: e.target.value })}
+                                    placeholder="e.g. N2 Highway Maintenance"
+                                    value={manualForm.title}
+                                    onChange={e => setManualForm({ ...manualForm, title: e.target.value })}
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tender Number</label>
+                                    <input
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                        placeholder="e.g. NRA-1234"
+                                        value={manualForm.tenderNumber || ''}
+                                        onChange={e => setManualForm({ ...manualForm, tenderNumber: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                                    <input
+                                        required
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                        placeholder="e.g. SANRAL"
+                                        value={manualForm.client}
+                                        onChange={e => setManualForm({ ...manualForm, client: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Closing Date</label>
+                                <input
+                                    type="date"
+                                    required
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                    value={manualForm.closingDate}
+                                    onChange={e => setManualForm({ ...manualForm, closingDate: e.target.value })}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Tender Description</label>
+                                <textarea
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm min-h-[80px]"
+                                    placeholder="e.g. High-level scope of work or project goals..."
+                                    value={manualForm.tenderDescription}
+                                    onChange={e => setManualForm({ ...manualForm, tenderDescription: e.target.value })}
                                 />
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Closing Date</label>
-                            <input
-                                type="date"
-                                required
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                value={manualForm.closingDate}
-                                onChange={e => setManualForm({ ...manualForm, closingDate: e.target.value })}
-                            />
+                        {/* 2. Eligibility Requirements */}
+                        <div className="space-y-4">
+                            <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">2. Eligibility Requirements</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Required CIDB Grade</label>
+                                    <select
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                                        value={manualForm.grade}
+                                        onChange={e => setManualForm({ ...manualForm, grade: e.target.value })}
+                                    >
+                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => <option key={g} value={g}>{g}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+                                    <select
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                                        value={manualForm.class}
+                                        onChange={e => setManualForm({ ...manualForm, class: e.target.value })}
+                                    >
+                                        {["CE", "GB", "ME", "EP"].map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Min B-BBEE Level</label>
+                                    <select
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                                        value={manualForm.bbbee}
+                                        onChange={e => setManualForm({ ...manualForm, bbbee: e.target.value })}
+                                    >
+                                        {[1, 2, 3, 4, 5, 6, 7, 8].map(l => <option key={l} value={l}>Level {l}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Preference Points</label>
+                                    <select
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                                        value={manualForm.prefPoints}
+                                        onChange={e => setManualForm({ ...manualForm, prefPoints: e.target.value })}
+                                    >
+                                        <option value="80/20">80/20</option>
+                                        <option value="90/10">90/10</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 pt-2">
+                                <input
+                                    type="checkbox"
+                                    id="compulsoryBriefing"
+                                    checked={manualForm.compulsoryBriefing}
+                                    onChange={e => setManualForm({ ...manualForm, compulsoryBriefing: e.target.checked })}
+                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                />
+                                <label htmlFor="compulsoryBriefing" className="text-sm font-medium text-gray-700 cursor-pointer">Require Compulsory Briefing</label>
+                            </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Required CIDB Grade</label>
-                                <select
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-                                    value={manualForm.grade}
-                                    onChange={e => setManualForm({ ...manualForm, grade: e.target.value })}
-                                >
-                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => <option key={g} value={g}>{g}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
-                                <select
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-                                    value={manualForm.class}
-                                    onChange={e => setManualForm({ ...manualForm, class: e.target.value })}
-                                >
-                                    {["CE", "GB", "ME", "EP"].map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Min B-BBEE Level</label>
-                                <select
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-                                    value={manualForm.bbbee}
-                                    onChange={e => setManualForm({ ...manualForm, bbbee: e.target.value })}
-                                >
-                                    {[1, 2, 3, 4, 5, 6, 7, 8].map(l => <option key={l} value={l}>Level {l}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Preference Points</label>
-                                <select
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-                                    value={manualForm.prefPoints}
-                                    onChange={e => setManualForm({ ...manualForm, prefPoints: e.target.value })}
-                                >
-                                    <option value="80/20">80/20</option>
-                                    <option value="90/10">90/10</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 pt-2">
-                            <input
-                                type="checkbox"
-                                id="compulsoryBriefing"
-                                checked={manualForm.compulsoryBriefing}
-                                onChange={e => setManualForm({ ...manualForm, compulsoryBriefing: e.target.checked })}
-                                className="rounded border-gray-300 text-primary focus:ring-primary"
-                            />
-                            <label htmlFor="compulsoryBriefing" className="text-sm font-medium text-gray-700 cursor-pointer">Require Compulsory Briefing</label>
-                        </div>
-
-                        <div className="pt-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Required Standard Documents</label>
+                        {/* 3. Required Compliance Documents */}
+                        <div className="space-y-4">
+                            <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">3. Required Compliance Documents</h3>
                             <div className="grid grid-cols-2 gap-2 bg-gray-50 p-4 border border-gray-200 rounded-lg">
                                 {Object.entries({
                                     cipc_cert: "CIPC Registration",
+                                    cidb_proof: "CIDB Certificate",
                                     sars_pin: "SARS Tax PIN",
                                     csd_summary: "CSD Summary Report",
                                     coid_letter: "COID Letter of Good Standing",
                                     bbbee_cert: "B-BBEE Certificate",
+                                    vat_reg: "VAT Registration",
+                                    uif_letter: "UIF Compliance",
+                                    paye_reg: "PAYE Registration",
                                     bank_letter: "Bank Confirmation",
-                                    sbd_6_1: "SBD 6.1 Form",
                                     ohs_plan: "OHS Plan",
-                                    she_file: "SHE File"
+                                    she_file: "SHE File",
+                                    sbd_6_1: "SBD 6.1 Form"
                                 }).map(([key, label]) => (
                                     <div key={key} className="flex items-center gap-2">
                                         <input
@@ -410,20 +442,33 @@ export default function TenderIngest() {
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Notes / Special Conditions</label>
-                            <textarea
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm min-h-[80px]"
-                                placeholder="e.g. Must attend site inspection, strict local content..."
-                                value={manualForm.notes}
-                                onChange={e => setManualForm({ ...manualForm, notes: e.target.value })}
-                            />
+                        {/* 4. Additional Requirements */}
+                        <div className="space-y-4">
+                            <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">4. Additional Requirements</h3>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Additional Mandatory Returnables</label>
+                                <textarea
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm min-h-[80px]"
+                                    placeholder="e.g. Schedule of Subcontractors, Key Personnel CVs..."
+                                    value={manualForm.additionalReturnables}
+                                    onChange={e => setManualForm({ ...manualForm, additionalReturnables: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Special Conditions / Notes</label>
+                                <textarea
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm min-h-[80px]"
+                                    placeholder="e.g. Must attend site inspection, strict local content..."
+                                    value={manualForm.notes}
+                                    onChange={e => setManualForm({ ...manualForm, notes: e.target.value })}
+                                />
+                            </div>
                         </div>
 
                         <button
                             type="submit"
                             disabled={status === 'processing'}
-                            className="w-full py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors mt-4 flex items-center justify-center"
+                            className="w-full py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors mt-6 flex items-center justify-center"
                         >
                             {status === 'processing' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                             {status === 'processing' ? 'Creating...' : 'Create Tender'}
