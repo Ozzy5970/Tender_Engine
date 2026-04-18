@@ -21,10 +21,10 @@ export default function TenderIngest() {
         tenderNumber: "",
         tenderDescription: "",
         closingDate: "",
-        grade: "1",
-        class: "CE",
-        bbbee: "1",
-        prefPoints: "80/20",
+        grade: "",
+        class: "",
+        bbbee: "",
+        prefPoints: "",
         compulsoryBriefing: false,
         additionalReturnables: "",
         notes: "",
@@ -244,17 +244,43 @@ export default function TenderIngest() {
             // 3. Populate Form & Switch to Manual for Review
             const extractDate = (val: any) => val ? String(val).split('T')[0] : null;
 
-            setManualForm(prev => ({
-                ...prev,
-                title: data.title || data.tender_description || prev.title,
-                client: data.client_name || data.entity_name || prev.client,
-                tenderNumber: data.tender_number || data.reference_number || prev.tenderNumber,
-                tenderDescription: data.description || data.summary || prev.tenderDescription,
-                closingDate: extractDate(data.closing_date) || extractDate(data.expiry_date) || extractDate(data.signature_date) || prev.closingDate,
-                grade: data.cidb_grade || data.grade || prev.grade,
-                class: data.cidb_class || data.class_of_work || prev.class,
-                bbbee: data.min_bbbee_level || data.bbbee_level || prev.bbbee
-            }))
+            // Document Mapping
+            const aiDocs = [data.required_documents, data.mandatory_documents, data.compliance_requirements, data.mandatory_returnables, data.documents, data.returnables].filter(Boolean);
+            const docsString = aiDocs.length > 0 ? JSON.stringify(aiDocs).toLowerCase() : "";
+            const hasDoc = (keywords: string[]) => docsString && keywords.some(k => docsString.includes(k.toLowerCase()));
+
+            setManualForm(prev => {
+                const mandatoryDocs = { ...prev.mandatoryDocs };
+                if (aiDocs.length > 0) {
+                    if (hasDoc(['cipc', 'company registration', 'cor14.3', 'ck1'])) mandatoryDocs.cipc_cert = true;
+                    if (hasDoc(['cidb'])) mandatoryDocs.cidb_proof = true;
+                    if (hasDoc(['sars', 'tax pin', 'tax clearance'])) mandatoryDocs.sars_pin = true;
+                    if (hasDoc(['csd', 'central supplier'])) mandatoryDocs.csd_summary = true;
+                    if (hasDoc(['coid', 'good standing', 'wca'])) mandatoryDocs.coid_letter = true;
+                    if (hasDoc(['b-bbee', 'bbbee', 'bbee'])) mandatoryDocs.bbbee_cert = true;
+                    if (hasDoc(['vat reg', 'value added tax'])) mandatoryDocs.vat_reg = true;
+                    if (hasDoc(['uif'])) mandatoryDocs.uif_letter = true;
+                    if (hasDoc(['paye'])) mandatoryDocs.paye_reg = true;
+                    if (hasDoc(['bank letter', 'bank confirmation', 'cancelled cheque'])) mandatoryDocs.bank_letter = true;
+                    if (hasDoc(['sbd 6.1', 'sbd6.1'])) mandatoryDocs.sbd_6_1 = true;
+                    if (hasDoc(['ohs plan', 'health and safety'])) mandatoryDocs.ohs_plan = true;
+                    if (hasDoc(['she file', 'safety file'])) mandatoryDocs.she_file = true;
+                }
+
+                return {
+                    ...prev,
+                    title: data.title || data.tender_description || prev.title,
+                    client: data.client_name || data.entity_name || prev.client,
+                    tenderNumber: data.tender_number || data.reference_number || prev.tenderNumber,
+                    tenderDescription: data.description || data.summary || prev.tenderDescription,
+                    closingDate: extractDate(data.closing_date) || extractDate(data.expiry_date) || extractDate(data.signature_date) || prev.closingDate,
+                    grade: data.cidb_grade || data.grade || prev.grade,
+                    class: data.cidb_class || data.class_of_work || prev.class,
+                    bbbee: data.min_bbbee_level || data.bbbee_level || prev.bbbee,
+                    prefPoints: data.preference_points || data.claiming_points || data.pref_points || prev.prefPoints,
+                    mandatoryDocs
+                };
+            });
 
             setStatus("idle")
             setIngestMode("manual")
@@ -378,6 +404,7 @@ export default function TenderIngest() {
                                         value={manualForm.grade}
                                         onChange={e => setManualForm({ ...manualForm, grade: e.target.value })}
                                     >
+                                        <option value="" disabled>Choose CIDB Grade</option>
                                         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => <option key={g} value={g}>{g}</option>)}
                                     </select>
                                 </div>
@@ -388,6 +415,7 @@ export default function TenderIngest() {
                                         value={manualForm.class}
                                         onChange={e => setManualForm({ ...manualForm, class: e.target.value })}
                                     >
+                                        <option value="" disabled>Choose Class</option>
                                         {["CE", "GB", "ME", "EP"].map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                 </div>
@@ -401,6 +429,7 @@ export default function TenderIngest() {
                                         value={manualForm.bbbee}
                                         onChange={e => setManualForm({ ...manualForm, bbbee: e.target.value })}
                                     >
+                                        <option value="" disabled>Choose B-BBEE Level</option>
                                         {[1, 2, 3, 4, 5, 6, 7, 8].map(l => <option key={l} value={l}>Level {l}</option>)}
                                     </select>
                                 </div>
@@ -411,6 +440,7 @@ export default function TenderIngest() {
                                         value={manualForm.prefPoints}
                                         onChange={e => setManualForm({ ...manualForm, prefPoints: e.target.value })}
                                     >
+                                        <option value="" disabled>Choose Preference Points</option>
                                         <option value="80/20">80/20</option>
                                         <option value="90/10">90/10</option>
                                     </select>
