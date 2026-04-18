@@ -4,6 +4,88 @@ import { useNavigate } from "react-router-dom"
 import { TenderService } from "@/services/api"
 // import { cn } from "@/lib/utils"
 
+const DOC_KEYWORDS = {
+    cipc_cert: ['cipc', 'company registration', 'cor14.3', 'ck1'],
+    cidb_proof: ['cidb'],
+    sars_pin: ['sars', 'tax pin', 'tax clearance', 'tcs pin'],
+    csd_summary: ['csd', 'central supplier', 'maaa'],
+    coid_letter: ['coid', 'good standing', 'wca', 'letter of good standing'],
+    bbbee_cert: ['b-bbee', 'bbbee', 'bbee', 'sworn affidavit'],
+    vat_reg: ['vat reg', 'value added tax'],
+    uif_letter: ['uif'],
+    paye_reg: ['paye'],
+    bank_letter: ['bank letter', 'bank confirmation', 'cancelled cheque'],
+    sbd_6_1: ['sbd 6.1', 'sbd6.1'],
+    ohs_plan: ['ohs plan', 'health and safety plan'],
+    she_file: ['she file', 'safety file']
+};
+
+const normalizeTenderMandatoryDocs = (data: any, prevDocs: Record<string, boolean>) => {
+    const aiDocs = [data.required_documents, data.mandatory_documents, data.compliance_requirements, data.mandatory_returnables, data.documents, data.returnables].filter(Boolean);
+    if (!aiDocs.length) return prevDocs;
+    
+    let flatStr = "";
+    if (typeof aiDocs[0] === 'string') {
+        flatStr = aiDocs.join(' ');
+    } else if (Array.isArray(aiDocs[0])) {
+        flatStr = aiDocs.flat().join(' ');
+    } else {
+        flatStr = JSON.stringify(aiDocs);
+    }
+    flatStr = flatStr.toLowerCase();
+
+    const mandatoryDocs = { ...prevDocs };
+    Object.entries(DOC_KEYWORDS).forEach(([key, keywords]) => {
+        if (keywords.some(k => flatStr.includes(k.toLowerCase()))) {
+            mandatoryDocs[key as keyof typeof mandatoryDocs] = true;
+        }
+    });
+    return mandatoryDocs;
+};
+
+const normalizePreferencePoints = (val1: any, val2: any, val3: any) => {
+    const str = String(val1 || val2 || val3 || "").replace(/\s/g, '');
+    if (str.includes("80/20") || str.includes("80-20")) return "80/20";
+    if (str.includes("90/10") || str.includes("90-10")) return "90/10";
+    return "";
+};
+
+const normalizeCidbGrade = (val1: any, val2: any) => {
+    const str = String(val1 || val2 || "");
+    const match = str.match(/[1-9]/);
+    return match ? match[0] : "";
+};
+
+const normalizeCidbClass = (val1: any, val2: any) => {
+    const str = String(val1 || val2 || "").toUpperCase();
+    const valid = ["CE", "GB", "ME", "EP"];
+    return valid.find(c => str.includes(c)) || "";
+};
+
+const normalizeBbbeeLevel = (val1: any, val2: any) => {
+    const str = String(val1 || val2 || "");
+    const match = str.match(/[1-8]/);
+    return match ? match[0] : "";
+};
+
+const normalizeTenderAiData = (data: any, prev: any) => {
+    const extractDate = (val: any) => val ? String(val).split('T')[0] : null;
+
+    return {
+        ...prev,
+        title: data.title || data.tender_description || prev.title,
+        client: data.client_name || data.entity_name || prev.client,
+        tenderNumber: data.tender_number || data.reference_number || prev.tenderNumber,
+        tenderDescription: data.description || data.summary || prev.tenderDescription,
+        closingDate: extractDate(data.closing_date) || extractDate(data.expiry_date) || extractDate(data.signature_date) || prev.closingDate,
+        grade: normalizeCidbGrade(data.cidb_grade, data.grade) || prev.grade,
+        class: normalizeCidbClass(data.cidb_class, data.class_of_work) || prev.class,
+        bbbee: normalizeBbbeeLevel(data.min_bbbee_level, data.bbbee_level) || prev.bbbee,
+        prefPoints: normalizePreferencePoints(data.preference_points, data.claiming_points, data.pref_points) || prev.prefPoints,
+        mandatoryDocs: normalizeTenderMandatoryDocs(data, prev.mandatoryDocs)
+    };
+};
+
 type UploadState = "idle" | "uploading" | "processing" | "error" | "complete" | "blocked"
 
 export default function TenderIngest() {
@@ -242,45 +324,7 @@ export default function TenderIngest() {
             console.log("[Tender Upload Debug] AI Insights status:", insights)
 
             // 3. Populate Form & Switch to Manual for Review
-            const extractDate = (val: any) => val ? String(val).split('T')[0] : null;
-
-            // Document Mapping
-            const aiDocs = [data.required_documents, data.mandatory_documents, data.compliance_requirements, data.mandatory_returnables, data.documents, data.returnables].filter(Boolean);
-            const docsString = aiDocs.length > 0 ? JSON.stringify(aiDocs).toLowerCase() : "";
-            const hasDoc = (keywords: string[]) => docsString && keywords.some(k => docsString.includes(k.toLowerCase()));
-
-            setManualForm(prev => {
-                const mandatoryDocs = { ...prev.mandatoryDocs };
-                if (aiDocs.length > 0) {
-                    if (hasDoc(['cipc', 'company registration', 'cor14.3', 'ck1'])) mandatoryDocs.cipc_cert = true;
-                    if (hasDoc(['cidb'])) mandatoryDocs.cidb_proof = true;
-                    if (hasDoc(['sars', 'tax pin', 'tax clearance'])) mandatoryDocs.sars_pin = true;
-                    if (hasDoc(['csd', 'central supplier'])) mandatoryDocs.csd_summary = true;
-                    if (hasDoc(['coid', 'good standing', 'wca'])) mandatoryDocs.coid_letter = true;
-                    if (hasDoc(['b-bbee', 'bbbee', 'bbee'])) mandatoryDocs.bbbee_cert = true;
-                    if (hasDoc(['vat reg', 'value added tax'])) mandatoryDocs.vat_reg = true;
-                    if (hasDoc(['uif'])) mandatoryDocs.uif_letter = true;
-                    if (hasDoc(['paye'])) mandatoryDocs.paye_reg = true;
-                    if (hasDoc(['bank letter', 'bank confirmation', 'cancelled cheque'])) mandatoryDocs.bank_letter = true;
-                    if (hasDoc(['sbd 6.1', 'sbd6.1'])) mandatoryDocs.sbd_6_1 = true;
-                    if (hasDoc(['ohs plan', 'health and safety'])) mandatoryDocs.ohs_plan = true;
-                    if (hasDoc(['she file', 'safety file'])) mandatoryDocs.she_file = true;
-                }
-
-                return {
-                    ...prev,
-                    title: data.title || data.tender_description || prev.title,
-                    client: data.client_name || data.entity_name || prev.client,
-                    tenderNumber: data.tender_number || data.reference_number || prev.tenderNumber,
-                    tenderDescription: data.description || data.summary || prev.tenderDescription,
-                    closingDate: extractDate(data.closing_date) || extractDate(data.expiry_date) || extractDate(data.signature_date) || prev.closingDate,
-                    grade: data.cidb_grade || data.grade || prev.grade,
-                    class: data.cidb_class || data.class_of_work || prev.class,
-                    bbbee: data.min_bbbee_level || data.bbbee_level || prev.bbbee,
-                    prefPoints: data.preference_points || data.claiming_points || data.pref_points || prev.prefPoints,
-                    mandatoryDocs
-                };
-            });
+            setManualForm(prev => normalizeTenderAiData(data, prev));
 
             setStatus("idle")
             setIngestMode("manual")
