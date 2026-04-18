@@ -39,6 +39,7 @@ interface RawTenderAiPayload {
     title?: string;
     tender_title?: string;
     description?: string;
+    tender_description?: string;
     summary?: string;
     client_name?: string;
     entity_name?: string;
@@ -78,6 +79,23 @@ interface ExtractedQualifications {
 // Note: This maps to the Tender's required returnables, which are later evaluated against the user's uploaded compliance documents.
 type MandatoryDocKeys = keyof typeof DOC_KEYWORDS;
 type MandatoryDocsState = Record<MandatoryDocKeys, boolean>;
+
+// Fully explicit form state typing to prevent React setState drift
+export interface ManualFormState {
+    title: string;
+    client: string;
+    tenderNumber: string;
+    tenderDescription: string;
+    closingDate: string;
+    grade: string;
+    class: string;
+    bbbee: string;
+    prefPoints: string;
+    compulsoryBriefing: boolean;
+    additionalReturnables: string;
+    notes: string;
+    mandatoryDocs: MandatoryDocsState;
+}
 
 const normalizeTenderMandatoryDocs = (data: RawTenderAiPayload, prevDocs: MandatoryDocsState): MandatoryDocsState => {
     const aiDocs = [data.required_documents, data.mandatory_documents, data.compliance_requirements, data.mandatory_returnables, data.documents, data.returnables].filter(Boolean);
@@ -227,7 +245,7 @@ const normalizeCompulsoryBriefing = (data: RawTenderAiPayload): boolean | null =
     return null;
 };
 
-const normalizeTenderAiData = (data: RawTenderAiPayload, prev: Record<string, any>, traceId: string) => {
+const normalizeTenderAiData = (data: RawTenderAiPayload, prev: ManualFormState, traceId: string): ManualFormState => {
     const extractDate = (val: any) => val ? String(val).split('T')[0] : null;
 
     // Pure extracted AI object before any form fallbacks clutter the telemetry
@@ -297,8 +315,8 @@ export default function TenderIngest() {
             sbd_6_1: false,
             ohs_plan: false,
             she_file: false
-        } as Record<string, boolean>
-    })
+        } as MandatoryDocsState
+    });
 
     const inputRef = useRef<HTMLInputElement>(null)
 
