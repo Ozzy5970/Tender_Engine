@@ -2,7 +2,21 @@ import { useState, useRef } from "react"
 import { Upload, X, FileText, Loader2, CheckCircle2, AlertTriangle, ArrowLeft } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { TenderService } from "@/services/api"
+import * as Sentry from "@sentry/react"
 // import { cn } from "@/lib/utils"
+
+const debugLog = (...args: any[]) => {
+    if (!import.meta.env.PROD || import.meta.env.VITE_ENABLE_TENDER_DEBUG === "true") {
+        console.log(...args);
+    }
+};
+
+const generateTraceId = () => {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+};
 
 const DOC_KEYWORDS = {
     cipc_cert: ['cipc', 'company registration', 'cor14.3', 'ck1'],
@@ -20,7 +34,52 @@ const DOC_KEYWORDS = {
     she_file: ['she file', 'safety file']
 };
 
-const normalizeTenderMandatoryDocs = (data: any, prevDocs: Record<string, boolean>) => {
+// Tender AI Edge Function output shape
+interface RawTenderAiPayload {
+    title?: string;
+    tender_title?: string;
+    description?: string;
+    summary?: string;
+    client_name?: string;
+    entity_name?: string;
+    tender_number?: string;
+    reference_number?: string;
+    closing_date?: string;
+    expiry_date?: string;
+    signature_date?: string;
+    cidb_grade?: string;
+    grade?: string;
+    cidb_class?: string;
+    class_of_work?: string;
+    min_bbbee_level?: string;
+    bbbee_level?: string;
+    preference_points?: string;
+    claiming_points?: string;
+    pref_points?: string;
+    requirements?: unknown;
+    compliance_requirements?: unknown;
+    mandatory_returnables?: unknown;
+    required_documents?: unknown;
+    returnables?: unknown;
+    documents?: unknown;
+    [key: string]: unknown;
+}
+
+// Extracted AI Qualification data
+interface ExtractedQualifications {
+    grade: string;
+    class: string;
+    bbbee: string;
+    prefPoints: string;
+    compulsoryBriefing: boolean | null;
+}
+
+// Mandatory documents explicitly required by this specific tender (e.g. CSD, SARS pin)
+// Note: This maps to the Tender's required returnables, which are later evaluated against the user's uploaded compliance documents.
+type MandatoryDocKeys = keyof typeof DOC_KEYWORDS;
+type MandatoryDocsState = Record<MandatoryDocKeys, boolean>;
+
+const normalizeTenderMandatoryDocs = (data: RawTenderAiPayload, prevDocs: MandatoryDocsState): MandatoryDocsState => {
     const aiDocs = [data.required_documents, data.mandatory_documents, data.compliance_requirements, data.mandatory_returnables, data.documents, data.returnables].filter(Boolean);
     if (!aiDocs.length) return prevDocs;
     
@@ -46,28 +105,30 @@ const normalizeTenderMandatoryDocs = (data: any, prevDocs: Record<string, boolea
 const VALID_CIDB_CLASSES = ["CE", "GB", "ME", "EP", "EB", "SO", "SQ", "SH", "SI", "SJ", "SK", "SL"];
 const CLASSES_REGEX = VALID_CIDB_CLASSES.join("|");
 
-const safelyStringify = (data: any) => {
+const safeToString = (val: unknown): string => {
+    if (typeof val === "string") return val;
+    if (typeof val === "number" || typeof val === "boolean") return String(val);
     try {
-        return typeof data === 'string' ? data : JSON.stringify(data);
+        return JSON.stringify(val);
     } catch {
         return "";
     }
 };
 
-const gatherText = (obj: any, keys: string[]) => {
+const gatherText = (obj: RawTenderAiPayload, keys: string[]): string => {
     if (!obj || typeof obj !== 'object') return "";
     return keys.map(k => {
         const val = obj[k];
         if (!val) return "";
-        return typeof val === 'string' ? val : JSON.stringify(val);
-    }).join(' ').toLowerCase();
+        return safeToString(val);
+    }).join(' ');
 };
 
-const normalizePreferencePoints = (data: any) => {
+const normalizePreferencePoints = (data: RawTenderAiPayload): string => {
     const explicit = gatherText(data, ['preference_points', 'claiming_points', 'pref_points']);
     const reqs = gatherText(data, ['requirements', 'compliance_requirements']);
     const summary = gatherText(data, ['summary', 'description']);
-    const full = safelyStringify(data).toLowerCase();
+    const full = safeToString(data);
 
     const findPoints = (str: string, requireKeywords: boolean) => {
         if (!str) return "";
@@ -76,8 +137,8 @@ const normalizePreferencePoints = (data: any) => {
             if (cleanStr.includes("80/20") || cleanStr.includes("80-20")) return "80/20";
             if (cleanStr.includes("90/10") || cleanStr.includes("90-10")) return "90/10";
         } else {
-            if (/preferencepoint(?:s|system)(?:for)?.*?80(?:[/s\-]?)20/.test(cleanStr)) return "80/20";
-            if (/preferencepoint(?:s|system)(?:for)?.*?90(?:[/s\-]?)10/.test(cleanStr)) return "90/10";
+            if (/preference[ -]?point(?:s|system)(?:for)?.*?80(?:[\/s\-]?)20/i.test(cleanStr)) return "80/20";
+            if (/preference[ -]?point(?:s|system)(?:for)?.*?90(?:[\/s\-]?)10/i.test(cleanStr)) return "90/10";
         }
         return "";
     };
@@ -85,11 +146,11 @@ const normalizePreferencePoints = (data: any) => {
     return findPoints(explicit, false) || findPoints(reqs, false) || findPoints(summary, true) || findPoints(full, true);
 };
 
-const normalizeCidbGrade = (data: any) => {
+const normalizeCidbGrade = (data: RawTenderAiPayload): string => {
     const explicit = gatherText(data, ['cidb_grade', 'grade']);
     const reqs = gatherText(data, ['requirements', 'compliance_requirements']);
     const summary = gatherText(data, ['summary', 'description']);
-    const full = safelyStringify(data).toLowerCase();
+    const full = safeToString(data);
 
     const findGrade = (str: string, isStructured: boolean) => {
         if (!str) return "";
@@ -105,11 +166,11 @@ const normalizeCidbGrade = (data: any) => {
     return findGrade(explicit, true) || findGrade(reqs, false) || findGrade(summary, false) || findGrade(full, false);
 };
 
-const normalizeCidbClass = (data: any) => {
+const normalizeCidbClass = (data: RawTenderAiPayload): string => {
     const explicit = gatherText(data, ['cidb_class', 'class_of_work', 'cidb_grade', 'grade']);
     const reqs = gatherText(data, ['requirements', 'compliance_requirements']);
     const summary = gatherText(data, ['summary', 'description']);
-    const full = safelyStringify(data).toLowerCase();
+    const full = safeToString(data);
 
     const findClass = (str: string, isStructured: boolean) => {
         if (!str) return "";
@@ -120,7 +181,7 @@ const normalizeCidbClass = (data: any) => {
             if (found) return found;
             match = upperStr.match(new RegExp(`[1-9]\\s*(${CLASSES_REGEX})`));
         } else {
-            match = upperStr.match(new RegExp(`(?:CIDB|GRADING).{0,20}[1-9]\\s*(${CLASSES_REGEX})`));
+            match = upperStr.match(new RegExp(`(?:CIDB|GRADING).{0,20}[1-9]\\s*(${CLASSES_REGEX})`, 'i'));
         }
         return match ? match[1] : "";
     };
@@ -128,11 +189,11 @@ const normalizeCidbClass = (data: any) => {
     return findClass(explicit, true) || findClass(reqs, false) || findClass(summary, false) || findClass(full, false);
 };
 
-const normalizeBbbeeLevel = (data: any) => {
+const normalizeBbbeeLevel = (data: RawTenderAiPayload): string => {
     const explicit = gatherText(data, ['min_bbbee_level', 'bbbee_level', 'bbee_level']);
     const reqs = gatherText(data, ['requirements', 'compliance_requirements']);
     const summary = gatherText(data, ['summary', 'description']);
-    const full = safelyStringify(data).toLowerCase();
+    const full = safeToString(data);
 
     const findBbbee = (str: string, isStructured: boolean) => {
         if (!str) return "";
@@ -148,12 +209,12 @@ const normalizeBbbeeLevel = (data: any) => {
     return findBbbee(explicit, true) || findBbbee(reqs, false) || findBbbee(summary, false) || findBbbee(full, false);
 };
 
-const normalizeCompulsoryBriefing = (data: any) => {
+const normalizeCompulsoryBriefing = (data: RawTenderAiPayload): boolean | null => {
     const texts = [
         gatherText(data, ['compulsory_briefing', 'briefing_session']),
         gatherText(data, ['requirements', 'compliance_requirements']),
         gatherText(data, ['summary', 'description']),
-        safelyStringify(data).toLowerCase()
+        safeToString(data)
     ];
 
     for (const str of texts) {
@@ -163,14 +224,14 @@ const normalizeCompulsoryBriefing = (data: any) => {
             return true;
         }
     }
-    return false;
+    return null;
 };
 
-const normalizeTenderAiData = (data: any, prev: any) => {
+const normalizeTenderAiData = (data: RawTenderAiPayload, prev: Record<string, any>, traceId: string) => {
     const extractDate = (val: any) => val ? String(val).split('T')[0] : null;
 
     // Pure extracted AI object before any form fallbacks clutter the telemetry
-    const extractedAI = {
+    const extractedAI: ExtractedQualifications = {
         grade: normalizeCidbGrade(data),
         class: normalizeCidbClass(data),
         bbbee: normalizeBbbeeLevel(data),
@@ -178,7 +239,8 @@ const normalizeTenderAiData = (data: any, prev: any) => {
         compulsoryBriefing: normalizeCompulsoryBriefing(data)
     };
 
-    console.log("[Tender Debug] Pure Extracted Qualifications:", extractedAI);
+    debugLog(`[Tender Trace:${traceId}] normalized qualification object:`, extractedAI);
+    Sentry.addBreadcrumb({ category: "tender_ingest", message: "normalized qualification object", data: { extractedAI, traceId } });
 
     return {
         ...prev,
@@ -191,7 +253,7 @@ const normalizeTenderAiData = (data: any, prev: any) => {
         class: extractedAI.class || prev.class,
         bbbee: extractedAI.bbbee || prev.bbbee,
         prefPoints: extractedAI.prefPoints || prev.prefPoints,
-        compulsoryBriefing: extractedAI.compulsoryBriefing || prev.compulsoryBriefing,
+        compulsoryBriefing: extractedAI.compulsoryBriefing ?? prev.compulsoryBriefing,
         mandatoryDocs: normalizeTenderMandatoryDocs(data, prev.mandatoryDocs)
     };
 };
@@ -206,6 +268,7 @@ export default function TenderIngest() {
     const [errorMsg, setErrorMsg] = useState<string | null>(null)
     const [processStep, setProcessStep] = useState<string>("")
     const [ingestMode, setIngestMode] = useState<"upload" | "manual">("upload")
+    const [traceId, setTraceId] = useState<string>("")
 
     const [manualForm, setManualForm] = useState({
         title: "",
@@ -240,7 +303,21 @@ export default function TenderIngest() {
     const inputRef = useRef<HTMLInputElement>(null)
 
     const processFile = async (rawFile: File) => {
-        console.log("[Tender Upload Debug] file selected/dropped:", rawFile.name)
+        const id = generateTraceId();
+        setTraceId(id);
+        const prefix = `[Tender Trace:${id}]`;
+        debugLog(`${prefix} tender file selected:`, rawFile.name);
+        Sentry.addBreadcrumb({ 
+            category: "tender_ingest", 
+            message: "tender file selected", 
+            data: { 
+                fileType: rawFile.type || "unknown", 
+                fileSize: rawFile.size, 
+                step: "file_select",
+                traceId: id 
+            } 
+        });
+
         try {
             const check = await TenderService.checkSubscriptionLimit()
             if (!check.allowed) {
@@ -269,7 +346,6 @@ export default function TenderIngest() {
 
     const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault()
-        console.log("[Tender Upload Debug] file dropped!")
         if (e.dataTransfer.files?.[0]) {
             processFile(e.dataTransfer.files[0])
         }
@@ -311,18 +387,24 @@ export default function TenderIngest() {
     const submitManual = async (e: React.FormEvent) => {
         e.preventDefault()
 
+        const activeTrace = traceId || "manual-entry-no-trace";
+        const prefix = `[Tender Trace:${activeTrace}]`;
+
         // Run Validation
         if (!validateForm()) {
             setStatus("error")
             return
         }
 
-        console.log("[Tender Debug] manual form state before save:", manualForm)
+        debugLog(`${prefix} final mapped manual form values:`, manualForm)
+        Sentry.addBreadcrumb({ category: "tender_ingest", message: "final mapped manual form values", data: { form: manualForm, traceId: activeTrace } });
 
         setStatus("processing")
         setProcessStep("Creating tender record...")
 
         try {
+            debugLog(`${prefix} tender save start`);
+            Sentry.addBreadcrumb({ category: "tender_ingest", message: "tender save start", data: { traceId: activeTrace } });
             // Dynamic import to avoid errors if not top-level yet
             const { TenderService } = await import("@/services/api")
 
@@ -344,17 +426,21 @@ export default function TenderIngest() {
                 }
             })
 
-            console.log("[Tender Debug] saving manual tender result:", res)
-
             if (res.error) {
+                console.error(`${prefix} tender save failure:`, res.error);
+                Sentry.captureException(new Error(`Tender Save Failed: ${res.error}`), { tags: { traceId: activeTrace } });
                 throw new Error(res.error)
             }
+
+            debugLog(`${prefix} tender save success`);
+            Sentry.addBreadcrumb({ category: "tender_ingest", message: "tender save success", data: { traceId: activeTrace } });
 
             // Simulate a brief delay for UX
             await new Promise(r => setTimeout(r, 800))
             setStatus("complete")
 
         } catch (err: any) {
+            Sentry.captureException(err, { tags: { traceId: activeTrace } });
             setErrorMsg(err.message)
             setStatus("error")
         }
@@ -362,6 +448,8 @@ export default function TenderIngest() {
 
     const startUpload = async () => {
         if (!file) return
+        const activeTrace = traceId || "missing-trace";
+        const prefix = `[Tender Trace:${activeTrace}]`;
 
         // FEATURE GATE: DEEP_AI_ANALYSIS
         // We need to check if the user has access. We'll use the tier from context (which we need to get first)
@@ -407,6 +495,9 @@ export default function TenderIngest() {
             // Removed basic extraction block. Deep AI is gated later.
 
             const fileName = `${user.id}/tenders/${Date.now()}_${file.name}`
+            debugLog(`${prefix} storage upload start + path:`, fileName);
+            Sentry.addBreadcrumb({ category: "tender_ingest", message: "storage upload start", data: { step: "upload_start", traceId: activeTrace } });
+
             const { error: uploadError } = await supabase.storage
                 .from('compliance') // MUST be compliance so Edge Function can read it
                 .upload(fileName, file)
@@ -418,13 +509,21 @@ export default function TenderIngest() {
             // 2. Analyzing
             setStatus("processing")
             setProcessStep("AI is reading the tender document...")
-            console.log("[Tender Upload Debug] starting AI analysis on:", fileName)
+            
+            debugLog(`${prefix} analyze start`);
+            Sentry.addBreadcrumb({ category: "tender_ingest", message: "analyze start", data: { traceId: activeTrace } });
 
             const { data, error: analyzeError } = await CompanyService.analyzeDocument(fileName, 'tender_document')
 
-            if (analyzeError) throw new Error(analyzeError)
+            if (analyzeError) {
+                console.error(`${prefix} analyze failure:`, analyzeError);
+                Sentry.addBreadcrumb({ category: "tender_ingest", message: "analyze failure", level: "error", data: { error: analyzeError, traceId: activeTrace } });
+                throw new Error(analyzeError)
+            }
 
-            console.log("[Tender Upload Debug] AI result:", data)
+            debugLog(`${prefix} analyze success`);
+            debugLog(`${prefix} raw AI keys received:`, Object.keys(data || {}));
+            Sentry.addBreadcrumb({ category: "tender_ingest", message: "analyze success", data: { keys: Object.keys(data || {}), traceId: activeTrace } });
 
             // Placeholder for deep strategy insights
             const insights = {
@@ -434,14 +533,15 @@ export default function TenderIngest() {
             console.log("[Tender Upload Debug] AI Insights status:", insights)
 
             // 3. Populate Form & Switch to Manual for Review
-            setManualForm(prev => normalizeTenderAiData(data, prev));
+            setManualForm(prev => normalizeTenderAiData(data, prev, activeTrace));
 
             setStatus("idle")
             setIngestMode("manual")
             // Ideally show a success toast "Data extracted!"
 
         } catch (err: any) {
-            console.error(err)
+            console.error(`${prefix} upload/analyze error:`, err)
+            Sentry.captureException(err, { tags: { traceId: activeTrace } });
             setErrorMsg(err.message || "Failed to analyze tender")
             setStatus("error")
         }
