@@ -40,36 +40,142 @@ const normalizeTenderMandatoryDocs = (data: any, prevDocs: Record<string, boolea
             mandatoryDocs[key as keyof typeof mandatoryDocs] = true;
         }
     });
-    return mandatoryDocs;
+const VALID_CIDB_CLASSES = ["CE", "GB", "ME", "EP", "EB", "SO", "SQ", "SH", "SI", "SJ", "SK", "SL"];
+const CLASSES_REGEX = VALID_CIDB_CLASSES.join("|");
+
+const safelyStringify = (data: any) => {
+    try {
+        return typeof data === 'string' ? data : JSON.stringify(data);
+    } catch {
+        return "";
+    }
 };
 
-const normalizePreferencePoints = (val1: any, val2: any, val3: any) => {
-    const str = String(val1 || val2 || val3 || "").replace(/\s/g, '');
-    if (str.includes("80/20") || str.includes("80-20")) return "80/20";
-    if (str.includes("90/10") || str.includes("90-10")) return "90/10";
-    return "";
+const gatherText = (obj: any, keys: string[]) => {
+    if (!obj || typeof obj !== 'object') return "";
+    return keys.map(k => {
+        const val = obj[k];
+        if (!val) return "";
+        return typeof val === 'string' ? val : JSON.stringify(val);
+    }).join(' ').toLowerCase();
 };
 
-const normalizeCidbGrade = (val1: any, val2: any) => {
-    const str = String(val1 || val2 || "");
-    const match = str.match(/[1-9]/);
-    return match ? match[0] : "";
+const normalizePreferencePoints = (data: any) => {
+    const explicit = gatherText(data, ['preference_points', 'claiming_points', 'pref_points']);
+    const reqs = gatherText(data, ['requirements', 'compliance_requirements']);
+    const summary = gatherText(data, ['summary', 'description']);
+    const full = safelyStringify(data).toLowerCase();
+
+    const findPoints = (str: string, requireKeywords: boolean) => {
+        if (!str) return "";
+        const cleanStr = str.replace(/\s/g, '');
+        if (!requireKeywords) {
+            if (cleanStr.includes("80/20") || cleanStr.includes("80-20")) return "80/20";
+            if (cleanStr.includes("90/10") || cleanStr.includes("90-10")) return "90/10";
+        } else {
+            if (/preferencepoint(?:s|system)(?:for)?.*?80(?:[/s\-]?)20/.test(cleanStr)) return "80/20";
+            if (/preferencepoint(?:s|system)(?:for)?.*?90(?:[/s\-]?)10/.test(cleanStr)) return "90/10";
+        }
+        return "";
+    };
+
+    return findPoints(explicit, false) || findPoints(reqs, false) || findPoints(summary, true) || findPoints(full, true);
 };
 
-const normalizeCidbClass = (val1: any, val2: any) => {
-    const str = String(val1 || val2 || "").toUpperCase();
-    const valid = ["CE", "GB", "ME", "EP"];
-    return valid.find(c => str.includes(c)) || "";
+const normalizeCidbGrade = (data: any) => {
+    const explicit = gatherText(data, ['cidb_grade', 'grade']);
+    const reqs = gatherText(data, ['requirements', 'compliance_requirements']);
+    const summary = gatherText(data, ['summary', 'description']);
+    const full = safelyStringify(data).toLowerCase();
+
+    const findGrade = (str: string, isStructured: boolean) => {
+        if (!str) return "";
+        let match;
+        if (isStructured) {
+            match = str.match(new RegExp(`(?:grade|cidb)?\\s*([1-9])\\s*(?:${CLASSES_REGEX})?`, "i"));
+        } else {
+            match = str.match(new RegExp(`(?:cidb|grading\\s*designation|grade\\s*required)\\s*(?:grade\\s*)?([1-9])\\s*(?:${CLASSES_REGEX})?`, "i"));
+        }
+        return match ? match[1] : "";
+    };
+
+    return findGrade(explicit, true) || findGrade(reqs, false) || findGrade(summary, false) || findGrade(full, false);
 };
 
-const normalizeBbbeeLevel = (val1: any, val2: any) => {
-    const str = String(val1 || val2 || "");
-    const match = str.match(/[1-8]/);
-    return match ? match[0] : "";
+const normalizeCidbClass = (data: any) => {
+    const explicit = gatherText(data, ['cidb_class', 'class_of_work', 'cidb_grade', 'grade']);
+    const reqs = gatherText(data, ['requirements', 'compliance_requirements']);
+    const summary = gatherText(data, ['summary', 'description']);
+    const full = safelyStringify(data).toLowerCase();
+
+    const findClass = (str: string, isStructured: boolean) => {
+        if (!str) return "";
+        const upperStr = str.toUpperCase();
+        let match;
+        if (isStructured) {
+            const found = VALID_CIDB_CLASSES.find(c => upperStr.includes(c));
+            if (found) return found;
+            match = upperStr.match(new RegExp(`[1-9]\\s*(${CLASSES_REGEX})`));
+        } else {
+            match = upperStr.match(new RegExp(`(?:CIDB|GRADING).{0,20}[1-9]\\s*(${CLASSES_REGEX})`));
+        }
+        return match ? match[1] : "";
+    };
+
+    return findClass(explicit, true) || findClass(reqs, false) || findClass(summary, false) || findClass(full, false);
+};
+
+const normalizeBbbeeLevel = (data: any) => {
+    const explicit = gatherText(data, ['min_bbbee_level', 'bbbee_level', 'bbee_level']);
+    const reqs = gatherText(data, ['requirements', 'compliance_requirements']);
+    const summary = gatherText(data, ['summary', 'description']);
+    const full = safelyStringify(data).toLowerCase();
+
+    const findBbbee = (str: string, isStructured: boolean) => {
+        if (!str) return "";
+        let match;
+        if (isStructured) {
+            match = str.match(/(?:level|b-?bbee).{0,10}([1-8])/i);
+        } else {
+            match = str.match(/minimum\s*(?:b-?bbee\s*)?(?:status\s*)?level\s*(?:of\s*)?([1-8])/i);
+        }
+        return match ? match[1] : "";
+    };
+
+    return findBbbee(explicit, true) || findBbbee(reqs, false) || findBbbee(summary, false) || findBbbee(full, false);
+};
+
+const normalizeCompulsoryBriefing = (data: any) => {
+    const texts = [
+        gatherText(data, ['compulsory_briefing', 'briefing_session']),
+        gatherText(data, ['requirements', 'compliance_requirements']),
+        gatherText(data, ['summary', 'description']),
+        safelyStringify(data).toLowerCase()
+    ];
+
+    for (const str of texts) {
+        if (!str) continue;
+        if (/(compulsory|mandatory)\s+(site\s+)?(briefing|meeting|inspection)/i.test(str) || 
+            /(briefing|meeting|inspection)\s+(is\s+)?(compulsory|mandatory)/i.test(str)) {
+            return true;
+        }
+    }
+    return false;
 };
 
 const normalizeTenderAiData = (data: any, prev: any) => {
     const extractDate = (val: any) => val ? String(val).split('T')[0] : null;
+
+    // Pure extracted AI object before any form fallbacks clutter the telemetry
+    const extractedAI = {
+        grade: normalizeCidbGrade(data),
+        class: normalizeCidbClass(data),
+        bbbee: normalizeBbbeeLevel(data),
+        prefPoints: normalizePreferencePoints(data),
+        compulsoryBriefing: normalizeCompulsoryBriefing(data)
+    };
+
+    console.log("[Tender Debug] Pure Extracted Qualifications:", extractedAI);
 
     return {
         ...prev,
@@ -78,10 +184,11 @@ const normalizeTenderAiData = (data: any, prev: any) => {
         tenderNumber: data.tender_number || data.reference_number || prev.tenderNumber,
         tenderDescription: data.description || data.summary || prev.tenderDescription,
         closingDate: extractDate(data.closing_date) || extractDate(data.expiry_date) || extractDate(data.signature_date) || prev.closingDate,
-        grade: normalizeCidbGrade(data.cidb_grade, data.grade) || prev.grade,
-        class: normalizeCidbClass(data.cidb_class, data.class_of_work) || prev.class,
-        bbbee: normalizeBbbeeLevel(data.min_bbbee_level, data.bbbee_level) || prev.bbbee,
-        prefPoints: normalizePreferencePoints(data.preference_points, data.claiming_points, data.pref_points) || prev.prefPoints,
+        grade: extractedAI.grade || prev.grade,
+        class: extractedAI.class || prev.class,
+        bbbee: extractedAI.bbbee || prev.bbbee,
+        prefPoints: extractedAI.prefPoints || prev.prefPoints,
+        compulsoryBriefing: extractedAI.compulsoryBriefing || prev.compulsoryBriefing,
         mandatoryDocs: normalizeTenderMandatoryDocs(data, prev.mandatoryDocs)
     };
 };
