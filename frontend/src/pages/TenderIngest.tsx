@@ -210,15 +210,7 @@ export default function TenderIngest() {
             const { data: sub } = await supabase.from('subscriptions').select('plan_name').eq('user_id', user?.id).eq('status', 'active').single()
             const tier = sub?.plan_name?.includes('Pro') ? 'Pro' : (sub?.plan_name?.includes('Standard') ? 'Standard' : 'Free')
 
-            if (!FeatureGate.hasAccess(tier as any, 'DEEP_AI_ANALYSIS')) {
-                // If they don't have deep analysis, they can still upload, but we won't run the heavy AI.
-                // Or we block the "Upload PDF" mode entirely?
-                // "Tier 2 ... cant have deep AI analysis"
-                // So we should fail or fallback to basic.
-
-                // Let's BLOCK it for now as "Premium Feature" and suggest Manual Entry.
-                throw new Error(`AI Analysis is a Pro feature. You are on ${tier}. Please use Manual Entry or Upgrade.`)
-            }
+            // Removed basic extraction block. Deep AI is gated later.
 
             const fileName = `tenders/${Date.now()}_${file.name}`
             const { error: uploadError } = await supabase.storage
@@ -239,6 +231,12 @@ export default function TenderIngest() {
             if (analyzeError) throw new Error(analyzeError)
 
             console.log("[Tender Upload Debug] AI result:", data)
+
+            // Placeholder for deep strategy insights
+            const insights = {
+                available: FeatureGate.hasAccess(tier as any, 'DEEP_AI_ANALYSIS'),
+                message: "Upgrade to unlock strategic insights"
+            }
 
             // 3. Populate Form & Switch to Manual for Review
             setManualForm(prev => ({
