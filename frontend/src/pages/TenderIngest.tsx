@@ -216,7 +216,7 @@ export default function TenderIngest() {
 
             const fileName = `${user.id}/tenders/${Date.now()}_${file.name}`
             const { error: uploadError } = await supabase.storage
-                .from('tenders') // Ensure this bucket exists or use compliance/tenders
+                .from('compliance') // MUST be compliance so Edge Function can read it
                 .upload(fileName, file)
 
             if (uploadError) throw uploadError
