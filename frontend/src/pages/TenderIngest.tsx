@@ -368,11 +368,11 @@ export default function TenderIngest() {
             </div>
 
             {ingestMode === 'upload' && (
-                <p className="text-gray-600 mb-8">Upload a tender document (PDF/DOCX) for automatic analysis.</p>
+                <p className="text-gray-600 mb-8">Upload a tender document to automatically extract requirements.</p>
             )}
 
             {ingestMode === 'manual' && (
-                <p className="text-gray-600 mb-8">Manually enter tender details to create a quick test case.</p>
+                <p className="text-gray-600 mb-8">Manually define tender requirements.</p>
             )}
 
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
@@ -382,9 +382,9 @@ export default function TenderIngest() {
                     <form onSubmit={submitManual} className="space-y-8">
                         {/* 1. Tender Basics */}
                         <div className="space-y-4">
-                            <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">1. Tender Basics</h3>
+                            <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Tender Details</h3>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Tender Name</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Tender Title</label>
                                 <input
                                     required
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
@@ -404,11 +404,11 @@ export default function TenderIngest() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Issuing Entity</label>
                                     <input
                                         required
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                        placeholder="e.g. SANRAL"
+                                        placeholder="e.g. SANRAL, Eskom, etc."
                                         value={manualForm.client}
                                         onChange={e => setManualForm({ ...manualForm, client: e.target.value })}
                                     />
@@ -439,54 +439,54 @@ export default function TenderIngest() {
 
                         {/* 2. Eligibility Requirements */}
                         <div className="space-y-4">
-                            <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">2. Eligibility Requirements</h3>
+                            <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Qualification Criteria</h3>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Required CIDB Grade</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Minimum CIDB Grade</label>
                                     <select
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${!manualForm.grade ? 'text-gray-400' : 'text-gray-900'}`}
                                         value={manualForm.grade}
                                         onChange={e => setManualForm({ ...manualForm, grade: e.target.value })}
                                     >
-                                        <option value="" disabled>Choose CIDB Grade</option>
-                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => <option key={g} value={g}>{g}</option>)}
+                                        <option value="" disabled className="text-gray-400">Choose CIDB Grade...</option>
+                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => <option key={g} value={g} className="text-gray-900">Grade {g}</option>)}
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Class of Work</label>
                                     <select
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${!manualForm.class ? 'text-gray-400' : 'text-gray-900'}`}
                                         value={manualForm.class}
                                         onChange={e => setManualForm({ ...manualForm, class: e.target.value })}
                                     >
-                                        <option value="" disabled>Choose Class</option>
-                                        {["CE", "GB", "ME", "EP"].map(c => <option key={c} value={c}>{c}</option>)}
+                                        <option value="" disabled className="text-gray-400">Choose Class...</option>
+                                        {["CE", "GB", "ME", "EP"].map(c => <option key={c} value={c} className="text-gray-900">{c}</option>)}
                                     </select>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Min B-BBEE Level</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Minimum B-BBEE Level</label>
                                     <select
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${!manualForm.bbbee ? 'text-gray-400' : 'text-gray-900'}`}
                                         value={manualForm.bbbee}
                                         onChange={e => setManualForm({ ...manualForm, bbbee: e.target.value })}
                                     >
-                                        <option value="" disabled>Choose B-BBEE Level</option>
-                                        {[1, 2, 3, 4, 5, 6, 7, 8].map(l => <option key={l} value={l}>Level {l}</option>)}
+                                        <option value="" disabled className="text-gray-400">Choose B-BBEE Level...</option>
+                                        {[1, 2, 3, 4, 5, 6, 7, 8].map(l => <option key={l} value={l} className="text-gray-900">Level {l}</option>)}
                                     </select>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Preference Points</label>
                                     <select
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${!manualForm.prefPoints ? 'text-gray-400' : 'text-gray-900'}`}
                                         value={manualForm.prefPoints}
                                         onChange={e => setManualForm({ ...manualForm, prefPoints: e.target.value })}
                                     >
-                                        <option value="" disabled>Choose Preference Points</option>
-                                        <option value="80/20">80/20</option>
-                                        <option value="90/10">90/10</option>
+                                        <option value="" disabled className="text-gray-400">Choose Preference Points...</option>
+                                        <option value="80/20" className="text-gray-900">80/20</option>
+                                        <option value="90/10" className="text-gray-900">90/10</option>
                                     </select>
                                 </div>
                             </div>
@@ -505,7 +505,7 @@ export default function TenderIngest() {
 
                         {/* 3. Required Compliance Documents */}
                         <div className="space-y-4">
-                            <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">3. Required Compliance Documents</h3>
+                            <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Mandatory Returnables</h3>
                             <div className="grid grid-cols-2 gap-2 bg-gray-50 p-4 border border-gray-200 rounded-lg">
                                 {Object.entries({
                                     cipc_cert: "CIPC Registration",
@@ -541,7 +541,7 @@ export default function TenderIngest() {
 
                         {/* 4. Additional Requirements */}
                         <div className="space-y-4">
-                            <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">4. Additional Requirements</h3>
+                            <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Other Conditions</h3>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Additional Mandatory Returnables</label>
                                 <textarea
