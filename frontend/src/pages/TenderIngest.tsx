@@ -207,12 +207,14 @@ export default function TenderIngest() {
 
             // Let's fetch the plan name directly to be safe.
             const { data: { user } } = await supabase.auth.getUser()
-            const { data: sub } = await supabase.from('subscriptions').select('plan_name').eq('user_id', user?.id).eq('status', 'active').single()
+            if (!user) throw new Error("User not found")
+
+            const { data: sub } = await supabase.from('subscriptions').select('plan_name').eq('user_id', user.id).eq('status', 'active').single()
             const tier = sub?.plan_name?.includes('Pro') ? 'Pro' : (sub?.plan_name?.includes('Standard') ? 'Standard' : 'Free')
 
             // Removed basic extraction block. Deep AI is gated later.
 
-            const fileName = `tenders/${Date.now()}_${file.name}`
+            const fileName = `${user.id}/tenders/${Date.now()}_${file.name}`
             const { error: uploadError } = await supabase.storage
                 .from('tenders') // Ensure this bucket exists or use compliance/tenders
                 .upload(fileName, file)
