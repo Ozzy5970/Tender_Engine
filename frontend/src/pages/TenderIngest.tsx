@@ -242,15 +242,18 @@ export default function TenderIngest() {
             console.log("[Tender Upload Debug] AI Insights status:", insights)
 
             // 3. Populate Form & Switch to Manual for Review
+            const extractDate = (val: any) => val ? String(val).split('T')[0] : null;
+
             setManualForm(prev => ({
                 ...prev,
-                title: data.title || prev.title,
-                client: data.client_name || prev.client,
-                tenderDescription: data.description || prev.tenderDescription,
-                closingDate: data.closing_date ? data.closing_date.split('T')[0] : prev.closingDate,
-                grade: data.cidb_grade || prev.grade,
-                class: data.cidb_class || prev.class,
-                bbbee: data.min_bbbee_level || prev.bbbee
+                title: data.title || data.tender_description || prev.title,
+                client: data.client_name || data.entity_name || prev.client,
+                tenderNumber: data.tender_number || data.reference_number || prev.tenderNumber,
+                tenderDescription: data.description || data.summary || prev.tenderDescription,
+                closingDate: extractDate(data.closing_date) || extractDate(data.expiry_date) || extractDate(data.signature_date) || prev.closingDate,
+                grade: data.cidb_grade || data.grade || prev.grade,
+                class: data.cidb_class || data.class_of_work || prev.class,
+                bbbee: data.min_bbbee_level || data.bbbee_level || prev.bbbee
             }))
 
             setStatus("idle")
