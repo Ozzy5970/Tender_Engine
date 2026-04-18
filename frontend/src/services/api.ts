@@ -140,7 +140,7 @@ export const TenderService = {
             .select('plan_name, status')
             .eq('user_id', user.id)
             .eq('status', 'active')
-            .single()
+            .maybeSingle()
 
         const plan = sub?.plan_name?.toLowerCase() || 'free' // 'free', 'standard', 'enterprise'
 
