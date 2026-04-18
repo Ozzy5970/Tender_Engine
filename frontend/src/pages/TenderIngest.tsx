@@ -40,6 +40,9 @@ const normalizeTenderMandatoryDocs = (data: any, prevDocs: Record<string, boolea
             mandatoryDocs[key as keyof typeof mandatoryDocs] = true;
         }
     });
+    return mandatoryDocs;
+};
+
 const VALID_CIDB_CLASSES = ["CE", "GB", "ME", "EP", "EB", "SO", "SQ", "SH", "SI", "SJ", "SK", "SL"];
 const CLASSES_REGEX = VALID_CIDB_CLASSES.join("|");
 
