@@ -237,6 +237,7 @@ export default function TenderIngest() {
                 available: FeatureGate.hasAccess(tier as any, 'DEEP_AI_ANALYSIS'),
                 message: "Upgrade to unlock strategic insights"
             }
+            console.log("[Tender Upload Debug] AI Insights status:", insights)
 
             // 3. Populate Form & Switch to Manual for Review
             setManualForm(prev => ({
