@@ -316,10 +316,10 @@ const normalizeTenderAiData = (data: RawTenderAiPayload, prev: ManualFormState, 
         compulsoryBriefing: normalizeCompulsoryBriefing(data, candidate)
     };
 
-    debugLog(`[Tender Trace:${traceId}] normalized qualification object:`, extractedAI);
+    debugLog(`[Tender Trace:${traceId}] [Tender Debug] Pure Extracted Qualifications:`, extractedAI);
     Sentry.addBreadcrumb({ category: "tender_ingest", message: "normalized qualification object", data: { extractedAI, traceId } });
 
-    return {
+    const finalMapped: ManualFormState = {
         ...prev,
         title: data.title || data.tender_description || prev.title,
         client: data.client_name || data.entity_name || prev.client,
@@ -333,6 +333,16 @@ const normalizeTenderAiData = (data: RawTenderAiPayload, prev: ManualFormState, 
         compulsoryBriefing: extractedAI.compulsoryBriefing ?? prev.compulsoryBriefing,
         mandatoryDocs: normalizeTenderMandatoryDocs(data, prev.mandatoryDocs)
     };
+
+    debugLog(`[Tender Trace:${traceId}] [Tender Debug] Final Qualification Mapping:`, {
+        grade: finalMapped.grade,
+        class: finalMapped.class,
+        bbbee: finalMapped.bbbee,
+        prefPoints: finalMapped.prefPoints,
+        compulsoryBriefing: finalMapped.compulsoryBriefing
+    });
+
+    return finalMapped;
 };
 
 type UploadState = "idle" | "uploading" | "processing" | "error" | "complete" | "blocked"
@@ -566,7 +576,8 @@ export default function TenderIngest() {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) throw new Error("User not found")
 
-            const { data: sub } = await supabase.from('subscriptions').select('plan_name').eq('user_id', user.id).eq('status', 'active').single()
+            // Fixed: use maybeSingle() to prevent noisy 406 PGRST116 (0 rows) on free tier users
+            const { data: sub } = await supabase.from('subscriptions').select('plan_name').eq('user_id', user.id).eq('status', 'active').maybeSingle()
             const tier = sub?.plan_name?.includes('Pro') ? 'Pro' : (sub?.plan_name?.includes('Standard') ? 'Standard' : 'Free')
 
             // Removed basic extraction block. Deep AI is gated later.
