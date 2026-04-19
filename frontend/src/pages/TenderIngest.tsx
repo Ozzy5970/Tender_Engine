@@ -142,18 +142,71 @@ const gatherText = (obj: RawTenderAiPayload, keys: string[]): string => {
     }).join(' ');
 };
 
-const normalizePreferencePoints = (data: RawTenderAiPayload): string => {
+interface StructuredCandidate {
+    grade?: string;
+    class?: string;
+    bbbee?: string;
+    prefPoints?: string;
+    compulsoryBriefing?: boolean;
+}
+
+const extractStructuredCandidate = (data: RawTenderAiPayload): StructuredCandidate => {
+    const candidate: StructuredCandidate = {};
+    const sources = [data.requirements, data.compliance_requirements];
+    
+    for (const src of sources) {
+        if (!src || typeof src !== 'object') continue;
+        const obj = src as Record<string, unknown>;
+        
+        const grade = obj.cidb_grade ?? obj.grade;
+        if (grade && (typeof grade === 'string' || typeof grade === 'number') && !candidate.grade) {
+            candidate.grade = String(grade);
+        }
+        
+        const cls = obj.cidb_class ?? obj.class_of_work;
+        if (cls && (typeof cls === 'string' || typeof cls === 'number') && !candidate.class) {
+            candidate.class = String(cls);
+        }
+        
+        const bbbee = obj.min_bbbee_level ?? obj.bbbee_level;
+        if (bbbee && (typeof bbbee === 'string' || typeof bbbee === 'number') && !candidate.bbbee) {
+            candidate.bbbee = String(bbbee);
+        }
+        
+        const pref = obj.preference_points ?? obj.pref_points;
+        if (pref && (typeof pref === 'string' || typeof pref === 'number') && !candidate.prefPoints) {
+            candidate.prefPoints = String(pref);
+        }
+        
+        const brief = obj.compulsory_briefing ?? obj.briefing_session;
+        if (typeof brief === 'boolean' && candidate.compulsoryBriefing === undefined) {
+            candidate.compulsoryBriefing = brief;
+        } else if (typeof brief === 'string' && candidate.compulsoryBriefing === undefined) {
+            if (/true|yes|compulsory|mandatory/i.test(brief)) candidate.compulsoryBriefing = true;
+            if (/false|no|not/i.test(brief)) candidate.compulsoryBriefing = false;
+        }
+    }
+    
+    if (Object.keys(candidate).length > 0) {
+        debugLog(`[Tender Debug] Structured requirement candidate:`, candidate);
+    }
+    
+    return candidate;
+};
+
+const normalizePreferencePoints = (data: RawTenderAiPayload, candidate: StructuredCandidate): string => {
     const explicit = gatherText(data, ['preference_points', 'claiming_points', 'pref_points']);
+    const nestedExplicit = candidate.prefPoints || "";
     const reqs = gatherText(data, ['requirements', 'compliance_requirements']);
     const summary = gatherText(data, ['summary', 'description']);
     const full = safeToString(data);
 
     const findPoints = (str: string, requireKeywords: boolean) => {
         if (!str) return "";
-        const cleanStr = str.replace(/\s/g, '');
+        const cleanStr = str.replace(/[\s\-]/g, '');
         if (!requireKeywords) {
-            if (cleanStr.includes("80/20") || cleanStr.includes("80-20")) return "80/20";
-            if (cleanStr.includes("90/10") || cleanStr.includes("90-10")) return "90/10";
+            if (cleanStr.includes("80/20") || cleanStr.includes("8020")) return "80/20";
+            if (cleanStr.includes("90/10") || cleanStr.includes("9010")) return "90/10";
         } else {
             if (/preference[ -]?point(?:s|system)(?:for)?.*?80(?:[\/s\-]?)20/i.test(cleanStr)) return "80/20";
             if (/preference[ -]?point(?:s|system)(?:for)?.*?90(?:[\/s\-]?)10/i.test(cleanStr)) return "90/10";
@@ -161,11 +214,12 @@ const normalizePreferencePoints = (data: RawTenderAiPayload): string => {
         return "";
     };
 
-    return findPoints(explicit, false) || findPoints(reqs, false) || findPoints(summary, true) || findPoints(full, true);
+    return findPoints(explicit, false) || findPoints(nestedExplicit, false) || findPoints(reqs, false) || findPoints(summary, true) || findPoints(full, true);
 };
 
-const normalizeCidbGrade = (data: RawTenderAiPayload): string => {
+const normalizeCidbGrade = (data: RawTenderAiPayload, candidate: StructuredCandidate): string => {
     const explicit = gatherText(data, ['cidb_grade', 'grade']);
+    const nestedExplicit = candidate.grade || "";
     const reqs = gatherText(data, ['requirements', 'compliance_requirements']);
     const summary = gatherText(data, ['summary', 'description']);
     const full = safeToString(data);
@@ -181,11 +235,12 @@ const normalizeCidbGrade = (data: RawTenderAiPayload): string => {
         return match ? match[1] : "";
     };
 
-    return findGrade(explicit, true) || findGrade(reqs, false) || findGrade(summary, false) || findGrade(full, false);
+    return findGrade(explicit, true) || findGrade(nestedExplicit, true) || findGrade(reqs, false) || findGrade(summary, false) || findGrade(full, false);
 };
 
-const normalizeCidbClass = (data: RawTenderAiPayload): string => {
+const normalizeCidbClass = (data: RawTenderAiPayload, candidate: StructuredCandidate): string => {
     const explicit = gatherText(data, ['cidb_class', 'class_of_work', 'cidb_grade', 'grade']);
+    const nestedExplicit = candidate.class || candidate.grade || "";
     const reqs = gatherText(data, ['requirements', 'compliance_requirements']);
     const summary = gatherText(data, ['summary', 'description']);
     const full = safeToString(data);
@@ -204,11 +259,12 @@ const normalizeCidbClass = (data: RawTenderAiPayload): string => {
         return match ? match[1] : "";
     };
 
-    return findClass(explicit, true) || findClass(reqs, false) || findClass(summary, false) || findClass(full, false);
+    return findClass(explicit, true) || findClass(nestedExplicit, true) || findClass(reqs, false) || findClass(summary, false) || findClass(full, false);
 };
 
-const normalizeBbbeeLevel = (data: RawTenderAiPayload): string => {
+const normalizeBbbeeLevel = (data: RawTenderAiPayload, candidate: StructuredCandidate): string => {
     const explicit = gatherText(data, ['min_bbbee_level', 'bbbee_level', 'bbee_level']);
+    const nestedExplicit = candidate.bbbee || "";
     const reqs = gatherText(data, ['requirements', 'compliance_requirements']);
     const summary = gatherText(data, ['summary', 'description']);
     const full = safeToString(data);
@@ -224,10 +280,12 @@ const normalizeBbbeeLevel = (data: RawTenderAiPayload): string => {
         return match ? match[1] : "";
     };
 
-    return findBbbee(explicit, true) || findBbbee(reqs, false) || findBbbee(summary, false) || findBbbee(full, false);
+    return findBbbee(explicit, true) || findBbbee(nestedExplicit, true) || findBbbee(reqs, false) || findBbbee(summary, false) || findBbbee(full, false);
 };
 
-const normalizeCompulsoryBriefing = (data: RawTenderAiPayload): boolean | null => {
+const normalizeCompulsoryBriefing = (data: RawTenderAiPayload, candidate: StructuredCandidate): boolean | null => {
+    if (candidate.compulsoryBriefing !== undefined) return candidate.compulsoryBriefing;
+
     const texts = [
         gatherText(data, ['compulsory_briefing', 'briefing_session']),
         gatherText(data, ['requirements', 'compliance_requirements']),
@@ -249,12 +307,13 @@ const normalizeTenderAiData = (data: RawTenderAiPayload, prev: ManualFormState, 
     const extractDate = (val: any) => val ? String(val).split('T')[0] : null;
 
     // Pure extracted AI object before any form fallbacks clutter the telemetry
+    const candidate = extractStructuredCandidate(data);
     const extractedAI: ExtractedQualifications = {
-        grade: normalizeCidbGrade(data),
-        class: normalizeCidbClass(data),
-        bbbee: normalizeBbbeeLevel(data),
-        prefPoints: normalizePreferencePoints(data),
-        compulsoryBriefing: normalizeCompulsoryBriefing(data)
+        grade: normalizeCidbGrade(data, candidate),
+        class: normalizeCidbClass(data, candidate),
+        bbbee: normalizeBbbeeLevel(data, candidate),
+        prefPoints: normalizePreferencePoints(data, candidate),
+        compulsoryBriefing: normalizeCompulsoryBriefing(data, candidate)
     };
 
     debugLog(`[Tender Trace:${traceId}] normalized qualification object:`, extractedAI);
