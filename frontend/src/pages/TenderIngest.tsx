@@ -1,4 +1,4 @@
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Upload, X, FileText, Loader2, CheckCircle2, AlertTriangle, ArrowLeft } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { TenderService } from "@/services/api"
@@ -388,6 +388,10 @@ export default function TenderIngest() {
     });
 
     const inputRef = useRef<HTMLInputElement>(null)
+
+    useEffect(() => {
+        console.log(`[Tender Debug] Debug logging enabled: ${!import.meta.env.PROD || import.meta.env.VITE_ENABLE_TENDER_DEBUG === "true"}`);
+    }, []);
 
     const processFile = async (rawFile: File) => {
         const id = generateTraceId();
