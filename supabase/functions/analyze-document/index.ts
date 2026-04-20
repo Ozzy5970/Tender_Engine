@@ -109,7 +109,55 @@ Deno.serve(async (req) => {
         // @ts-ignore
         const validationRules = body.validationRules || {};
 
-        const promptText = `
+        let promptText = "";
+
+        if (doc_type === 'tender_document') {
+            promptText = `
+        You are an expert Tender Analyst for South African Construction Bids.
+        Your GOAL: Thoroughly scan this document and extract the core tender/project requirements.
+        
+        IGNORE the user profile entirely. DO NOT perform company identity mismatch checks.
+        
+        INSTRUCTIONS:
+        1. Identify the issuing client, department, or municipality.
+        2. Extract the Tender/Bid Number and the Title/Description of the work.
+        3. Extract the closing date and time if available (YYYY-MM-DD).
+        4. Extract the CIDB requirement. Note that it may be expressed as "6CE or higher", "Grade 6 CE", etc.
+           Split it into digits (cidb_grade) and letters (cidb_class). E.g. "6CE" -> grade: "6", class: "CE".
+        5. Extract the minimum B-BBEE Level (e.g., "1", "2", "3").
+        6. Extract the Preference Point System. Look for "80/20", "90/10", or "80 / 20".
+        7. Detect if there is a COMPULSORY or MANDATORY briefing session or site meeting. Set compulsory_briefing to true/false.
+        8. Extract mandatory returnables and compliance documents required from the bidder (e.g., "Valid Tax Clearance", "CSD Report", "CIDB Certificate", etc.). List exactly what is stated in mandatory_docs_raw, and then provide a normalized/cleaned lowercase list in mandatory_docs_normalized.
+        
+        If information is not clearly present on the document, return null for scalar fields.
+        For list fields (like mandatory docs), return an empty array [] if nothing is found.
+        DO NOT hallucinate bidder-side compliance metadata.
+
+        RETURN JSON FORMAT ONLY:
+        {
+          "valid": "boolean (true if this document appears to be a real tender invite/document and extraction was meaningful, false otherwise)",
+          "confidence": "number 0-100 or null if uncertain",
+          "reason": "Brief explanation of the extraction outcome",
+          "doc_type_detected": "tender_document",
+          "title": "Main project title" or null,
+          "client_name": "Municipality, department, or client name" or null,
+          "tender_number": "Official bid/reference number" or null,
+          "tender_description": "Brief summary of the work required" or null,
+          "closing_date": "YYYY-MM-DD" or null,
+          "preference_points": "e.g., 80/20 or 90/10" or null,
+          "compulsory_briefing": true or false or null,
+          "requirements": {
+            "cidb_grade": "number 1-9" or null,
+            "cidb_class": "e.g., CE, GB" or null,
+            "min_bbbee_level": "number 1-8" or null,
+            "mandatory_docs_raw": ["List of explicitly required returnables or []"],
+            "mandatory_docs_normalized": ["normalized returnables or []"]
+          },
+          "summary": "Brief 2 sentence summary of the tender scope" or null
+        }
+        `;
+        } else {
+            promptText = `
         You are a STRICTOR Compliance Officer for South African Construction Tenders.
         Your GOAL: Validate if this document is EXACTLY what is claimed and CROSS-REFERENCE it against the user's profile.
 
@@ -285,7 +333,8 @@ Deno.serve(async (req) => {
           "strategic_value": "High/Medium/Low",
           "strategy_tips": "One key tip"
         }
-        `
+        `;
+        }
 
 
         // 5. Dynamic Model Discovery (Fix for Region/Account 404s)
@@ -387,6 +436,11 @@ Deno.serve(async (req) => {
         // Check if Gemini returned an error structure within its JSON
         if (parsedData && typeof parsedData === 'object' && 'error' in parsedData) {
             throw new Error(`AI Response Error: ${JSON.stringify(parsedData.error)}`);
+        }
+
+        if (doc_type === 'tender_document') {
+            console.log(`[Tender Debug] Proof of Backend Branch Selection: tender_document branch executed.`);
+            console.log(`[Tender Debug] Top-level extracted keys:`, Object.keys(parsedData || {}));
         }
 
         return new Response(
