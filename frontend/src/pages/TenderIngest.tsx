@@ -98,25 +98,81 @@ export interface ManualFormState {
 }
 
 const normalizeTenderMandatoryDocs = (data: RawTenderAiPayload, prevDocs: MandatoryDocsState): MandatoryDocsState => {
-    const aiDocs = [data.required_documents, data.mandatory_documents, data.compliance_requirements, data.mandatory_returnables, data.documents, data.returnables].filter(Boolean);
-    if (!aiDocs.length) return prevDocs;
-    
-    let flatStr = "";
-    if (typeof aiDocs[0] === 'string') {
-        flatStr = aiDocs.join(' ');
-    } else if (Array.isArray(aiDocs[0])) {
-        flatStr = aiDocs.flat().join(' ');
-    } else {
-        flatStr = JSON.stringify(aiDocs);
-    }
-    flatStr = flatStr.toLowerCase();
-
     const mandatoryDocs = { ...prevDocs };
-    Object.entries(DOC_KEYWORDS).forEach(([key, keywords]) => {
-        if (keywords.some(k => flatStr.includes(k.toLowerCase()))) {
-            mandatoryDocs[key as keyof typeof mandatoryDocs] = true;
+    
+    // Safely type requirements without broad Record<string, any>
+    const reqs = (typeof data.requirements === 'object' && data.requirements !== null)
+        ? data.requirements as { mandatory_docs_normalized?: unknown; mandatory_docs_raw?: unknown }
+        : {};
+    
+    const primaryNormalized = reqs.mandatory_docs_normalized;
+    const primaryRaw = reqs.mandatory_docs_raw;
+    
+    let usedSource = "none";
+    let foundPrimary = false;
+
+    if (Array.isArray(primaryNormalized) && primaryNormalized.length > 0) {
+        usedSource = "requirements.mandatory_docs_normalized";
+        foundPrimary = true;
+        primaryNormalized.forEach(item => {
+            const key = safeToString(item).toLowerCase();
+            if (key in mandatoryDocs) {
+                mandatoryDocs[key as keyof typeof mandatoryDocs] = true;
+            } else {
+                Object.entries(DOC_KEYWORDS).forEach(([docKey, keywords]) => {
+                    if (keywords.some(k => key.includes(k.toLowerCase()))) {
+                        mandatoryDocs[docKey as keyof typeof mandatoryDocs] = true;
+                    }
+                });
+            }
+        });
+    }
+
+    let textToSearch = "";
+
+    if (primaryRaw) {
+        if (usedSource === "none") usedSource = "requirements.mandatory_docs_raw";
+        else usedSource += " + requirements.mandatory_docs_raw";
+        foundPrimary = true;
+        
+        if (Array.isArray(primaryRaw)) {
+            textToSearch = primaryRaw.map(safeToString).join(' ');
+        } else {
+            textToSearch = safeToString(primaryRaw);
         }
-    });
+    }
+
+    if (!foundPrimary) {
+        const legacyFallbacks = [
+            data.mandatory_returnables,
+            data.required_documents,
+            data.documents,
+            data.returnables
+        ].filter(Boolean);
+
+        if (legacyFallbacks.length > 0) {
+            usedSource = "legacy_fallbacks";
+            textToSearch = legacyFallbacks.map(fallback => {
+                if (Array.isArray(fallback)) {
+                    return fallback.map(safeToString).join(' ');
+                }
+                return safeToString(fallback);
+            }).join(' ');
+        }
+    }
+
+    if (textToSearch) {
+        const flatStr = textToSearch.toLowerCase();
+        Object.entries(DOC_KEYWORDS).forEach(([key, keywords]) => {
+            if (keywords.some(k => flatStr.includes(k.toLowerCase()))) {
+                mandatoryDocs[key as keyof typeof mandatoryDocs] = true;
+            }
+        });
+    }
+
+    debugLog(`[Tender Debug] Mandatory docs source:`, usedSource);
+    debugLog(`[Tender Debug] Mandatory docs checkbox mapping:`, mandatoryDocs);
+
     return mandatoryDocs;
 };
 
