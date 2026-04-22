@@ -3,7 +3,7 @@ import { Upload, X, FileText, Loader2, CheckCircle2, AlertTriangle, ArrowLeft } 
 import { useNavigate } from "react-router-dom"
 import { TenderService } from "@/services/api"
 import * as Sentry from "@sentry/react"
-import { useForm } from "react-hook-form"
+import { useForm, type SubmitHandler } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 // import { cn } from "@/lib/utils"
@@ -121,7 +121,10 @@ const manualFormSchema = z.object({
     mandatoryDocs: mandatoryDocsSchema
 });
 
-export type ManualFormState = z.infer<typeof manualFormSchema>;
+export type ManualFormInput = z.input<typeof manualFormSchema>;
+export type ManualFormOutput = z.output<typeof manualFormSchema>;
+
+export type ManualFormState = ManualFormOutput;
 
 const normalizeTenderMandatoryDocs = (data: RawTenderAiPayload, prevDocs: MandatoryDocsState): MandatoryDocsState => {
     const mandatoryDocs = { ...prevDocs };
@@ -456,7 +459,7 @@ export default function TenderIngest() {
         reset,
         getValues,
         watch
-    } = useForm({
+    } = useForm<ManualFormInput, any, ManualFormOutput>({
         resolver: zodResolver(manualFormSchema),
         defaultValues: {
             title: "",
@@ -536,7 +539,7 @@ export default function TenderIngest() {
     }
 
 
-    const onSubmit = async (manualForm: any) => {
+    const onSubmit: SubmitHandler<ManualFormOutput> = async (manualForm) => {
         const activeTrace = traceId || "manual-entry-no-trace";
         const prefix = `[Tender Trace:${activeTrace}]`;
 
