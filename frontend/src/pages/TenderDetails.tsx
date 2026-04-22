@@ -194,7 +194,7 @@ export default function TenderDetails() {
             <div className="flex items-center justify-between">
                 <button
                     onClick={() => navigate("/tenders")}
-                    className="flex items-center text-sm text-gray-500 hover:text-gray-900"
+                    className="flex items-center text-sm text-gray-500 hover:text-gray-900 transition-colors"
                 >
                     <ArrowLeft className="w-4 h-4 mr-1" />
                     Back to Tenders
@@ -207,27 +207,27 @@ export default function TenderDetails() {
                             navigate("/tenders")
                         }
                     }}
-                    className="flex items-center px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors"
+                    className="flex items-center px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
                 >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete Tender
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    Delete
                 </button>
             </div>
 
             {/* Header & Score Card */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-2 space-y-2">
-                    <h1 className="text-3xl font-bold text-gray-900">{tender.title}</h1>
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                        <span className="font-medium text-gray-900">{tender.client}</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+                <div className="md:col-span-2 space-y-3">
+                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight leading-tight">{tender.title}</h1>
+                    <div className="flex items-center gap-3 text-sm text-gray-500">
+                        <span className="font-medium text-gray-700 bg-gray-100/80 px-2.5 py-0.5 rounded-md border border-gray-200">{tender.client}</span>
                         <span>•</span>
-                        <span>Deadline: {tender.deadline || 'Pre-Tender'}</span>
+                        <span>Due: {((tender as any).closing_date || tender.deadline) ? String((tender as any).closing_date || tender.deadline).split('T')[0] : 'Pre-Tender'}</span>
                     </div>
                 </div>
 
                 {/* Score Box */}
                 <div className={cn(
-                    "p-6 rounded-xl border flex flex-col items-center justify-center text-center",
+                    "p-6 rounded-xl border shadow-sm flex flex-col items-center justify-center text-center transition-all",
                     score >= 80 ? "bg-green-50 border-green-200" :
                         score >= 50 ? "bg-yellow-50 border-yellow-200" :
                             "bg-red-50 border-red-200"
@@ -244,7 +244,7 @@ export default function TenderDetails() {
 
             {/* Safe to Submit Indicator */}
             <div className={cn(
-                "p-4 rounded-lg border flex items-start gap-4",
+                "p-5 rounded-xl border shadow-sm flex items-start gap-4 transition-all",
                 isSafeToSubmit ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
             )}>
                 {isSafeToSubmit ? (
