@@ -547,7 +547,7 @@ export default function TenderIngest() {
     }
 
 
-    const onSubmit: SubmitHandler<ManualFormOutput> = async (manualForm) => {
+    const onSubmit: SubmitHandler<ManualFormOutput> = async (manualForm: ManualFormOutput) => {
         const activeTrace = traceId || "manual-entry-no-trace";
         const prefix = `[Tender Trace:${activeTrace}]`;
 
