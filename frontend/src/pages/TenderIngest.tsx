@@ -116,6 +116,8 @@ const manualFormSchema = z.object({
     bbbee: z.string().optional().default(""),
     prefPoints: z.string().optional().default(""),
     compulsoryBriefing: z.boolean().optional().default(false),
+    briefingDate: z.string().optional().default(""),
+    briefingDetails: z.string().optional().default(""),
     additionalReturnables: z.string().optional().default(""),
     notes: z.string().optional().default(""),
     mandatoryDocs: mandatoryDocsSchema
@@ -389,7 +391,9 @@ const normalizeCompulsoryBriefing = (data: RawTenderAiPayload, candidate: Struct
     for (const str of texts) {
         if (!str) continue;
         if (/(compulsory|mandatory)\s+(site\s+)?(briefing|meeting|inspection)/i.test(str) || 
-            /(briefing|meeting|inspection)\s+(is\s+)?(compulsory|mandatory)/i.test(str)) {
+            /(briefing|meeting|inspection)\s+(is\s+)?(compulsory|mandatory)/i.test(str) ||
+            /failure to attend will result in disqualification/i.test(str) ||
+            /attendance is (compulsory|mandatory)/i.test(str)) {
             return true;
         }
     }
@@ -413,11 +417,13 @@ const normalizeTenderAiData = (data: RawTenderAiPayload, prev: ManualFormState, 
     Sentry.addBreadcrumb({ category: "tender_ingest", message: "normalized qualification object", data: { extractedAI, traceId } });
 
     const reqsObj = (typeof data.requirements === 'object' && data.requirements !== null) 
-        ? data.requirements as { additional_returnables?: unknown; notes?: unknown } 
+        ? data.requirements as { additional_returnables?: unknown; notes?: unknown; briefing_date?: unknown; briefing_details?: unknown } 
         : {};
         
     const mappedAdditional = safeToString(reqsObj.additional_returnables || "");
     const mappedNotes = safeToString(reqsObj.notes || "");
+    const mappedBriefingDate = extractDate(reqsObj.briefing_date) || extractDate(data.briefing_date) || "";
+    const mappedBriefingDetails = safeToString(reqsObj.briefing_details || data.briefing_details || "");
 
     const finalMapped: ManualFormState = {
         ...prev,
@@ -431,6 +437,8 @@ const normalizeTenderAiData = (data: RawTenderAiPayload, prev: ManualFormState, 
         bbbee: extractedAI.bbbee || prev.bbbee,
         prefPoints: extractedAI.prefPoints || prev.prefPoints,
         compulsoryBriefing: extractedAI.compulsoryBriefing ?? prev.compulsoryBriefing,
+        briefingDate: mappedBriefingDate || prev.briefingDate,
+        briefingDetails: mappedBriefingDetails || prev.briefingDetails,
         additionalReturnables: mappedAdditional || prev.additionalReturnables,
         notes: mappedNotes || prev.notes,
         mandatoryDocs: normalizeTenderMandatoryDocs(data, prev.mandatoryDocs)
@@ -490,7 +498,7 @@ export default function TenderIngest() {
         }
     });
 
-    const [watchGrade, watchClass, watchBbbee, watchPrefPoints] = watch(['grade', 'class', 'bbbee', 'prefPoints']);
+    const [watchGrade, watchClass, watchBbbee, watchPrefPoints, watchCompulsoryBriefing] = watch(['grade', 'class', 'bbbee', 'prefPoints', 'compulsoryBriefing']);
     const inputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
@@ -857,14 +865,37 @@ export default function TenderIngest() {
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2 pt-2">
-                                <input
-                                    type="checkbox"
-                                    id="compulsoryBriefing"
-                                    {...register('compulsoryBriefing')}
-                                    className="rounded border-gray-300 text-primary focus:ring-primary"
-                                />
-                                <label htmlFor="compulsoryBriefing" className="text-sm font-medium text-gray-700 cursor-pointer">Require Compulsory Briefing</label>
+                            <div className="flex flex-col gap-3 pt-2">
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        id="compulsoryBriefing"
+                                        {...register('compulsoryBriefing')}
+                                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                                    />
+                                    <label htmlFor="compulsoryBriefing" className="text-sm font-medium text-gray-700 cursor-pointer">Require Compulsory Briefing / Site Meeting</label>
+                                </div>
+                                {watchCompulsoryBriefing && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-6 border-l-2 border-gray-100 ml-1">
+                                        <div className="space-y-1.5 md:col-span-1">
+                                            <label className="text-sm font-medium text-gray-700">Briefing Date</label>
+                                            <input
+                                                type="text"
+                                                {...register('briefingDate')}
+                                                placeholder="e.g. 2024-05-15 10:00 AM"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5 md:col-span-2">
+                                            <label className="text-sm font-medium text-gray-700">Briefing Details / Instructions</label>
+                                            <textarea
+                                                {...register('briefingDetails')}
+                                                placeholder="Important instructions, location, or disqualification warnings..."
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm min-h-[60px]"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

@@ -153,6 +153,9 @@ Deno.serve(async (req) => {
            ---
         6. Extract the Preference Point System. Look for "80/20", "90/10", or "80 / 20".
         7. Detect if there is a COMPULSORY or MANDATORY briefing session or site meeting. Set compulsory_briefing to true/false.
+           - Check for phrases like "compulsory site briefing", "mandatory site meeting", "failure to attend will result in disqualification", "attendance is mandatory".
+           - Extract the briefing date into briefing_date if present.
+           - Summarize important instructions/warnings (location, time, rules) into briefing_details. Return null if not clearly present.
         8. Extract mandatory returnables and compliance documents required from the bidder (e.g., "Valid Tax Clearance", "CSD Report", "CIDB Certificate", etc.). List exactly what is stated in mandatory_docs_raw, and then provide a normalized/cleaned lowercase list in mandatory_docs_normalized.
         9. Populate additional_returnables with concise text for extra returnables or submission items not already represented in requirements.mandatory_docs_*. Return null if nothing meaningful is present. Do not duplicate standardized checkbox documents unless there is important extra context.
         10. Populate notes with short important conditions, warnings, or special tender instructions. Return null if nothing meaningful is present.
@@ -174,6 +177,8 @@ Deno.serve(async (req) => {
           "closing_date": "YYYY-MM-DD" or null,
           "preference_points": "e.g., 80/20 or 90/10" or null,
           "compulsory_briefing": true or false or null,
+          "briefing_date": "string date or null",
+          "briefing_details": "string summary or null",
           "requirements": {
             "cidb_grade": "number 1-9" or null,
             "cidb_class": "e.g., CE, GB" or null,
@@ -493,5 +498,6 @@ Deno.serve(async (req) => {
         )
     }
 })
- 
+
+ 
  
