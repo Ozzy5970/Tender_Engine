@@ -30,7 +30,7 @@ const DOC_KEYWORDS = {
     paye_reg: ['paye'],
     bank_letter: ['bank letter', 'bank confirmation', 'cancelled cheque'],
     sbd_6_1: ['sbd 6.1', 'sbd6.1'],
-    ohs_plan: ['ohs plan', 'health and safety plan'],
+    ohs_plan: ['ohs plan', 'health and safety plan', 'health & safety plan'],
     she_file: ['she file', 'safety file']
 };
 
@@ -375,6 +375,13 @@ const normalizeTenderAiData = (data: RawTenderAiPayload, prev: ManualFormState, 
     debugLog(`[Tender Trace:${traceId}] [Tender Debug] Pure Extracted Qualifications:`, extractedAI);
     Sentry.addBreadcrumb({ category: "tender_ingest", message: "normalized qualification object", data: { extractedAI, traceId } });
 
+    const reqsObj = (typeof data.requirements === 'object' && data.requirements !== null) 
+        ? data.requirements as { additional_returnables?: unknown; notes?: unknown } 
+        : {};
+        
+    const mappedAdditional = safeToString(reqsObj.additional_returnables || "");
+    const mappedNotes = safeToString(reqsObj.notes || "");
+
     const finalMapped: ManualFormState = {
         ...prev,
         title: data.title || data.tender_description || prev.title,
@@ -387,6 +394,8 @@ const normalizeTenderAiData = (data: RawTenderAiPayload, prev: ManualFormState, 
         bbbee: extractedAI.bbbee || prev.bbbee,
         prefPoints: extractedAI.prefPoints || prev.prefPoints,
         compulsoryBriefing: extractedAI.compulsoryBriefing ?? prev.compulsoryBriefing,
+        additionalReturnables: mappedAdditional || prev.additionalReturnables,
+        notes: mappedNotes || prev.notes,
         mandatoryDocs: normalizeTenderMandatoryDocs(data, prev.mandatoryDocs)
     };
 
@@ -395,7 +404,9 @@ const normalizeTenderAiData = (data: RawTenderAiPayload, prev: ManualFormState, 
         class: finalMapped.class,
         bbbee: finalMapped.bbbee,
         prefPoints: finalMapped.prefPoints,
-        compulsoryBriefing: finalMapped.compulsoryBriefing
+        compulsoryBriefing: finalMapped.compulsoryBriefing,
+        additionalReturnablesMapped: !!mappedAdditional,
+        notesMapped: !!mappedNotes
     });
 
     return finalMapped;
