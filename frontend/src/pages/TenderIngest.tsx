@@ -968,7 +968,7 @@ export default function TenderIngest() {
                             className="w-full py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors mt-6 flex items-center justify-center"
                         >
                             {status === 'processing' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                            {status === 'processing' ? 'Creating...' : 'Create Tender'}
+                            {status === 'processing' ? 'Saving & Analyzing...' : 'Save & Analyze Tender'}
                         </button>
                     </form>
                 )}
