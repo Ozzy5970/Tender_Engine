@@ -125,6 +125,32 @@ Deno.serve(async (req) => {
         4. Extract the CIDB requirement. Note that it may be expressed as "6CE or higher", "Grade 6 CE", etc.
            Split it into digits (cidb_grade) and letters (cidb_class). E.g. "6CE" -> grade: "6", class: "CE".
         5. Extract the minimum B-BBEE Level (e.g., "1", "2", "3").
+           
+           ---
+           B-BBEE EXTRACTION RULES:
+           You MUST extract the minimum B-BBEE level if it is present anywhere in the document.
+
+           Common formats include:
+           - "Level 1", "Level 2", ..., "Level 8"
+           - "Level 3 Contributor"
+           - "Minimum B-BBEE Status Level: Level 4"
+           - "B-BBEE Level 2 required"
+
+           RULES:
+           - Extract ONLY the numeric level (1–8)
+           - Ignore words like "Contributor"
+           - Ignore descriptive text
+           - If multiple levels are mentioned, extract the minimum required level
+           - If no clear requirement exists, return null
+
+           Examples:
+           - "Level 3 Contributor" -> 3
+           - "Minimum B-BBEE Level 2" -> 2
+           - "At least Level 3 Contributor" -> 3
+           - "Minimum B-BBEE Status Level: Level 4" -> 4
+           - "B-BBEE Level 2 required" -> 2
+           - No mention -> null
+           ---
         6. Extract the Preference Point System. Look for "80/20", "90/10", or "80 / 20".
         7. Detect if there is a COMPULSORY or MANDATORY briefing session or site meeting. Set compulsory_briefing to true/false.
         8. Extract mandatory returnables and compliance documents required from the bidder (e.g., "Valid Tax Clearance", "CSD Report", "CIDB Certificate", etc.). List exactly what is stated in mandatory_docs_raw, and then provide a normalized/cleaned lowercase list in mandatory_docs_normalized.
@@ -151,7 +177,7 @@ Deno.serve(async (req) => {
           "requirements": {
             "cidb_grade": "number 1-9" or null,
             "cidb_class": "e.g., CE, GB" or null,
-            "min_bbbee_level": "number 1-8" or null,
+            "min_bbbee_level": "3" or null,
             "mandatory_docs_raw": ["List of explicitly required returnables or []"],
             "mandatory_docs_normalized": ["normalized returnables or []"],
             "additional_returnables": "string or null",
