@@ -479,7 +479,7 @@ export default function TenderIngest() {
         }
     });
 
-    const manualForm = watch();
+    const [watchGrade, watchClass, watchBbbee, watchPrefPoints] = watch(['grade', 'class', 'bbbee', 'prefPoints']);
     const inputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
@@ -803,7 +803,7 @@ export default function TenderIngest() {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Minimum CIDB Grade</label>
                                     <select
-                                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${!manualForm.grade ? 'text-gray-400' : 'text-gray-900'}`}
+                                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${!watchGrade ? 'text-gray-400' : 'text-gray-900'}`}
                                         {...register('grade')}
                                     >
                                         <option value="" disabled className="text-gray-400">Choose CIDB Grade...</option>
@@ -813,7 +813,7 @@ export default function TenderIngest() {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Class of Work</label>
                                     <select
-                                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${!manualForm.class ? 'text-gray-400' : 'text-gray-900'}`}
+                                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${!watchClass ? 'text-gray-400' : 'text-gray-900'}`}
                                         {...register('class')}
                                     >
                                         <option value="" disabled className="text-gray-400">Choose Class...</option>
@@ -826,7 +826,7 @@ export default function TenderIngest() {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Minimum B-BBEE Level</label>
                                     <select
-                                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${!manualForm.bbbee ? 'text-gray-400' : 'text-gray-900'}`}
+                                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${!watchBbbee ? 'text-gray-400' : 'text-gray-900'}`}
                                         {...register('bbbee')}
                                     >
                                         <option value="" disabled className="text-gray-400">Choose B-BBEE Level...</option>
@@ -836,7 +836,7 @@ export default function TenderIngest() {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Preference Points</label>
                                     <select
-                                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${!manualForm.prefPoints ? 'text-gray-400' : 'text-gray-900'}`}
+                                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${!watchPrefPoints ? 'text-gray-400' : 'text-gray-900'}`}
                                         {...register('prefPoints')}
                                     >
                                         <option value="" disabled className="text-gray-400">Choose Preference Points...</option>
