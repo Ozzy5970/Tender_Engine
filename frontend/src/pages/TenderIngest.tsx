@@ -349,13 +349,14 @@ const normalizeCidbClass = (data: RawTenderAiPayload, candidate: StructuredCandi
 
 const normalizeBbbeeLevel = (data: RawTenderAiPayload, candidate: StructuredCandidate): string => {
     const explicit = gatherText(data, ['min_bbbee_level', 'bbbee_level', 'bbee_level']);
-    const nestedExplicit = candidate.bbbee || "";
+    const nestedExplicit = candidate.bbbee !== undefined && candidate.bbbee !== null ? String(candidate.bbbee) : "";
     const reqs = gatherText(data, ['requirements', 'compliance_requirements']);
     const summary = gatherText(data, ['summary', 'description']);
     const full = safeToString(data);
 
-    const findBbbee = (str: string, isStructured: boolean) => {
-        if (!str) return "";
+    const findBbbee = (rawStr: string | number | undefined | null, isStructured: boolean) => {
+        if (rawStr === null || rawStr === undefined || rawStr === "") return "";
+        const str = String(rawStr);
         let match;
         if (isStructured) {
             if (/^[1-8]$/.test(str.trim())) return str.trim();
