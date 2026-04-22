@@ -152,8 +152,8 @@ export default function Tenders() {
             </div>
 
             {/* Search & Filter Bar */}
-            <div className={`bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 ${tier !== 'Pro' ? 'justify-end' : ''}`}>
-                {tier === 'Pro' && (
+            {tier === 'Pro' && (
+                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4">
                     <div className="flex-1 relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
@@ -164,22 +164,22 @@ export default function Tenders() {
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
-                )}
-                <div className="flex items-center gap-2">
-                    <Filter className="w-4 h-4 text-gray-500" />
-                    <select
-                        className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-primary focus:border-primary bg-white"
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value as any)}
-                    >
-                        <option value="all">All Statuses</option>
-                        <option value="ready">Ready</option>
-                        <option value="processing">Processing</option>
-                        <option value="error">Error</option>
-                        <option value="draft">Draft</option>
-                    </select>
+                    <div className="flex items-center gap-2">
+                        <Filter className="w-4 h-4 text-gray-500" />
+                        <select
+                            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-primary focus:border-primary bg-white"
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value as any)}
+                        >
+                            <option value="all">All Statuses</option>
+                            <option value="ready">Ready</option>
+                            <option value="processing">Processing</option>
+                            <option value="error">Error</option>
+                            <option value="draft">Draft</option>
+                        </select>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Tender List */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -207,8 +207,12 @@ export default function Tenders() {
                                         <h3 className="font-medium text-gray-900">{tender.title}</h3>
                                         <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
                                             <span>{tender.client}</span>
-                                            <span>•</span>
-                                            <span>Due: {tender.deadline}</span>
+                                            {((tender as any).closing_date || tender.deadline) && (
+                                                <>
+                                                    <span>•</span>
+                                                    <span>Due: {(tender as any).closing_date || tender.deadline}</span>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
