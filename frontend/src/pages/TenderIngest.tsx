@@ -3,6 +3,9 @@ import { Upload, X, FileText, Loader2, CheckCircle2, AlertTriangle, ArrowLeft } 
 import { useNavigate } from "react-router-dom"
 import { TenderService } from "@/services/api"
 import * as Sentry from "@sentry/react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 // import { cn } from "@/lib/utils"
 
 const debugLog = (...args: any[]) => {
@@ -80,22 +83,45 @@ interface ExtractedQualifications {
 type MandatoryDocKeys = keyof typeof DOC_KEYWORDS;
 type MandatoryDocsState = Record<MandatoryDocKeys, boolean>;
 
-// Fully explicit form state typing to prevent React setState drift
-export interface ManualFormState {
-    title: string;
-    client: string;
-    tenderNumber: string;
-    tenderDescription: string;
-    closingDate: string;
-    grade: string;
-    class: string;
-    bbbee: string;
-    prefPoints: string;
-    compulsoryBriefing: boolean;
-    additionalReturnables: string;
-    notes: string;
-    mandatoryDocs: MandatoryDocsState;
-}
+const mandatoryDocsSchema = z.object({
+    cipc_cert: z.boolean().default(false),
+    cidb_proof: z.boolean().default(false),
+    sars_pin: z.boolean().default(false),
+    csd_summary: z.boolean().default(false),
+    coid_letter: z.boolean().default(false),
+    bbbee_cert: z.boolean().default(false),
+    vat_reg: z.boolean().default(false),
+    uif_letter: z.boolean().default(false),
+    paye_reg: z.boolean().default(false),
+    bank_letter: z.boolean().default(false),
+    sbd_6_1: z.boolean().default(false),
+    ohs_plan: z.boolean().default(false),
+    she_file: z.boolean().default(false)
+});
+
+const manualFormSchema = z.object({
+    title: z.string().min(3, "Tender Name must be at least 3 characters."),
+    client: z.string().min(3, "Client Name must be at least 3 characters."),
+    tenderNumber: z.string().optional().default(""),
+    tenderDescription: z.string().optional().default(""),
+    closingDate: z.string().min(1, "Closing Date is required.").refine((val) => {
+        if (!val) return false;
+        const closing = new Date(val);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return closing >= today;
+    }, { message: "Closing Date cannot be in the past." }),
+    grade: z.string().optional().default(""),
+    class: z.string().optional().default(""),
+    bbbee: z.string().optional().default(""),
+    prefPoints: z.string().optional().default(""),
+    compulsoryBriefing: z.boolean().optional().default(false),
+    additionalReturnables: z.string().optional().default(""),
+    notes: z.string().optional().default(""),
+    mandatoryDocs: mandatoryDocsSchema
+});
+
+export type ManualFormState = z.infer<typeof manualFormSchema>;
 
 const normalizeTenderMandatoryDocs = (data: RawTenderAiPayload, prevDocs: MandatoryDocsState): MandatoryDocsState => {
     const mandatoryDocs = { ...prevDocs };
@@ -424,36 +450,36 @@ export default function TenderIngest() {
     const [ingestMode, setIngestMode] = useState<"upload" | "manual">("upload")
     const [traceId, setTraceId] = useState<string>("")
 
-    const [manualForm, setManualForm] = useState({
-        title: "",
-        client: "",
-        tenderNumber: "",
-        tenderDescription: "",
-        closingDate: "",
-        grade: "",
-        class: "",
-        bbbee: "",
-        prefPoints: "",
-        compulsoryBriefing: false,
-        additionalReturnables: "",
-        notes: "",
-        mandatoryDocs: {
-            cipc_cert: false,
-            cidb_proof: false,
-            sars_pin: false,
-            csd_summary: false,
-            coid_letter: false,
-            bbbee_cert: false,
-            vat_reg: false,
-            uif_letter: false,
-            paye_reg: false,
-            bank_letter: false,
-            sbd_6_1: false,
-            ohs_plan: false,
-            she_file: false
-        } as MandatoryDocsState
+    const {
+        register,
+        handleSubmit,
+        reset,
+        getValues,
+        watch
+    } = useForm({
+        resolver: zodResolver(manualFormSchema),
+        defaultValues: {
+            title: "",
+            client: "",
+            tenderNumber: "",
+            tenderDescription: "",
+            closingDate: "",
+            grade: "",
+            class: "",
+            bbbee: "",
+            prefPoints: "",
+            compulsoryBriefing: false,
+            additionalReturnables: "",
+            notes: "",
+            mandatoryDocs: {
+                cipc_cert: false, cidb_proof: false, sars_pin: false, csd_summary: false,
+                coid_letter: false, bbbee_cert: false, vat_reg: false, uif_letter: false,
+                paye_reg: false, bank_letter: false, sbd_6_1: false, ohs_plan: false, she_file: false
+            }
+        }
     });
 
+    const manualForm = watch();
     const inputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
@@ -510,49 +536,9 @@ export default function TenderIngest() {
     }
 
 
-    const validateForm = () => {
-        // Validation Logic
-
-        // 1. Title Check
-        if (manualForm.title.length < 3) {
-            setErrorMsg("VAL_TITLE_SHORT: Tender Name must be at least 3 characters.")
-            return false
-        }
-
-        // 2. Client Check
-        if (manualForm.client.length < 3) {
-            setErrorMsg("VAL_CLIENT_SHORT: Client Name must be at least 3 characters.")
-            return false
-        }
-
-        // 3. Date Check (Crucial: No Past Dates)
-        if (!manualForm.closingDate) {
-            setErrorMsg("VAL_DATE_EMPTY: Closing Date is required.")
-            return false
-        }
-        const closing = new Date(manualForm.closingDate)
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-
-        if (closing < today) {
-            setErrorMsg(`VAL_DATE_PAST: Closing Date cannot be in the past (${manualForm.closingDate}).`)
-            return false
-        }
-
-        return true
-    }
-
-    const submitManual = async (e: React.FormEvent) => {
-        e.preventDefault()
-
+    const onSubmit = async (manualForm: any) => {
         const activeTrace = traceId || "manual-entry-no-trace";
         const prefix = `[Tender Trace:${activeTrace}]`;
-
-        // Run Validation
-        if (!validateForm()) {
-            setStatus("error")
-            return
-        }
 
         debugLog(`${prefix} final mapped manual form values:`, manualForm)
         Sentry.addBreadcrumb({ category: "tender_ingest", message: "final mapped manual form values", data: { form: manualForm, traceId: activeTrace } });
@@ -603,6 +589,14 @@ export default function TenderIngest() {
             setStatus("error")
         }
     }
+
+    const onError = (errs: any) => {
+        const firstError = Object.values(errs)[0] as any;
+        if (firstError?.message) {
+            setErrorMsg(firstError.message);
+        }
+        setStatus("error");
+    };
 
     const startUpload = async () => {
         if (!file) return
@@ -692,7 +686,8 @@ export default function TenderIngest() {
             console.log("[Tender Upload Debug] AI Insights status:", insights)
 
             // 3. Populate Form & Switch to Manual for Review
-            setManualForm(prev => normalizeTenderAiData(data, prev, activeTrace));
+            const updatedForm = normalizeTenderAiData(data, getValues() as ManualFormState, activeTrace);
+            reset(updatedForm);
 
             setStatus("idle")
             setIngestMode("manual")
@@ -748,7 +743,7 @@ export default function TenderIngest() {
 
                 {/* MANUAL FORM */}
                 {ingestMode === 'manual' && (status === 'idle' || status === 'processing' || status === 'error') && (
-                    <form onSubmit={submitManual} className="space-y-8">
+                    <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-8">
                         {/* 1. Tender Basics */}
                         <div className="space-y-4">
                             <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Tender Details</h3>
@@ -758,8 +753,7 @@ export default function TenderIngest() {
                                     required
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                                     placeholder="e.g. N2 Highway Maintenance"
-                                    value={manualForm.title}
-                                    onChange={e => setManualForm({ ...manualForm, title: e.target.value })}
+                                    {...register('title')}
                                 />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
@@ -768,8 +762,7 @@ export default function TenderIngest() {
                                     <input
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                                         placeholder="e.g. NRA-1234"
-                                        value={manualForm.tenderNumber || ''}
-                                        onChange={e => setManualForm({ ...manualForm, tenderNumber: e.target.value })}
+                                        {...register('tenderNumber')}
                                     />
                                 </div>
                                 <div>
@@ -778,8 +771,7 @@ export default function TenderIngest() {
                                         required
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                                         placeholder="e.g. SANRAL, Eskom, etc."
-                                        value={manualForm.client}
-                                        onChange={e => setManualForm({ ...manualForm, client: e.target.value })}
+                                        {...register('client')}
                                     />
                                 </div>
                             </div>
@@ -790,8 +782,7 @@ export default function TenderIngest() {
                                     type="date"
                                     required
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                    value={manualForm.closingDate}
-                                    onChange={e => setManualForm({ ...manualForm, closingDate: e.target.value })}
+                                    {...register('closingDate')}
                                 />
                             </div>
 
@@ -800,8 +791,7 @@ export default function TenderIngest() {
                                 <textarea
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm min-h-[80px]"
                                     placeholder="e.g. High-level scope of work or project goals..."
-                                    value={manualForm.tenderDescription}
-                                    onChange={e => setManualForm({ ...manualForm, tenderDescription: e.target.value })}
+                                    {...register('tenderDescription')}
                                 />
                             </div>
                         </div>
@@ -814,8 +804,7 @@ export default function TenderIngest() {
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Minimum CIDB Grade</label>
                                     <select
                                         className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${!manualForm.grade ? 'text-gray-400' : 'text-gray-900'}`}
-                                        value={manualForm.grade}
-                                        onChange={e => setManualForm({ ...manualForm, grade: e.target.value })}
+                                        {...register('grade')}
                                     >
                                         <option value="" disabled className="text-gray-400">Choose CIDB Grade...</option>
                                         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => <option key={g} value={g} className="text-gray-900">Grade {g}</option>)}
@@ -825,8 +814,7 @@ export default function TenderIngest() {
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Class of Work</label>
                                     <select
                                         className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${!manualForm.class ? 'text-gray-400' : 'text-gray-900'}`}
-                                        value={manualForm.class}
-                                        onChange={e => setManualForm({ ...manualForm, class: e.target.value })}
+                                        {...register('class')}
                                     >
                                         <option value="" disabled className="text-gray-400">Choose Class...</option>
                                         {["CE", "GB", "ME", "EP"].map(c => <option key={c} value={c} className="text-gray-900">{c}</option>)}
@@ -839,8 +827,7 @@ export default function TenderIngest() {
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Minimum B-BBEE Level</label>
                                     <select
                                         className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${!manualForm.bbbee ? 'text-gray-400' : 'text-gray-900'}`}
-                                        value={manualForm.bbbee}
-                                        onChange={e => setManualForm({ ...manualForm, bbbee: e.target.value })}
+                                        {...register('bbbee')}
                                     >
                                         <option value="" disabled className="text-gray-400">Choose B-BBEE Level...</option>
                                         {[1, 2, 3, 4, 5, 6, 7, 8].map(l => <option key={l} value={l} className="text-gray-900">Level {l}</option>)}
@@ -850,8 +837,7 @@ export default function TenderIngest() {
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Preference Points</label>
                                     <select
                                         className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${!manualForm.prefPoints ? 'text-gray-400' : 'text-gray-900'}`}
-                                        value={manualForm.prefPoints}
-                                        onChange={e => setManualForm({ ...manualForm, prefPoints: e.target.value })}
+                                        {...register('prefPoints')}
                                     >
                                         <option value="" disabled className="text-gray-400">Choose Preference Points...</option>
                                         <option value="80/20" className="text-gray-900">80/20</option>
@@ -864,8 +850,7 @@ export default function TenderIngest() {
                                 <input
                                     type="checkbox"
                                     id="compulsoryBriefing"
-                                    checked={manualForm.compulsoryBriefing}
-                                    onChange={e => setManualForm({ ...manualForm, compulsoryBriefing: e.target.checked })}
+                                    {...register('compulsoryBriefing')}
                                     className="rounded border-gray-300 text-primary focus:ring-primary"
                                 />
                                 <label htmlFor="compulsoryBriefing" className="text-sm font-medium text-gray-700 cursor-pointer">Require Compulsory Briefing</label>
@@ -895,11 +880,7 @@ export default function TenderIngest() {
                                         <input
                                             type="checkbox"
                                             id={`doc_${key}`}
-                                            checked={manualForm.mandatoryDocs?.[key as keyof typeof manualForm.mandatoryDocs] || false}
-                                            onChange={e => setManualForm({
-                                                ...manualForm,
-                                                mandatoryDocs: { ...(manualForm.mandatoryDocs || {}), [key]: e.target.checked }
-                                            })}
+                                            {...register(`mandatoryDocs.${key}` as any)}
                                             className="rounded border-gray-300 text-primary focus:ring-primary"
                                         />
                                         <label htmlFor={`doc_${key}`} className="text-sm text-gray-700 cursor-pointer">{label}</label>
@@ -916,8 +897,7 @@ export default function TenderIngest() {
                                 <textarea
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm min-h-[80px]"
                                     placeholder="e.g. Schedule of Subcontractors, Key Personnel CVs..."
-                                    value={manualForm.additionalReturnables}
-                                    onChange={e => setManualForm({ ...manualForm, additionalReturnables: e.target.value })}
+                                    {...register('additionalReturnables')}
                                 />
                             </div>
                             <div>
@@ -925,8 +905,7 @@ export default function TenderIngest() {
                                 <textarea
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm min-h-[80px]"
                                     placeholder="e.g. Must attend site inspection, strict local content..."
-                                    value={manualForm.notes}
-                                    onChange={e => setManualForm({ ...manualForm, notes: e.target.value })}
+                                    {...register('notes')}
                                 />
                             </div>
                         </div>
