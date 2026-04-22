@@ -358,6 +358,7 @@ const normalizeBbbeeLevel = (data: RawTenderAiPayload, candidate: StructuredCand
         if (!str) return "";
         let match;
         if (isStructured) {
+            if (/^[1-8]$/.test(str.trim())) return str.trim();
             match = str.match(/(?:level|b-?bbee).{0,10}([1-8])/i);
         } else {
             match = str.match(/minimum\s*(?:b-?bbee\s*)?(?:status\s*)?level\s*(?:of\s*)?([1-8])/i);
@@ -365,7 +366,13 @@ const normalizeBbbeeLevel = (data: RawTenderAiPayload, candidate: StructuredCand
         return match ? match[1] : "";
     };
 
-    return findBbbee(explicit, true) || findBbbee(nestedExplicit, true) || findBbbee(reqs, false) || findBbbee(summary, false) || findBbbee(full, false);
+    const result = findBbbee(explicit, true) || findBbbee(nestedExplicit, true) || findBbbee(reqs, false) || findBbbee(summary, false) || findBbbee(full, false);
+    
+    if (nestedExplicit || result) {
+        debugLog(`[Tender Debug] B-BBEE Normalizer | Candidate Input: "${nestedExplicit}" | Output: "${result}"`);
+    }
+
+    return result;
 };
 
 const normalizeCompulsoryBriefing = (data: RawTenderAiPayload, candidate: StructuredCandidate): boolean | null => {
