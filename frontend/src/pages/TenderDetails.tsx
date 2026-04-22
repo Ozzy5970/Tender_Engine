@@ -6,6 +6,19 @@ import { cn } from "@/lib/utils"
 import { useFetch } from "@/hooks/useFetch"
 import { TenderService, CompanyService } from "@/services/api"
 
+const formatDisplayDate = (value?: string | null): string => {
+  if (!value) return "";
+
+  const str = String(value);
+
+  // If ISO string → strip time
+  if (str.includes("T")) {
+    return str.split("T")[0];
+  }
+
+  return str;
+};
+
 // Helper types
 interface ComparisonResult {
     name: string
@@ -28,6 +41,7 @@ interface Tender {
     title: string
     client: string
     deadline: string
+    closing_date?: string
     required_cidb_grade?: number
     compliance_requirements?: {
         rule_category: string
@@ -188,6 +202,10 @@ export default function TenderDetails() {
 
     const isSafeToSubmit = score >= 100
 
+    const dueDate = formatDisplayDate(
+        tender.closing_date || tender.deadline
+    );
+
     return (
         <div className="max-w-4xl mx-auto py-8 space-y-8">
             {/* Navigation & Actions */}
@@ -220,8 +238,12 @@ export default function TenderDetails() {
                     <h1 className="text-3xl font-bold text-gray-900 tracking-tight leading-tight">{tender.title}</h1>
                     <div className="flex items-center gap-3 text-sm text-gray-500">
                         <span className="font-medium text-gray-700 bg-gray-100/80 px-2.5 py-0.5 rounded-md border border-gray-200">{tender.client}</span>
-                        <span>•</span>
-                        <span>Due: {((tender as any).closing_date || tender.deadline) ? String((tender as any).closing_date || tender.deadline).split('T')[0] : 'Pre-Tender'}</span>
+                        {dueDate && (
+                            <>
+                                <span>•</span>
+                                <span>Due: {dueDate}</span>
+                            </>
+                        )}
                     </div>
                 </div>
 
