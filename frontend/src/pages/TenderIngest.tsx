@@ -417,13 +417,17 @@ const normalizeTenderAiData = (data: RawTenderAiPayload, prev: ManualFormState, 
     Sentry.addBreadcrumb({ category: "tender_ingest", message: "normalized qualification object", data: { extractedAI, traceId } });
 
     const reqsObj = (typeof data.requirements === 'object' && data.requirements !== null) 
-        ? data.requirements as { additional_returnables?: unknown; notes?: unknown; briefing_date?: unknown; briefing_details?: unknown } 
+        ? data.requirements as { additional_returnables?: unknown; notes?: unknown } 
         : {};
         
     const mappedAdditional = safeToString(reqsObj.additional_returnables || "");
     const mappedNotes = safeToString(reqsObj.notes || "");
-    const mappedBriefingDate = extractDate(reqsObj.briefing_date) || extractDate(data.briefing_date) || "";
-    const mappedBriefingDetails = safeToString(reqsObj.briefing_details || data.briefing_details || "");
+
+    debugLog(`[Tender Debug] Briefing Mapping:`, {
+        compulsory: data.compulsory_briefing,
+        date: data.briefing_date,
+        details: data.briefing_details
+    });
 
     const finalMapped: ManualFormState = {
         ...prev,
@@ -436,9 +440,9 @@ const normalizeTenderAiData = (data: RawTenderAiPayload, prev: ManualFormState, 
         class: extractedAI.class || prev.class,
         bbbee: extractedAI.bbbee || prev.bbbee,
         prefPoints: extractedAI.prefPoints || prev.prefPoints,
-        compulsoryBriefing: extractedAI.compulsoryBriefing ?? prev.compulsoryBriefing,
-        briefingDate: mappedBriefingDate || prev.briefingDate,
-        briefingDetails: mappedBriefingDetails || prev.briefingDetails,
+        compulsoryBriefing: typeof data.compulsory_briefing === "boolean" ? data.compulsory_briefing : (extractedAI.compulsoryBriefing ?? prev.compulsoryBriefing),
+        briefingDate: safeToString(data.briefing_date) || prev.briefingDate,
+        briefingDetails: safeToString(data.briefing_details) || prev.briefingDetails,
         additionalReturnables: mappedAdditional || prev.additionalReturnables,
         notes: mappedNotes || prev.notes,
         mandatoryDocs: normalizeTenderMandatoryDocs(data, prev.mandatoryDocs)
