@@ -448,6 +448,12 @@ const normalizeTenderAiData = (data: RawTenderAiPayload, prev: ManualFormState, 
         mandatoryDocs: normalizeTenderMandatoryDocs(data, prev.mandatoryDocs)
     };
 
+    debugLog(`[Tender Debug] Final Briefing State:`, {
+        compulsory: finalMapped.compulsoryBriefing,
+        date: finalMapped.briefingDate,
+        details: finalMapped.briefingDetails
+    });
+
     debugLog(`[Tender Trace:${traceId}] [Tender Debug] Final Qualification Mapping:`, {
         grade: finalMapped.grade,
         class: finalMapped.class,
