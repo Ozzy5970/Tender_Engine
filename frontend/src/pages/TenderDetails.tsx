@@ -30,8 +30,12 @@ interface ComparisonResult {
 const checkDocStatus = (userDocs: any[], typeKey: string): ComparisonResult => {
     const doc = userDocs?.find((d: any) => d.doc_type === typeKey)
     if (!doc) return { status: 'fail', reason: 'Missing document', name: '' }
-    if (doc.computed_status === 'expired') return { status: 'fail', reason: 'Document expired', name: '' }
-    if (doc.computed_status === 'warning') return { status: 'pass', warning: 'Expiring soon', name: '' }
+    if (doc.computed_status !== 'valid') {
+        if (doc.computed_status === 'warning') {
+            return { status: 'fail', reason: 'Expiring soon / needs renewal', name: '' }
+        }
+        return { status: 'fail', reason: 'Document not valid', name: '' }
+    }
     return { status: 'pass', name: '' }
 }
 
@@ -51,7 +55,9 @@ interface Tender {
     risks?: string[]
     strategy_tips?: string
     has_rated?: boolean
+    readinessScore?: number
 }
+
 
 interface UserDocument {
     doc_type: string
@@ -208,7 +214,7 @@ export default function TenderDetails() {
     // Effect for Feedback Modal (Now that 'comparison' is defined below this typically, but here we place it after definition or use function hoisting? 
     // Actually React order matters for variables. Move useEffect BELOW this useMemo.)
 
-    const score = comparison?.score || 0
+    const score = comparison?.score !== undefined ? comparison.score : 0
 
     useEffect(() => {
         if (!tender || !comparison) return
@@ -220,7 +226,6 @@ export default function TenderDetails() {
             return () => clearTimeout(timer)
         }
     }, [comparison, tender])
-
 
     if (tenderLoading || docsLoading) {
         return <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
