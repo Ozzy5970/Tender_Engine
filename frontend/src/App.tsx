@@ -128,6 +128,38 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+const getReadinessStatus = (score?: number | null) => {
+  if (score === null || score === undefined) {
+    return {
+      label: "Not analyzed",
+      colorClass: "text-gray-500",
+      badgeClass: "bg-gray-100 text-gray-600 border-gray-200"
+    };
+  }
+
+  if (score === 100) {
+    return {
+      label: "Ready to Submit",
+      colorClass: "text-green-700",
+      badgeClass: "bg-green-50 text-green-700 border-green-200"
+    };
+  }
+
+  if (score >= 80) {
+    return {
+      label: "Almost Ready",
+      colorClass: "text-orange-600",
+      badgeClass: "bg-orange-50 text-orange-700 border-orange-200"
+    };
+  }
+
+  return {
+    label: "Needs Work",
+    colorClass: "text-red-600",
+    badgeClass: "bg-red-50 text-red-700 border-red-200"
+  };
+};
+
 function Dashboard() {
   const { companyName } = useAuth()
   const navigate = useNavigate()
@@ -160,6 +192,8 @@ function Dashboard() {
     }
     loadStats()
   }, [])
+
+  const readinessStatus = getReadinessStatus(avgReadiness);
 
   return (
     <div className="space-y-6">
@@ -203,13 +237,18 @@ function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Avg Readiness Score</p>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">{avgReadiness !== null ? avgReadiness + '%' : '-'}</h3>
+              <h3 className={`text-2xl font-bold mt-1 ${readinessStatus.colorClass}`}>
+                {avgReadiness !== null ? `${avgReadiness}%` : "-"}
+              </h3>
+              <p className={`text-xs font-medium mt-1 ${readinessStatus.colorClass}`}>
+                {readinessStatus.label}
+              </p>
             </div>
-            <div className="p-2 bg-green-50 rounded-lg">
-              <ArrowUpRight className="h-5 w-5 text-green-600" />
+            <div className={`p-2 rounded-lg ${readinessStatus.badgeClass}`}>
+              <ArrowUpRight className={`h-5 w-5 ${readinessStatus.colorClass}`} />
             </div>
           </div>
-          <div className="mt-4 flex items-center text-xs text-green-600 font-medium">
+          <div className="mt-4 flex items-center text-xs text-gray-500 font-medium">
             <span>Based on active tenders</span>
           </div>
         </div>

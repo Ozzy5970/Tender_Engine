@@ -15,6 +15,38 @@ const formatTenderDate = (value?: string | null): string => {
   return str.includes("T") ? str.split("T")[0] : str;
 };
 
+const getReadinessStatus = (score?: number | null) => {
+  if (score === null || score === undefined) {
+    return {
+      label: "Not analyzed",
+      colorClass: "text-gray-500",
+      badgeClass: "bg-gray-100 text-gray-600 border-gray-200"
+    };
+  }
+
+  if (score === 100) {
+    return {
+      label: "Ready to Submit",
+      colorClass: "text-green-700",
+      badgeClass: "bg-green-50 text-green-700 border-green-200"
+    };
+  }
+
+  if (score >= 80) {
+    return {
+      label: "Almost Ready",
+      colorClass: "text-orange-600",
+      badgeClass: "bg-orange-50 text-orange-700 border-orange-200"
+    };
+  }
+
+  return {
+    label: "Needs Work",
+    colorClass: "text-red-600",
+    badgeClass: "bg-red-50 text-red-700 border-red-200"
+  };
+};
+
 interface Tender {
     id: string
     title: string
@@ -203,20 +235,7 @@ export default function Tenders() {
                             const dueDate = formatTenderDate(tender.closing_date ?? tender.deadline ?? null);
                             
                             const score = tender.readinessScore;
-
-                            const readinessLabel =
-                              score === 100
-                                ? "Ready to Submit"
-                                : (score ?? 0) >= 80
-                                ? "Almost Ready"
-                                : "Needs Work";
-
-                            const readinessColor =
-                              score === 100
-                                ? "text-green-700"
-                                : (score ?? 0) >= 80
-                                ? "text-yellow-600"
-                                : "text-red-600";
+                            const status = getReadinessStatus(score);
                             
                             return (
                                 <div
@@ -238,14 +257,12 @@ export default function Tenders() {
                                                         <span>Due: {dueDate}</span>
                                                     </>
                                                 )}
-                                                {score !== undefined && (
-                                                  <>
-                                                    <span>•</span>
-                                                    <span className={`font-medium ${readinessColor}`}>
-                                                      {readinessLabel} ({score}%)
-                                                    </span>
-                                                  </>
-                                                )}
+                                                <>
+                                                  <span>•</span>
+                                                  <span className={`font-medium ${status.colorClass}`}>
+                                                    {status.label} {score !== undefined ? `(${score}%)` : ""}
+                                                  </span>
+                                                </>
                                             </div>
                                         </div>
                                     </div>
