@@ -79,6 +79,17 @@ export default function TenderDetails() {
 
     const docsData = userDocs as UserDocument[] | null
 
+    const normalizeDocKey = (key: string): string => {
+        const map: Record<string, string> = {
+            cidb_proof: 'cidb_cert',
+            cidb: 'cidb_cert',
+            bbbee: 'bbbee_cert',
+            bee: 'bbbee_cert'
+        };
+
+        return map[key] || key;
+    };
+
     // 3. Comparison Logic
     const comparison = useMemo(() => {
         if (!tender || !docsData) return null
@@ -126,11 +137,29 @@ export default function TenderDetails() {
                     // Usually Level 1 is best. So userLevel <= minLevel
                     // However, the manual entry stores "min_bbbee_level". 
                     // If requirement is "Level 4", usually implies Level 1-4 are okay.
-                    const userLevel = parseInt(userBbbee.metadata?.level || "8")
-                    if (userLevel > minLevel) {
-                        checks.push({ name: req.description, status: 'fail', reason: `Level ${userLevel} is too low (Need ${minLevel} or better)` })
+                    const rawLevel = userBbbee.metadata?.bbbee_level;
+
+                    if (!rawLevel) {
+                        checks.push({
+                            name: req.description,
+                            status: 'fail',
+                            reason: 'Missing B-BBEE level data'
+                        });
                     } else {
-                        checks.push({ name: req.description, status: 'pass' })
+                        const userLevel = parseInt(String(rawLevel));
+
+                        if (userLevel > minLevel) {
+                            checks.push({
+                                name: req.description,
+                                status: 'fail',
+                                reason: `Level ${userLevel} is too low (Need ${minLevel} or better)`
+                            });
+                        } else {
+                            checks.push({
+                                name: req.description,
+                                status: 'pass'
+                            });
+                        }
                     }
                 }
             }
@@ -148,7 +177,8 @@ export default function TenderDetails() {
                         'bank_letter': 'Bank Letter'
                     }
                     const label = labelMap[docKey] || docKey
-                    const result = checkDocStatus(docsData, docKey)
+                    const normalizedKey = normalizeDocKey(docKey);
+                    const result = checkDocStatus(docsData, normalizedKey);
 
                     checks.push({
                         name: label,
