@@ -5,6 +5,7 @@ import FeedbackModal from "@/components/FeedbackModal"
 import { cn } from "@/lib/utils"
 import { useFetch } from "@/hooks/useFetch"
 import { TenderService, CompanyService } from "@/services/api"
+import { supabase } from "@/lib/supabase"
 
 const formatDisplayDate = (value?: string | null): string => {
   if (!value) return "";
@@ -78,6 +79,7 @@ export default function TenderDetails() {
 
     const [tender, setTender] = useState<Tender | null>(null)
     const [showFeedbackModal, setShowFeedbackModal] = useState(false)
+    const [isRecalculating, setIsRecalculating] = useState(false)
 
     useEffect(() => {
         if (fetchedTender) setTender(fetchedTender as any as Tender)
@@ -227,6 +229,34 @@ export default function TenderDetails() {
         }
     }, [comparison, tender])
 
+    const handleRecalculateReadiness = async () => {
+        if (!tender || !comparison) return;
+
+        setIsRecalculating(true);
+        try {
+            const score = comparison.score;
+            const readiness = score === 100 ? "READY" : score >= 50 ? "AMBER" : "RED";
+
+            await supabase.from("tenders").update({
+                compliance_score: score,
+                readiness_score: score,
+                readiness
+            }).eq("id", tender.id);
+
+            setTender(prev => prev ? {
+                ...prev,
+                readinessScore: score,
+                compliance_score: score,
+                readiness_score: score,
+                readiness
+            } : prev);
+        } catch (error) {
+            console.error("Failed to recalculate readiness:", error);
+        } finally {
+            setIsRecalculating(false);
+        }
+    };
+
     if (tenderLoading || docsLoading) {
         return <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
     }
@@ -240,6 +270,11 @@ export default function TenderDetails() {
     const dueDate = formatDisplayDate(
         tender.closing_date || tender.deadline
     );
+
+    const hasScoreChanged =
+        comparison &&
+        tender &&
+        comparison.score !== tender.readinessScore;
 
     return (
         <div className="max-w-4xl mx-auto py-8 space-y-8">
@@ -296,6 +331,33 @@ export default function TenderDetails() {
                             score >= 50 ? "text-yellow-700" :
                                 "text-red-700"
                     )}>{score}%</span>
+                    
+                    {hasScoreChanged && (
+                        <div className="mt-3 text-xs text-orange-700 bg-orange-50 border border-orange-200 px-3 py-2 rounded-lg">
+                            Readiness has changed based on updated documents
+                        </div>
+                    )}
+                    
+                    <button
+                        onClick={handleRecalculateReadiness}
+                        disabled={isRecalculating}
+                        className={cn(
+                            "mt-3 text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors flex items-center justify-center min-w-[140px]",
+                            score >= 80 ? "bg-green-100 text-green-800 border-green-200 hover:bg-green-200" :
+                            score >= 50 ? "bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200" :
+                            "bg-red-100 text-red-800 border-red-200 hover:bg-red-200",
+                            isRecalculating && "opacity-70 cursor-not-allowed"
+                        )}
+                    >
+                        {isRecalculating ? (
+                            <>
+                                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                                Updating...
+                            </>
+                        ) : (
+                            "Recalculate Readiness"
+                        )}
+                    </button>
                 </div>
             </div>
 
