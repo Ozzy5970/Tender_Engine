@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react"
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ArrowUpRight, CheckCircle, FileText, AlertTriangle } from "lucide-react"
 
 import { TenderService, CompanyService } from "@/services/api"
@@ -162,10 +161,6 @@ function Dashboard() {
     loadStats()
   }, [])
 
-  const CHART_DATA = [
-    { name: 'Average', score: avgReadiness ?? 0 }
-  ];
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -267,34 +262,7 @@ function Dashboard() {
       </div>
 
       {/* Charts Section */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Readiness Overview</h3>
-          <div className="w-full h-[300px] min-h-[300px] flex items-center justify-center">
-            {activeTendersCount !== null && activeTendersCount > 0 && avgReadiness !== null ? (
-              <div className="w-full h-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={CHART_DATA}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}%`} domain={[0, 100]} />
-                    <Tooltip />
-                    <Bar dataKey="score" fill="#2563eb" radius={[4, 4, 0, 0]} barSize={50} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center text-gray-400">
-                <p>
-                  {activeTendersCount === 0
-                    ? "No active tenders to analyze"
-                    : "Loading chart..."}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
+      <div className="grid gap-6 grid-cols-1">
         {/* Recent Activity List */}
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Recent Activity</h3>

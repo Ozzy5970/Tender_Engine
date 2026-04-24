@@ -223,24 +223,21 @@ export default function Tenders() {
                                                         <span>Due: {dueDate}</span>
                                                     </>
                                                 )}
+                                                {tender.readinessScore !== undefined && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span className={cn(
+                                                            "font-medium",
+                                                            tender.readinessScore >= 80 ? "text-green-600" :
+                                                                tender.readinessScore >= 50 ? "text-yellow-600" : "text-red-600"
+                                                        )}>Readiness: {tender.readinessScore}%</span>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
 
                                 <div className="flex items-center gap-6">
-                                    {tender.readinessScore !== undefined && tender.status === 'ready' && (
-                                        <div className="flex flex-col items-end">
-                                            <span className={cn(
-                                                "text-sm font-bold",
-                                                tender.readinessScore >= 80 ? "text-green-600" :
-                                                    tender.readinessScore >= 50 ? "text-yellow-600" : "text-red-600"
-                                            )}>
-                                                {tender.readinessScore}%
-                                            </span>
-                                            <span className="text-[10px] text-gray-400 uppercase tracking-wide">Readiness</span>
-                                        </div>
-                                    )}
-
                                     <div className="min-w-[100px] flex justify-end">
                                         {getStatusBadge(tender.status)}
                                     </div>
