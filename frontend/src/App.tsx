@@ -314,7 +314,11 @@ function Dashboard() {
                   <div className={`w-2 h-2 mt-2 rounded-full ${tender.status === 'COMPLIANT' ? 'bg-green-500' : 'bg-blue-500'}`}></div>
                   <div>
                     <p className="text-sm font-medium text-gray-900">{tender.title}</p>
-                    <p className="text-xs text-gray-500 mt-1">Readiness Score: {tender.readiness_score || 0}%</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-xs font-medium ${getReadinessStatus(tender.readinessScore).colorClass}`}>
+                        {getReadinessStatus(tender.readinessScore).label} {tender.readinessScore !== null && tender.readinessScore !== undefined ? `(${tender.readinessScore}%)` : ""}
+                      </span>
+                    </div>
                     <p className="text-xs text-gray-400 mt-1">{new Date(tender.updated_at).toLocaleDateString()}</p>
                   </div>
                 </div>

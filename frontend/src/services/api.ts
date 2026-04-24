@@ -113,9 +113,16 @@ export interface Template {
  */
 export const TenderService = {
     async getAll() {
-        return handleRequest<Tender[]>(
+        const response = await handleRequest<any[]>(
             supabase.from('tenders').select('*').order('created_at', { ascending: false })
         )
+        if (response.data) {
+            response.data = response.data.map(row => ({
+                ...row,
+                readinessScore: row.compliance_score ?? row.readiness_score ?? row.readinessScore ?? null
+            }))
+        }
+        return response as ApiResponse<Tender[]>
     },
 
     async getById(id: string) {
@@ -207,13 +214,20 @@ export const TenderService = {
     },
 
     async getRecent() {
-        return handleRequest<Tender[]>(
+        const response = await handleRequest<any[]>(
             supabase.from('tenders')
                 .select('*')
                 .neq('status', 'ARCHIVED')
                 .order('updated_at', { ascending: false })
                 .limit(5)
         )
+        if (response.data) {
+            response.data = response.data.map(row => ({
+                ...row,
+                readinessScore: row.compliance_score ?? row.readiness_score ?? row.readinessScore ?? null
+            }))
+        }
+        return response as ApiResponse<Tender[]>
     },
 
     async createManualTender(data: ManualTenderData) {
