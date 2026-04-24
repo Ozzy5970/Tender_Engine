@@ -15,36 +15,20 @@ const formatTenderDate = (value?: string | null): string => {
   return str.includes("T") ? str.split("T")[0] : str;
 };
 
-const getReadinessStatus = (score?: number | null) => {
+const getReadinessBadgeClasses = (score?: number | null): string => {
   if (score === null || score === undefined) {
-    return {
-      label: "Not analyzed",
-      colorClass: "text-gray-500",
-      badgeClass: "bg-gray-100 text-gray-600 border-gray-200"
-    };
-  }
-
-  if (score === 100) {
-    return {
-      label: "Ready to Submit",
-      colorClass: "text-green-700",
-      badgeClass: "bg-green-50 text-green-700 border-green-200"
-    };
+    return "bg-gray-100 text-gray-600 border-gray-200";
   }
 
   if (score >= 80) {
-    return {
-      label: "Almost Ready",
-      colorClass: "text-orange-600",
-      badgeClass: "bg-orange-50 text-orange-700 border-orange-200"
-    };
+    return "bg-green-50 text-green-700 border-green-200";
   }
 
-  return {
-    label: "Needs Work",
-    colorClass: "text-red-600",
-    badgeClass: "bg-red-50 text-red-700 border-red-200"
-  };
+  if (score >= 50) {
+    return "bg-orange-50 text-orange-700 border-orange-200";
+  }
+
+  return "bg-red-50 text-red-700 border-red-200";
 };
 
 interface Tender {
@@ -235,7 +219,6 @@ export default function Tenders() {
                             const dueDate = formatTenderDate(tender.closing_date ?? tender.deadline ?? null);
                             
                             const score = tender.readinessScore;
-                            const status = getReadinessStatus(score);
                             
                             return (
                                 <div
@@ -259,9 +242,15 @@ export default function Tenders() {
                                                 )}
                                                 <>
                                                   <span>•</span>
-                                                  <span className={`font-medium ${status.colorClass}`}>
-                                                    {status.label} {score !== undefined ? `(${score}%)` : ""}
-                                                  </span>
+                                                  {score !== null && score !== undefined ? (
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-semibold ${getReadinessBadgeClasses(score)}`}>
+                                                      {score}%
+                                                    </span>
+                                                  ) : (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-semibold bg-gray-100 text-gray-600 border-gray-200">
+                                                      Not analyzed
+                                                    </span>
+                                                  )}
                                                 </>
                                             </div>
                                         </div>

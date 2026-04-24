@@ -117,10 +117,14 @@ export const TenderService = {
             supabase.from('tenders').select('*').order('created_at', { ascending: false })
         )
         if (response.data) {
-            response.data = response.data.map(row => ({
-                ...row,
-                readinessScore: row.compliance_score ?? row.readiness_score ?? row.readinessScore ?? null
-            }))
+            response.data = response.data.map(row => {
+                const rawScore = row.compliance_score ?? row.readiness_score ?? row.readinessScore ?? null;
+                const isValidScore = typeof rawScore === "number" && rawScore !== 50;
+                return {
+                    ...row,
+                    readinessScore: isValidScore ? rawScore : null
+                };
+            })
         }
         return response as ApiResponse<Tender[]>
     },
@@ -204,13 +208,26 @@ export const TenderService = {
         // Average readiness score of active tenders
         const { data, error } = await supabase
             .from('tenders')
-            .select('compliance_score')
+            .select('*')
             .neq('status', 'ARCHIVED')
 
-        if (error || !data || data.length === 0) return { avg: 0, error }
+        if (error || !data || data.length === 0) return { avg: null, error }
 
-        const total = data.reduce((acc, curr) => acc + (curr.compliance_score || 0), 0)
-        return { avg: Math.round(total / data.length), error: null }
+        const mapped = data.map(row => {
+            const rawScore = row.compliance_score ?? row.readiness_score ?? row.readinessScore ?? null;
+            const isValidScore = typeof rawScore === "number" && rawScore !== 50;
+            return {
+                ...row,
+                readinessScore: isValidScore ? rawScore : null
+            };
+        })
+
+        const scoredTenders = mapped.filter(t => typeof t.readinessScore === "number");
+        const avg = scoredTenders.length > 0
+            ? Math.round(scoredTenders.reduce((sum, t) => sum + t.readinessScore, 0) / scoredTenders.length)
+            : null;
+
+        return { avg, error: null }
     },
 
     async getRecent() {
@@ -222,10 +239,14 @@ export const TenderService = {
                 .limit(5)
         )
         if (response.data) {
-            response.data = response.data.map(row => ({
-                ...row,
-                readinessScore: row.compliance_score ?? row.readiness_score ?? row.readinessScore ?? null
-            }))
+            response.data = response.data.map(row => {
+                const rawScore = row.compliance_score ?? row.readiness_score ?? row.readinessScore ?? null;
+                const isValidScore = typeof rawScore === "number" && rawScore !== 50;
+                return {
+                    ...row,
+                    readinessScore: isValidScore ? rawScore : null
+                };
+            })
         }
         return response as ApiResponse<Tender[]>
     },
