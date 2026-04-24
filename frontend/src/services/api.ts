@@ -381,7 +381,7 @@ export const TenderService = {
 
                 const normalizeDocKey = (key: string) => {
                     if (key.includes('cipc')) return 'cipc_cert';
-                    if (key.includes('cidb')) return 'cidb_proof';
+                    if (key.includes('cidb')) return 'cidb_cert';
                     if (key.includes('sars')) return 'sars_pin';
                     if (key.includes('csd')) return 'csd_summary';
                     if (key.includes('coid')) return 'coid_letter';
@@ -397,38 +397,52 @@ export const TenderService = {
                 };
 
                 requirements.forEach(req => {
-                    if (req.rule_category === 'CIDB') {
-                        total++;
-                        const targetGrade = parseInt(req.target_value?.grade || "1");
-                        const userCidb = docs.find(d => d.doc_type === 'cidb_cert');
-                        if (userCidb && userCidb.computed_status !== 'expired') {
-                            const userGrade = parseInt(userCidb.metadata?.grade || "0");
-                            if (userGrade >= targetGrade) passed++;
-                        }
-                    } else if (req.rule_category === 'BBBEE') {
-                        total++;
-                        const minLevel = req.target_value?.min_level || 8;
-                        const userBbbee = docs.find(d => d.doc_type === 'bbbee_cert');
-                        if (userBbbee && userBbbee.computed_status !== 'expired') {
-                            const rawLevel = userBbbee.metadata?.bbbee_level;
-                            if (rawLevel) {
-                                const userLevel = parseInt(String(rawLevel));
-                                if (userLevel <= minLevel) passed++;
-                            }
-                        }
-                    } else if (req.rule_category === 'MANDATORY_DOC') {
-                        const requiredDocs = req.target_value?.docs || [];
-                        requiredDocs.forEach((docKey: string) => {
-                            total++;
-                            const normalizedKey = normalizeDocKey(docKey);
-                            const doc = docs.find(d => d.doc_type === normalizedKey);
-                            if (doc && doc.computed_status !== 'expired') passed++;
-                        });
+                  if (req.rule_category === 'CIDB') {
+                    total++;
+
+                    const userDoc = docs.find(d => d.doc_type === 'cidb_cert');
+                    const requiredGrade = req.target_value?.grade;
+
+                    if (userDoc && requiredGrade !== undefined) {
+                      const userGrade = parseInt(String(userDoc.metadata?.grade || "0"));
+                      const required = parseInt(String(requiredGrade || "0"));
+                      if (userGrade >= required) passed++;
                     }
+                  }
+
+                  else if (req.rule_category === 'BBBEE') {
+                    total++;
+
+                    const userDoc = docs.find(d => d.doc_type === 'bbbee_cert');
+                    const requiredLevel = req.target_value?.min_level;
+
+                    if (userDoc && requiredLevel !== undefined) {
+                      const userLevel = parseInt(String(userDoc.metadata?.bbbee_level || "8"));
+                      const required = parseInt(String(requiredLevel || "8"));
+                      if (userLevel <= required) passed++;
+                    }
+                  }
+
+                  else if (req.rule_category === 'MANDATORY_DOC') {
+                    const requiredDocs = req.target_value?.docs || [];
+
+                    requiredDocs.forEach((docKey: string) => {
+                      total++;
+
+                      const normalizedKey = normalizeDocKey(docKey);
+                      const doc = docs.find(d => d.doc_type === normalizedKey);
+
+                      if (doc && doc.computed_status === 'valid') {
+                        passed++;
+                      }
+                    });
+                  }
                 });
-                
+
                 if (total > 0) {
-                    finalScore = Math.round((passed / total) * 100);
+                  finalScore = Math.round((passed / total) * 100);
+                } else {
+                  finalScore = null;
                 }
             }
         } catch (e) {
