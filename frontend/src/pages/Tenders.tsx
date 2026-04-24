@@ -10,6 +10,12 @@ import { toast } from "sonner"
 
 type TenderStatus = "processing" | "ready" | "error" | "draft"
 
+const formatTenderDate = (value?: string | null): string => {
+  if (!value) return "";
+  const str = String(value);
+  return str.includes("T") ? str.split("T")[0] : str;
+};
+
 interface Tender {
     id: string
     title: string
@@ -17,6 +23,7 @@ interface Tender {
     deadline: string
     status: TenderStatus
     readinessScore?: number
+    closing_date?: string | null
 }
 
 export default function Tenders() {
@@ -87,7 +94,7 @@ export default function Tenders() {
             case "error":
                 return <div className="flex items-center text-red-700 bg-red-50 px-2 py-1 rounded-full text-xs font-medium"><AlertCircle className="w-3 h-3 mr-1" /> Error</div>
             default:
-                return <div className="flex items-center text-gray-700 bg-gray-50 px-2 py-1 rounded-full text-xs font-medium">Draft</div>
+                return null;
         }
     }
 
@@ -193,29 +200,32 @@ export default function Tenders() {
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-100">
-                        {filteredTenders.map((tender: Tender) => (
-                            <div
-                                key={tender.id}
-                                onClick={() => navigate(`/tenders/${tender.id}`)}
-                                className="p-4 hover:bg-gray-50 transition-colors cursor-pointer flex items-center justify-between group"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-white group-hover:shadow-sm transition-all">
-                                        <FileText className="w-6 h-6 text-gray-500" />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-medium text-gray-900">{tender.title}</h3>
-                                        <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                                            <span>{tender.client}</span>
-                                            {((tender as any).closing_date || tender.deadline) && (
-                                                <>
-                                                    <span>•</span>
-                                                    <span>Due: {(tender as any).closing_date || tender.deadline}</span>
-                                                </>
-                                            )}
+                        {filteredTenders.map((tender: Tender) => {
+                            const dueDate = formatTenderDate(tender.closing_date ?? tender.deadline ?? null);
+                            
+                            return (
+                                <div
+                                    key={tender.id}
+                                    onClick={() => navigate(`/tenders/${tender.id}`)}
+                                    className="p-4 hover:bg-gray-50 transition-colors cursor-pointer flex items-center justify-between group"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-white group-hover:shadow-sm transition-all">
+                                            <FileText className="w-6 h-6 text-gray-500" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-medium text-gray-900">{tender.title}</h3>
+                                            <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                                                <span>{tender.client}</span>
+                                                {dueDate && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span>Due: {dueDate}</span>
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
                                 <div className="flex items-center gap-6">
                                     {tender.readinessScore !== undefined && tender.status === 'ready' && (
@@ -248,7 +258,8 @@ export default function Tenders() {
                                     <ChevronRight className="w-4 h-4 text-gray-300" />
                                 </div>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>
