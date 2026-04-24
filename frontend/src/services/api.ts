@@ -130,9 +130,21 @@ export const TenderService = {
     },
 
     async getById(id: string) {
-        return handleRequest<Tender>(
+        const response = await handleRequest<any>(
             supabase.from('tenders').select('*, compliance_requirements(*)').eq('id', id).single()
-        )
+        );
+        
+        if (response.data) {
+            const row = response.data;
+            const rawScore = row.compliance_score ?? row.readiness_score ?? row.readinessScore ?? null;
+            const isValidScore = typeof rawScore === "number";
+            response.data = {
+                ...row,
+                readinessScore: isValidScore ? rawScore : null
+            };
+        }
+        
+        return response as ApiResponse<Tender>;
     },
 
     async deleteTender(id: string) {
@@ -241,7 +253,7 @@ export const TenderService = {
         if (response.data) {
             response.data = response.data.map(row => {
                 const rawScore = row.compliance_score ?? row.readiness_score ?? row.readinessScore ?? null;
-                const isValidScore = typeof rawScore === "number" && rawScore !== 50;
+                const isValidScore = typeof rawScore === "number";
                 return {
                     ...row,
                     readinessScore: isValidScore ? rawScore : null
