@@ -119,7 +119,7 @@ export const TenderService = {
         if (response.data) {
             response.data = response.data.map(row => {
                 const rawScore = row.compliance_score ?? row.readiness_score ?? row.readinessScore ?? null;
-                const isValidScore = typeof rawScore === "number" && rawScore !== 50;
+                const isValidScore = typeof rawScore === "number";
                 return {
                     ...row,
                     readinessScore: isValidScore ? rawScore : null
@@ -215,7 +215,7 @@ export const TenderService = {
 
         const mapped = data.map(row => {
             const rawScore = row.compliance_score ?? row.readiness_score ?? row.readinessScore ?? null;
-            const isValidScore = typeof rawScore === "number" && rawScore !== 50;
+            const isValidScore = typeof rawScore === "number";
             return {
                 ...row,
                 readinessScore: isValidScore ? rawScore : null
@@ -371,8 +371,76 @@ export const TenderService = {
             }
         }
 
-        // 3. Trigger Analysis (or just update status to READY if we want to skip sim)
-        await supabase.from('tenders').update({ status: 'DRAFT', compliance_score: 50, readiness: 'AMBER' }).eq('id', tender.id)
+        // 3. Calculate actual readiness score based on requirements vs compliance docs
+        let finalScore: number | null = null;
+        try {
+            const { data: docs } = await CompanyService.getCompliance();
+            if (docs && requirements.length > 0) {
+                let passed = 0;
+                let total = 0;
+
+                const normalizeDocKey = (key: string) => {
+                    if (key.includes('cipc')) return 'cipc_cert';
+                    if (key.includes('cidb')) return 'cidb_proof';
+                    if (key.includes('sars')) return 'sars_pin';
+                    if (key.includes('csd')) return 'csd_summary';
+                    if (key.includes('coid')) return 'coid_letter';
+                    if (key.includes('bbbee')) return 'bbbee_cert';
+                    if (key.includes('vat')) return 'vat_reg';
+                    if (key.includes('uif')) return 'uif_letter';
+                    if (key.includes('paye')) return 'paye_reg';
+                    if (key.includes('bank')) return 'bank_letter';
+                    if (key.includes('sbd')) return 'sbd_6_1';
+                    if (key.includes('ohs')) return 'ohs_plan';
+                    if (key.includes('she')) return 'she_file';
+                    return key;
+                };
+
+                requirements.forEach(req => {
+                    if (req.rule_category === 'CIDB') {
+                        total++;
+                        const targetGrade = parseInt(req.target_value?.grade || "1");
+                        const userCidb = docs.find(d => d.doc_type === 'cidb_cert');
+                        if (userCidb && userCidb.computed_status !== 'expired') {
+                            const userGrade = parseInt(userCidb.metadata?.grade || "0");
+                            if (userGrade >= targetGrade) passed++;
+                        }
+                    } else if (req.rule_category === 'BBBEE') {
+                        total++;
+                        const minLevel = req.target_value?.min_level || 8;
+                        const userBbbee = docs.find(d => d.doc_type === 'bbbee_cert');
+                        if (userBbbee && userBbbee.computed_status !== 'expired') {
+                            const rawLevel = userBbbee.metadata?.bbbee_level;
+                            if (rawLevel) {
+                                const userLevel = parseInt(String(rawLevel));
+                                if (userLevel <= minLevel) passed++;
+                            }
+                        }
+                    } else if (req.rule_category === 'MANDATORY_DOC') {
+                        const requiredDocs = req.target_value?.docs || [];
+                        requiredDocs.forEach((docKey: string) => {
+                            total++;
+                            const normalizedKey = normalizeDocKey(docKey);
+                            const doc = docs.find(d => d.doc_type === normalizedKey);
+                            if (doc && doc.computed_status !== 'expired') passed++;
+                        });
+                    }
+                });
+                
+                if (total > 0) {
+                    finalScore = Math.round((passed / total) * 100);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to calculate readiness score during tender creation", e);
+        }
+
+        // 4. Trigger Analysis (or just update status to READY if we want to skip sim)
+        await supabase.from('tenders').update({ 
+            status: 'DRAFT', 
+            compliance_score: finalScore, 
+            readiness: finalScore === 100 ? 'READY' : (finalScore && finalScore >= 50 ? 'AMBER' : 'RED') 
+        }).eq('id', tender.id)
 
         return { data: tender, error: null, status: 201 }
     }
