@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react"
 import { Plus, FileText, ChevronRight, Loader2, AlertCircle, CheckCircle2, Search, Filter, Trash2, Lock } from "lucide-react"
 import { useNavigate } from "react-router-dom"
-import { cn } from "@/lib/utils"
 import { useFetch } from "@/hooks/useFetch"
 import { TenderService } from "@/services/api"
 import { useAuth } from "@/context/AuthContext"
@@ -203,6 +202,22 @@ export default function Tenders() {
                         {filteredTenders.map((tender: Tender) => {
                             const dueDate = formatTenderDate(tender.closing_date ?? tender.deadline ?? null);
                             
+                            const score = tender.readinessScore;
+
+                            const readinessLabel =
+                              score === 100
+                                ? "Ready to Submit"
+                                : (score ?? 0) >= 80
+                                ? "Almost Ready"
+                                : "Needs Work";
+
+                            const readinessColor =
+                              score === 100
+                                ? "text-green-700"
+                                : (score ?? 0) >= 80
+                                ? "text-yellow-600"
+                                : "text-red-600";
+                            
                             return (
                                 <div
                                     key={tender.id}
@@ -223,15 +238,13 @@ export default function Tenders() {
                                                         <span>Due: {dueDate}</span>
                                                     </>
                                                 )}
-                                                {tender.readinessScore !== undefined && (
-                                                    <>
-                                                        <span>•</span>
-                                                        <span className={cn(
-                                                            "font-medium",
-                                                            tender.readinessScore >= 80 ? "text-green-600" :
-                                                                tender.readinessScore >= 50 ? "text-yellow-600" : "text-red-600"
-                                                        )}>Readiness: {tender.readinessScore}%</span>
-                                                    </>
+                                                {score !== undefined && (
+                                                  <>
+                                                    <span>•</span>
+                                                    <span className={`font-medium ${readinessColor}`}>
+                                                      {readinessLabel} ({score}%)
+                                                    </span>
+                                                  </>
                                                 )}
                                             </div>
                                         </div>
