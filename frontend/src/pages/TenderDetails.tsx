@@ -18,7 +18,7 @@ interface ComparisonResult {
     yourData?: string
     requirementName?: string
     actionHint?: string
-    actionType?: 'UPLOAD' | 'REPLACE'
+    actionType?: 'UPLOAD' | 'REPLACE' | 'EDIT'
     docType?: string
     docData?: any
 }
@@ -130,6 +130,18 @@ export default function TenderDetails() {
 
 
     const handleActionClick = (item: ComparisonResult) => {
+        if (item.actionType === 'EDIT') {
+            setIsEditingRequirements(true);
+            setTimeout(() => {
+                const element = document.getElementById('inline-edit-section');
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // Optional visual highlight flash could be added here
+                }
+            }, 100);
+            return;
+        }
+
         if (!item.docType) return;
         setUploadModalState({
             isOpen: true,
@@ -150,6 +162,30 @@ export default function TenderDetails() {
 
         // Use dynamic requirements if available, otherwise fallback to default
         const requirements = tender.compliance_requirements || []
+
+        // Metadata Checks
+        if (!tender.title || tender.title.trim() === '' || tender.title === 'Untitled Tender') {
+            checks.push({
+                name: 'Tender Basics',
+                requirementName: 'Valid Tender Title',
+                status: 'fail',
+                reason: 'Title is missing or default',
+                yourData: tender.title || 'Empty',
+                actionHint: 'Edit Details',
+                actionType: 'EDIT'
+            });
+        }
+        if (!tender.client || tender.client.trim() === '') {
+            checks.push({
+                name: 'Tender Basics',
+                requirementName: 'Client Name',
+                status: 'fail',
+                reason: 'Missing Client Name',
+                yourData: 'Empty',
+                actionHint: 'Edit Details',
+                actionType: 'EDIT'
+            });
+        }
 
         // If no requirements found (legacy), use a default set for display (optional, or just show 0)
         // But for manual tenders we know we populate them.
@@ -540,7 +576,7 @@ export default function TenderDetails() {
                     
                     {/* Inline Edit Requirements Block */}
                     {isEditingRequirements && (
-                        <div className="mt-8 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                        <div id="inline-edit-section" className="mt-8 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm transition-all">
                             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-blue-50/50">
                                 <h3 className="font-bold text-blue-900 flex items-center gap-2">
                                     <Pencil className="w-4 h-4" /> Edit Tender Details
