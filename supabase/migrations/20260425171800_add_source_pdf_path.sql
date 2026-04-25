@@ -1,0 +1,1 @@
+ALTER TABLE public.tenders ADD COLUMN IF NOT EXISTS source_pdf_path text;

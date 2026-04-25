@@ -3,7 +3,7 @@ import { Upload, X, FileText, Loader2, CheckCircle2, AlertTriangle, ArrowLeft } 
 import { useNavigate } from "react-router-dom"
 import { TenderService } from "@/services/api"
 import * as Sentry from "@sentry/react"
-import { useForm, type SubmitHandler } from "react-hook-form"
+import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 // import { cn } from "@/lib/utils"
@@ -478,6 +478,7 @@ export default function TenderIngest() {
     const [processStep, setProcessStep] = useState<string>("")
     const [ingestMode, setIngestMode] = useState<"upload" | "manual">("upload")
     const [traceId, setTraceId] = useState<string>("")
+    const [uploadedPdfPath, setUploadedPdfPath] = useState<string | null>(null)
 
     const {
         register,
@@ -565,7 +566,7 @@ export default function TenderIngest() {
     }
 
 
-    const onSubmit: SubmitHandler<ManualFormOutput> = async (manualForm: ManualFormOutput) => {
+    const handleFormSubmit = async (manualForm: ManualFormOutput, isDraft: boolean = false) => {
         const activeTrace = traceId || "manual-entry-no-trace";
         const prefix = `[Tender Trace:${activeTrace}]`;
 
@@ -591,13 +592,14 @@ export default function TenderIngest() {
                 additional_returnables: manualForm.additionalReturnables,
                 notes: manualForm.notes,
                 preference_points: manualForm.prefPoints,
+                source_pdf_path: uploadedPdfPath || undefined,
                 requirements: {
                     cidb_grade: manualForm.grade,
                     cidb_class: manualForm.class,
                     min_bbbee_level: manualForm.bbbee,
                     mandatory_docs: manualForm.mandatoryDocs ? Object.entries(manualForm.mandatoryDocs).filter(([_, v]) => v).map(([k]) => k) : []
                 }
-            })
+            }, isDraft)
 
             if (res.error) {
                 console.error(`${prefix} tender save failure:`, res.error);
@@ -619,13 +621,7 @@ export default function TenderIngest() {
         }
     }
 
-    const onError = (errs: any) => {
-        const firstError = Object.values(errs)[0] as any;
-        if (firstError?.message) {
-            setErrorMsg(firstError.message);
-        }
-        setStatus("error");
-    };
+
 
     const startUpload = async () => {
         if (!file) return
@@ -685,6 +681,7 @@ export default function TenderIngest() {
                 .upload(fileName, file)
 
             if (uploadError) throw uploadError
+            setUploadedPdfPath(fileName)
 
             setProgress(50)
 
@@ -772,7 +769,7 @@ export default function TenderIngest() {
 
                 {/* MANUAL FORM */}
                 {ingestMode === 'manual' && (status === 'idle' || status === 'processing' || status === 'error') && (
-                    <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-8">
+                    <form className="space-y-8">
                         {/* 1. Tender Basics */}
                         <div className="space-y-4">
                             <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Tender Details</h3>
@@ -962,14 +959,26 @@ export default function TenderIngest() {
                             </div>
                         </div>
 
-                        <button
-                            type="submit"
-                            disabled={status === 'processing'}
-                            className="w-full py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors mt-6 flex items-center justify-center"
-                        >
-                            {status === 'processing' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                            {status === 'processing' ? 'Saving & Analyzing...' : 'Save & Analyze Tender'}
-                        </button>
+                        <div className="flex gap-4 pt-6 mt-6">
+                            <button
+                                type="button"
+                                onClick={handleSubmit((data) => handleFormSubmit(data, true))}
+                                disabled={status === 'processing'}
+                                className="w-1/3 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center justify-center"
+                            >
+                                {status === 'processing' && processStep === 'Saving Draft...' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                                Save Draft
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleSubmit((data) => handleFormSubmit(data, false))}
+                                disabled={status === 'processing'}
+                                className="w-2/3 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors flex items-center justify-center"
+                            >
+                                {status === 'processing' && processStep === 'Creating tender record...' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                                Save & Run Readiness Check
+                            </button>
+                        </div>
                     </form>
                 )}
 

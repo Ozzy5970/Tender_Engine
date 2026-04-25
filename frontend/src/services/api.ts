@@ -67,6 +67,7 @@ export interface Tender {
     readiness: 'RED' | 'AMBER' | 'GREEN'
     created_at: string
     updated_at: string
+    source_pdf_path?: string
     compliance_requirements?: {
         id: string
         rule_category: string
@@ -88,6 +89,7 @@ export interface ManualTenderData {
     compulsory_briefing?: boolean
     notes?: string
     preference_points?: string
+    source_pdf_path?: string
     requirements: {
         cidb_grade?: string
         cidb_class?: string
@@ -276,9 +278,10 @@ export const TenderService = {
                 client_name: data.client_name,
                 reference_number: data.tender_number || null,
                 closing_date: data.closing_date,
-                status: 'ANALYZING', // Will trigger readiness check (simulated) or just set to draft
-                compliance_score: 0,
-                readiness: 'RED'
+                status: isDraft ? 'DRAFT' : 'ANALYZING',
+                compliance_score: isDraft ? null : 0,
+                readiness: 'RED',
+                source_pdf_path: data.source_pdf_path || null
             })
             .select()
             .single()
