@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, useRef } from "react"
 import { useLocation, useParams, useNavigate } from "react-router-dom"
 import { ArrowLeft, CheckCircle2, ShieldAlert, Loader2, Zap, Trash2, Pencil } from "lucide-react"
 import FeedbackModal from "@/components/FeedbackModal"
@@ -98,6 +98,22 @@ export default function TenderDetails() {
     const [editForm, setEditForm] = useState<any>({})
     const [isSavingRequirements, setIsSavingRequirements] = useState(false)
     
+    // UX Feedback State
+    const [actionFeedback, setActionFeedback] = useState<string | null>(null)
+    const [pendingEditScroll, setPendingEditScroll] = useState(false)
+    const [highlightEditSection, setHighlightEditSection] = useState(false)
+    const editSectionRef = useRef<HTMLDivElement | null>(null)
+    
+
+    useEffect(() => {
+        if (pendingEditScroll && isEditingRequirements && editSectionRef.current) {
+            editSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setPendingEditScroll(false);
+            setHighlightEditSection(true);
+            setTimeout(() => setHighlightEditSection(false), 1800);
+        }
+    }, [pendingEditScroll, isEditingRequirements]);
+
     useEffect(() => {
         if (tender) {
             setEditForm({ title: tender.title, client: tender.client })
@@ -131,22 +147,22 @@ export default function TenderDetails() {
 
     const handleActionClick = (item: ComparisonResult) => {
         if (item.actionType === 'EDIT') {
+            setActionFeedback('Editing tender requirements');
+            setTimeout(() => setActionFeedback(null), 2500);
             setIsEditingRequirements(true);
-            setTimeout(() => {
-                const element = document.getElementById('inline-edit-section');
-                if (element) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    // Optional visual highlight flash could be added here
-                }
-            }, 100);
+            setPendingEditScroll(true);
             return;
         }
 
         if (!item.docType) return;
+        
+        setActionFeedback(`Opening ${item.actionType === 'REPLACE' ? 'replace' : 'upload'} for: ${item.name}`);
+        setTimeout(() => setActionFeedback(null), 2500);
+        
         setUploadModalState({
             isOpen: true,
             docType: item.docType,
-            title: item.name,
+            title: `${item.actionType === 'REPLACE' ? 'Replace' : 'Upload'} ${item.name}`,
             category: 'COMPLIANCE',
             existingDoc: item.actionType === 'REPLACE',
             initialData: item.docData
@@ -372,7 +388,6 @@ export default function TenderDetails() {
         return <div className="p-12 text-center text-red-600">Failed to load tender details.</div>
     }
 
-    const isSafeToSubmit = score >= 100
 
     const dueDate = formatTenderDate(
         tender.closing_date || tender.deadline
@@ -477,47 +492,16 @@ export default function TenderDetails() {
                 </div>
             </div>
 
-            {/* Safe to Submit Indicator */}
-            <div className={cn(
-                "p-5 rounded-xl border shadow-sm flex items-start justify-between transition-all",
-                isSafeToSubmit ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
-            )}>
-                <div className="flex items-start gap-4">
-                    {isSafeToSubmit ? (
-                        <CheckCircle2 className="w-6 h-6 text-green-600 shrink-0 mt-0.5" />
-                    ) : (
-                        <ShieldAlert className="w-6 h-6 text-red-600 shrink-0 mt-0.5" />
-                    )}
+                        {/* Prominent Success State */}
+            {score === 100 && (
+                <div className="p-5 rounded-xl border bg-green-50 border-green-200 shadow-sm flex items-start gap-4 transition-all mb-8">
+                    <CheckCircle2 className="w-6 h-6 text-green-600 shrink-0 mt-0.5" />
                     <div>
-                        <h3 className={cn(
-                            "font-bold text-lg",
-                            isSafeToSubmit ? "text-green-800" : "text-red-800"
-                        )}>
-                            {isSafeToSubmit ? "Fully compliant — Ready to submit tender" : "Do Not Submit - Critical Issues Found"}
-                        </h3>
-                        <p className={cn(
-                            "text-sm mt-1",
-                            isSafeToSubmit ? "text-green-700" : "text-red-700"
-                        )}>
-                            {isSafeToSubmit
-                                ? "All critical compliance checks passed. Readiness score is optimal."
-                                : "There are failed compliance checks or low readiness score. Review the issues below."
-                            }
-                        </p>
+                        <h3 className="font-bold text-lg text-green-800">You're ready to submit this tender</h3>
+                        <p className="text-sm mt-1 text-green-700">All checked requirements currently pass. Review the tender pack before final submission.</p>
                     </div>
                 </div>
-                {comparison && (
-                    <div className="hidden md:flex flex-col items-end justify-center shrink-0">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Requirements Met</span>
-                        <span className={cn(
-                            "text-2xl font-bold",
-                            isSafeToSubmit ? "text-green-700" : "text-gray-900"
-                        )}>
-                            {comparison.checks.filter(c => c.status === 'pass').length} / {comparison.checks.length}
-                        </span>
-                    </div>
-                )}
-            </div>
+            )}
 
             {/* Result Columns */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -531,6 +515,11 @@ export default function TenderDetails() {
                         {isEditingRequirements && (
                             <div className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-200">
                                 EDIT MODE ENABLED
+                            </div>
+                        )}
+                        {actionFeedback && (
+                            <div className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium border border-blue-200 animate-pulse transition-opacity">
+                                {actionFeedback}
                             </div>
                         )}
                     </div>
@@ -576,7 +565,7 @@ export default function TenderDetails() {
                     
                     {/* Inline Edit Requirements Block */}
                     {isEditingRequirements && (
-                        <div id="inline-edit-section" className="mt-8 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm transition-all">
+                        <div ref={editSectionRef} className={cn("mt-8 bg-white border rounded-xl overflow-hidden transition-all", highlightEditSection ? "ring-2 ring-primary/40 bg-primary/5 border-primary/40 shadow-md" : "border-gray-200 shadow-sm")}>
                             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-blue-50/50">
                                 <h3 className="font-bold text-blue-900 flex items-center gap-2">
                                     <Pencil className="w-4 h-4" /> Edit Tender Details
