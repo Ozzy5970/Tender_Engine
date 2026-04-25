@@ -36,6 +36,7 @@ interface Tender {
     status: TenderStatus
     readinessScore?: number
     closing_date?: string | null
+    source_pdf_path?: string | null
 }
 
 export default function Tenders() {

@@ -263,7 +263,7 @@ export const TenderService = {
         return response as ApiResponse<Tender[]>
     },
 
-    async createManualTender(data: ManualTenderData) {
+    async createManualTender(data: ManualTenderData, isDraft: boolean = false) {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return { data: null, error: "User not authenticated", status: 401 }
 
@@ -381,6 +381,11 @@ export const TenderService = {
                 // Return error but don't crash, trying to save partial data
                 return { data: tender, error: "Tender created but requirement save failed: " + reqError.message, status: 206 }
             }
+        }
+
+        if (isDraft) {
+            await supabase.from('tenders').update({ status: 'DRAFT', compliance_score: null, readiness: null }).eq('id', tender.id);
+            return { data: { ...tender, status: 'DRAFT' }, error: null, status: 200 }
         }
 
         // 3. Calculate actual readiness score based on requirements vs compliance docs
