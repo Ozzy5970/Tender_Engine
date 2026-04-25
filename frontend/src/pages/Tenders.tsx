@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { Plus, FileText, ChevronRight, Loader2, AlertCircle, CheckCircle2, Search, Filter, Trash2, Lock } from "lucide-react"
+import { Plus, FileText, ChevronRight, Loader2, AlertCircle, CheckCircle2, Search, Filter, Trash2, Lock, Eye } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useFetch } from "@/hooks/useFetch"
 import { TenderService } from "@/services/api"
@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext"
 import ConfirmationModal from "@/components/ConfirmationModal"
 import { toast } from "sonner"
 import { formatTenderDate, isTenderExpired } from "@/lib/dateUtils"
+import { supabase } from "@/lib/supabase"
 
 type TenderStatus = "processing" | "ready" | "error" | "draft"
 
@@ -264,15 +265,42 @@ export default function Tenders() {
                                         {getStatusBadge(tender.status)}
                                     </div>
 
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            setDeleteId(tender.id)
-                                        }}
-                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
+                                    <div className="flex items-center gap-1">
+                                        {tender.source_pdf_path && (
+                                            <button
+                                                title="View PDF"
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    try {
+                                                        const { data, error } = await supabase.storage
+                                                            .from('compliance')
+                                                            .createSignedUrl(tender.source_pdf_path as string, 3600);
+                                                        
+                                                        if (error) throw error;
+                                                        if (data?.signedUrl) {
+                                                            window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+                                                        }
+                                                    } catch (err) {
+                                                        console.error("Failed to open PDF", err);
+                                                        toast.error("Could not open PDF.");
+                                                    }
+                                                }}
+                                                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                                            >
+                                                <Eye className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                        <button
+                                            title="Delete Tender"
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                setDeleteId(tender.id)
+                                            }}
+                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
 
                                     <ChevronRight className="w-4 h-4 text-gray-300" />
                                 </div>
