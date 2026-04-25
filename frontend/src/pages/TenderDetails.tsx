@@ -6,19 +6,7 @@ import { cn } from "@/lib/utils"
 import { useFetch } from "@/hooks/useFetch"
 import { TenderService, CompanyService } from "@/services/api"
 import { supabase } from "@/lib/supabase"
-
-const formatDisplayDate = (value?: string | null): string => {
-  if (!value) return "";
-
-  const str = String(value);
-
-  // If ISO string → strip time
-  if (str.includes("T")) {
-    return str.split("T")[0];
-  }
-
-  return str;
-};
+import { formatTenderDate } from "@/lib/dateUtils"
 
 // Helper types
 interface ComparisonResult {
@@ -80,6 +68,7 @@ export default function TenderDetails() {
     const [tender, setTender] = useState<Tender | null>(null)
     const [showFeedbackModal, setShowFeedbackModal] = useState(false)
     const [isRecalculating, setIsRecalculating] = useState(false)
+    const [updateStatus, setUpdateStatus] = useState<"success" | "error" | null>(null)
 
     useEffect(() => {
         if (fetchedTender) setTender(fetchedTender as any as Tender)
@@ -233,25 +222,41 @@ export default function TenderDetails() {
         if (!tender || !comparison) return;
 
         setIsRecalculating(true);
+        setUpdateStatus(null);
         try {
             const score = comparison.score;
+
+            if (typeof score !== "number") {
+                setUpdateStatus("error");
+                setIsRecalculating(false);
+                return;
+            }
+
             const readiness = score === 100 ? "READY" : score >= 50 ? "AMBER" : "RED";
 
-            await supabase.from("tenders").update({
+            const { error } = await supabase.from("tenders").update({
                 compliance_score: score,
-                readiness_score: score,
                 readiness
             }).eq("id", tender.id);
+
+            if (error) {
+                console.error("Failed to update readiness score:", error);
+                setUpdateStatus("error");
+                throw error;
+            }
 
             setTender(prev => prev ? {
                 ...prev,
                 readinessScore: score,
                 compliance_score: score,
-                readiness_score: score,
                 readiness
             } : prev);
+            
+            setUpdateStatus("success");
+            setTimeout(() => setUpdateStatus(null), 3000); // Clear success message after 3 seconds
         } catch (error) {
             console.error("Failed to recalculate readiness:", error);
+            setUpdateStatus("error");
         } finally {
             setIsRecalculating(false);
         }
@@ -267,7 +272,7 @@ export default function TenderDetails() {
 
     const isSafeToSubmit = score >= 100
 
-    const dueDate = formatDisplayDate(
+    const dueDate = formatTenderDate(
         tender.closing_date || tender.deadline
     );
 
@@ -358,6 +363,12 @@ export default function TenderDetails() {
                             "Recalculate Readiness"
                         )}
                     </button>
+                    {updateStatus === 'success' && (
+                        <div className="mt-2 text-xs text-green-600 font-medium">Saved readiness score updated</div>
+                    )}
+                    {updateStatus === 'error' && (
+                        <div className="mt-2 text-xs text-red-600 font-medium">Could not update readiness score</div>
+                    )}
                 </div>
             </div>
 

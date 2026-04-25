@@ -118,7 +118,7 @@ export const TenderService = {
         )
         if (response.data) {
             response.data = response.data.map(row => {
-                const rawScore = row.compliance_score ?? row.readiness_score ?? row.readinessScore ?? null;
+                const rawScore = row.compliance_score ?? null;
                 const isValidScore = typeof rawScore === "number";
                 return {
                     ...row,
@@ -136,7 +136,7 @@ export const TenderService = {
         
         if (response.data) {
             const row = response.data;
-            const rawScore = row.compliance_score ?? row.readiness_score ?? row.readinessScore ?? null;
+            const rawScore = row.compliance_score ?? null;
             const isValidScore = typeof rawScore === "number";
             response.data = {
                 ...row,
@@ -226,7 +226,7 @@ export const TenderService = {
         if (error || !data || data.length === 0) return { avg: null, error }
 
         const mapped = data.map(row => {
-            const rawScore = row.compliance_score ?? row.readiness_score ?? row.readinessScore ?? null;
+            const rawScore = row.compliance_score ?? null;
             const isValidScore = typeof rawScore === "number";
             return {
                 ...row,
@@ -252,7 +252,7 @@ export const TenderService = {
         )
         if (response.data) {
             response.data = response.data.map(row => {
-                const rawScore = row.compliance_score ?? row.readiness_score ?? row.readinessScore ?? null;
+                const rawScore = row.compliance_score ?? null;
                 const isValidScore = typeof rawScore === "number";
                 return {
                     ...row,

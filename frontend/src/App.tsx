@@ -13,6 +13,7 @@ import Tenders from "@/pages/Tenders"
 import TenderDetails from "@/pages/TenderDetails"
 import Compliance from "@/pages/Compliance"
 import Alerts from "@/pages/Alerts"
+import { formatTenderDate, isTenderExpired } from "@/lib/dateUtils"
 import Templates from "@/pages/Templates"
 import Settings from "@/pages/Settings"
 import Pricing from "@/pages/Pricing"
@@ -143,6 +144,7 @@ const getReadinessBadgeClasses = (score?: number | null): string => {
 
   return "bg-red-50 text-red-700 border-red-200";
 };
+
 
 function Dashboard() {
   const { companyName } = useAuth()
@@ -305,7 +307,18 @@ function Dashboard() {
                         {tender.readinessScore !== null && tender.readinessScore !== undefined ? `${tender.readinessScore}%` : "Not analyzed"}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">{new Date(tender.updated_at).toLocaleDateString()}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-xs text-gray-400">
+                        {tender.closing_date || tender.deadline 
+                          ? `Due: ${formatTenderDate(tender.closing_date || tender.deadline)}` 
+                          : ""}
+                      </p>
+                      {isTenderExpired(tender.closing_date || tender.deadline) && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-bold bg-red-50 text-red-700 border-red-200 uppercase tracking-wide">
+                          Expired
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))

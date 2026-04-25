@@ -6,14 +6,11 @@ import { TenderService } from "@/services/api"
 import { useAuth } from "@/context/AuthContext"
 import ConfirmationModal from "@/components/ConfirmationModal"
 import { toast } from "sonner"
+import { formatTenderDate, isTenderExpired } from "@/lib/dateUtils"
 
 type TenderStatus = "processing" | "ready" | "error" | "draft"
 
-const formatTenderDate = (value?: string | null): string => {
-  if (!value) return "";
-  const str = String(value);
-  return str.includes("T") ? str.split("T")[0] : str;
-};
+
 
 const getReadinessBadgeClasses = (score?: number | null): string => {
   if (score === null || score === undefined) {
@@ -238,6 +235,11 @@ export default function Tenders() {
                                                     <>
                                                         <span>•</span>
                                                         <span>Due: {dueDate}</span>
+                                                        {isTenderExpired(tender.closing_date || tender.deadline) && (
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-bold bg-red-50 text-red-700 border-red-200 uppercase tracking-wide">
+                                                                Expired
+                                                            </span>
+                                                        )}
                                                     </>
                                                 )}
                                                 <>
