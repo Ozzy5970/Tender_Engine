@@ -484,6 +484,7 @@ export default function TenderIngest() {
     const [ingestMode, setIngestMode] = useState<"upload" | "manual">("upload")
     const [traceId, setTraceId] = useState<string>("")
     const [uploadedPdfPath, setUploadedPdfPath] = useState<string | null>(null)
+    const [submitIntent, setSubmitIntent] = useState<"draft" | "analyze" | null>(null)
 
     const {
         register,
@@ -706,6 +707,7 @@ export default function TenderIngest() {
             Sentry.captureException(err, { tags: { traceId: activeTrace } });
             setErrorMsg(err.message)
             setStatus("error")
+            setSubmitIntent(null)
         }
     }
 
@@ -1050,20 +1052,20 @@ export default function TenderIngest() {
                         <div className="flex gap-4 pt-6 mt-6">
                             <button
                                 type="button"
-                                onClick={handleSubmit((data) => handleFormSubmit(data, true))}
-                                disabled={status === 'processing'}
-                                className="w-1/3 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center justify-center"
+                                onClick={() => { setSubmitIntent("draft"); handleSubmit((data) => handleFormSubmit(data, true))(); }}
+                                disabled={status === 'processing' || submitIntent !== null}
+                                className="w-1/3 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center"
                             >
-                                {status === 'processing' && processStep === 'Saving Draft...' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                                {status === 'processing' && submitIntent === 'draft' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                                 Save Draft
                             </button>
                             <button
                                 type="button"
-                                onClick={handleSubmit((data) => handleFormSubmit(data, false))}
-                                disabled={status === 'processing'}
+                                onClick={() => { setSubmitIntent("analyze"); handleSubmit((data) => handleFormSubmit(data, false))(); }}
+                                disabled={status === 'processing' || submitIntent !== null}
                                 className="w-2/3 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors flex items-center justify-center"
                             >
-                                {status === 'processing' && processStep === 'Creating tender record...' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                                {status === 'processing' && submitIntent === 'analyze' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                                 Save & Analyze
                             </button>
                         </div>
