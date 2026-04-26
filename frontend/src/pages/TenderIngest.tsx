@@ -493,7 +493,7 @@ export default function TenderIngest() {
         reset,
         getValues,
         watch,
-        formState: { isDirty }
+        formState: { isDirty, dirtyFields }
     } = useForm<ManualFormInput, any, ManualFormOutput>({
         resolver: zodResolver(manualFormSchema),
         defaultValues: {
@@ -1056,12 +1056,14 @@ export default function TenderIngest() {
                             <button
                                 type="button"
                                 onClick={() => { 
-                                    if (isEditMode && wasAnalyzedOnLoad && !isDirty) {
+                                    const hasChanges = isDirty || Object.keys(dirtyFields).length > 0;
+                                    
+                                    if (isEditMode && wasAnalyzedOnLoad && !hasChanges) {
                                         navigate("/tenders");
                                         return;
                                     }
 
-                                    if (isEditMode && wasAnalyzedOnLoad && isDirty) {
+                                    if (isEditMode && wasAnalyzedOnLoad && hasChanges) {
                                         const proceed = window.confirm("Saving as a draft will remove the current readiness score until you re-analyze this tender. Continue?");
                                         if (!proceed) {
                                             setSubmitIntent(null);
