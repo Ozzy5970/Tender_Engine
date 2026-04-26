@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react"
-import { Upload, X, FileText, Loader2, CheckCircle2, AlertTriangle, ArrowLeft } from "lucide-react"
+import { Upload, X, FileText, Loader2, AlertTriangle, ArrowLeft } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { TenderService } from "@/services/api"
 import * as Sentry from "@sentry/react"
@@ -610,9 +610,29 @@ export default function TenderIngest() {
             debugLog(`${prefix} tender save success`);
             Sentry.addBreadcrumb({ category: "tender_ingest", message: "tender save success", data: { traceId: activeTrace } });
 
-            // Simulate a brief delay for UX
-            await new Promise(r => setTimeout(r, 800))
-            setStatus("complete")
+            const tenderId = res?.data?.id;
+
+            if (isDraft) {
+                navigate("/tenders");
+            } else {
+                if (tenderId) {
+                    navigate(`/tenders/${tenderId}`);
+                } else {
+                    const message = "Missing tenderId after tender creation";
+                    console.error(message, res);
+
+                    Sentry.captureMessage(message, {
+                        level: "error",
+                        extra: {
+                            response: res,
+                            isDraft,
+                            sourcePdfPath: uploadedPdfPath,
+                        },
+                    });
+
+                    navigate("/tenders");
+                }
+            }
 
         } catch (err: any) {
             Sentry.captureException(err, { tags: { traceId: activeTrace } });
@@ -976,7 +996,7 @@ export default function TenderIngest() {
                                 className="w-2/3 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors flex items-center justify-center"
                             >
                                 {status === 'processing' && processStep === 'Creating tender record...' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                                Save & Run Readiness Check
+                                Save & Analyze
                             </button>
                         </div>
                     </form>
@@ -1059,31 +1079,7 @@ export default function TenderIngest() {
                     </div>
                 )}
 
-                {/* COMPLETED STATE */}
-                {status === "complete" && (
-                    <div className="text-center py-6">
-                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <CheckCircle2 className="w-8 h-8 text-green-600" />
-                        </div>
-                        <h3 className="text-lg font-bold text-gray-900 mb-2">{ingestMode === 'manual' ? 'Tender Created' : 'Analysis Complete'}</h3>
-                        <p className="text-gray-600 mb-8">{ingestMode === 'manual' ? 'Your test tender has been created successfully.' : "We've extracted specific requirements and compliance needs."}</p>
 
-                        <div className="flex gap-3 justify-center">
-                            <button
-                                onClick={() => navigate("/tenders")}
-                                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
-                            >
-                                Return to List
-                            </button>
-                            <button
-                                onClick={() => navigate("/tenders")} // Ideally go to specific ID if we returned it, but list is fine for now
-                                className="px-6 py-2 bg-black text-white rounded-lg font-medium hover:bg-gray-800"
-                            >
-                                View Results
-                            </button>
-                        </div>
-                    </div>
-                )}
 
                 {/* BLOCKED STATE */}
                 {status === "blocked" && (

@@ -9,35 +9,7 @@ import { TenderService, CompanyService } from "@/services/api"
 import { supabase } from "@/lib/supabase"
 import { formatTenderDate } from "@/lib/dateUtils"
 
-// Helper types
-interface ComparisonResult {
-    name: string
-    status: string
-    warning?: string
-    reason?: string
-    yourData?: string
-    requirementName?: string
-    actionHint?: string
-    actionType?: 'UPLOAD' | 'REPLACE' | 'EDIT'
-    docType?: string
-    docData?: any
-}
-
-const checkDocStatus = (userDocs: any[], typeKey: string): ComparisonResult => {
-    const doc = userDocs?.find((d: any) => d.doc_type === typeKey)
-    if (!doc) return { status: 'fail', reason: 'Missing document', name: '', yourData: 'Not uploaded', actionHint: 'Upload Document', actionType: 'UPLOAD', docType: typeKey }
-    
-    const expiryStr = doc.metadata?.expiry_date ? ` (expires ${doc.metadata.expiry_date})` : '';
-
-    if (doc.computed_status !== 'valid') {
-        if (doc.computed_status === 'warning') {
-            return { status: 'fail', reason: 'Expiring soon / needs renewal', name: '', yourData: `Valid${expiryStr}`, actionHint: 'Replace Document', actionType: 'REPLACE', docType: typeKey, docData: doc }
-        }
-        const expiredStr = doc.metadata?.expiry_date ? ` (expired ${doc.metadata.expiry_date})` : '';
-        return { status: 'fail', reason: 'Document not valid', name: '', yourData: `Expired${expiredStr}`, actionHint: 'Replace Document', actionType: 'REPLACE', docType: typeKey, docData: doc }
-    }
-    return { status: 'pass', name: '', yourData: `Valid${expiryStr}` }
-}
+import { calculateReadinessScore, type ComparisonResult } from "@/lib/readiness"
 
 // Extended Tender interface for local usage
 interface Tender {
@@ -133,16 +105,7 @@ export default function TenderDetails() {
 
     const docsData = userDocs as UserDocument[] | null
 
-    const normalizeDocKey = (key: string): string => {
-        const map: Record<string, string> = {
-            cidb_proof: 'cidb_cert',
-            cidb: 'cidb_cert',
-            bbbee: 'bbbee_cert',
-            bee: 'bbbee_cert'
-        };
 
-        return map[key] || key;
-    };
 
 
     const handleActionClick = (item: ComparisonResult) => {
@@ -169,161 +132,12 @@ export default function TenderDetails() {
         });
     }
 
-    // 3. Comparison Logic
-
     const comparison = useMemo(() => {
         if (!tender || !docsData) return null
-
-        const checks: ComparisonResult[] = []
-
-        // Use dynamic requirements if available, otherwise fallback to default
-        const requirements = tender.compliance_requirements || []
-
-        // Metadata Checks
-        if (!tender.title || tender.title.trim() === '' || tender.title === 'Untitled Tender') {
-            checks.push({
-                name: 'Tender Basics',
-                requirementName: 'Valid Tender Title',
-                status: 'fail',
-                reason: 'Title is missing or default',
-                yourData: tender.title || 'Empty',
-                actionHint: 'Edit Details',
-                actionType: 'EDIT'
-            });
-        }
-        if (!tender.client || tender.client.trim() === '') {
-            checks.push({
-                name: 'Tender Basics',
-                requirementName: 'Client Name',
-                status: 'fail',
-                reason: 'Missing Client Name',
-                yourData: 'Empty',
-                actionHint: 'Edit Details',
-                actionType: 'EDIT'
-            });
-        }
-
-        // If no requirements found (legacy), use a default set for display (optional, or just show 0)
-        // But for manual tenders we know we populate them.
-
-        requirements.forEach(req => {
-            // CIDB Check
-            if (req.rule_category === 'CIDB') {
-                const targetGrade = parseInt(req.target_value?.grade || "1")
-                const userCidb = docsData.find(d => d.doc_type === 'cidb_cert')
-
-                if (!userCidb) {
-                    checks.push({ name: req.description, requirementName: `CIDB Grade ${targetGrade}`, status: 'fail', reason: 'Missing CIDB Certificate', yourData: 'Not uploaded', actionHint: 'Update CIDB Info', actionType: 'UPLOAD', docType: 'cidb_cert' })
-                } else if (userCidb.computed_status === 'expired') {
-                    checks.push({ name: req.description, requirementName: `CIDB Grade ${targetGrade}`, status: 'fail', reason: 'CIDB Expired', yourData: 'Expired', actionHint: 'Update CIDB Info', actionType: 'REPLACE', docType: 'cidb_cert', docData: userCidb })
-                } else {
-                    const userGrade = parseInt(userCidb.metadata?.grade || "0")
-                    if (userGrade < targetGrade) {
-                        checks.push({ name: req.description, requirementName: `CIDB Grade ${targetGrade}`, status: 'fail', reason: `Grade ${userGrade} is too low (Need ${targetGrade})`, yourData: `Grade ${userGrade}`, actionHint: 'Update CIDB Info', actionType: 'REPLACE', docType: 'cidb_cert', docData: userCidb })
-                    } else {
-                        checks.push({ name: req.description, requirementName: `CIDB Grade ${targetGrade}`, status: 'pass', yourData: `Grade ${userGrade}` })
-                    }
-                }
-            }
-
-            // BBBEE Check
-            else if (req.rule_category === 'BBBEE') {
-                const minLevel = req.target_value?.min_level || 8
-                const userBbbee = docsData.find(d => d.doc_type === 'bbbee_cert')
-
-                if (!userBbbee) {
-                    checks.push({ name: req.description, requirementName: `B-BBEE Level ${minLevel}`, status: 'fail', reason: 'Missing B-BBEE Certificate', yourData: 'Not uploaded', actionHint: 'Update BBBEE Info', actionType: 'UPLOAD', docType: 'bbbee_cert' })
-                } else if (userBbbee.computed_status === 'expired') {
-                    checks.push({ name: req.description, requirementName: `B-BBEE Level ${minLevel}`, status: 'fail', reason: 'B-BBEE Expired', yourData: 'Expired', actionHint: 'Update BBBEE Info', actionType: 'REPLACE', docType: 'bbbee_cert', docData: userBbbee })
-                } else {
-                    const rawLevel = userBbbee.metadata?.bbbee_level;
-
-                    if (!rawLevel) {
-                        checks.push({
-                            name: req.description,
-                            requirementName: `B-BBEE Level ${minLevel}`,
-                            status: 'fail',
-                            reason: 'Missing B-BBEE level data',
-                            yourData: 'Unknown Level',
-                            actionHint: 'Update BBBEE Info',
-                            actionType: 'REPLACE',
-                            docType: 'bbbee_cert',
-                            docData: userBbbee
-                        });
-                    } else {
-                        const userLevel = parseInt(String(rawLevel));
-
-                        if (userLevel > minLevel) {
-                            checks.push({
-                                name: req.description,
-                                requirementName: `B-BBEE Level ${minLevel}`,
-                                status: 'fail',
-                                reason: `Level ${userLevel} is too low (Need ${minLevel} or better)`,
-                                yourData: `Level ${userLevel}`,
-                                actionHint: 'Update BBBEE Info',
-                                actionType: 'REPLACE',
-                                docType: 'bbbee_cert',
-                                docData: userBbbee
-                            });
-                        } else {
-                            checks.push({
-                                name: req.description,
-                                requirementName: `B-BBEE Level ${minLevel}`,
-                                status: 'pass',
-                                yourData: `Level ${userLevel}`
-                            });
-                        }
-                    }
-                }
-            }
-
-            // Mandatory Docs Check
-            else if (req.rule_category === 'MANDATORY_DOC') {
-                const requiredDocs = req.target_value?.docs || []
-                requiredDocs.forEach((docKey: string) => {
-                    const labelMap: Record<string, string> = {
-                        'cipc_cert': 'CIPC Registration',
-                        'sars_pin': 'Tax Clearance',
-                        'coid_letter': 'COID Letter',
-                        'uif_cert': 'UIF Registration',
-                        'bank_letter': 'Bank Letter'
-                    }
-                    const label = labelMap[docKey] || docKey
-                    const normalizedKey = normalizeDocKey(docKey);
-                    const result = checkDocStatus(docsData, normalizedKey);
-
-                    checks.push({
-                        name: label,
-                        requirementName: label,
-                        status: result.status,
-                        reason: result.reason,
-                        warning: result.warning,
-                        yourData: result.yourData,
-                        actionHint: result.actionHint
-                    })
-                })
-            }
-        })
-
-        // If checks is empty (no requirements), avoid 0/0 NaN
-        if (checks.length === 0) return { score: 0, checks: [], isReady: false }
-
-        const passedCount = checks.filter(c => c.status === 'pass').length
-        const totalCount = checks.length
-        const score = Math.round((passedCount / totalCount) * 100)
-
-        return {
-            score,
-            checks,
-            isReady: score === 100
-        }
-
+        return calculateReadinessScore(tender, docsData);
     }, [tender, docsData])
 
-    // Effect for Feedback Modal (Now that 'comparison' is defined below this typically, but here we place it after definition or use function hoisting? 
-    // Actually React order matters for variables. Move useEffect BELOW this useMemo.)
-
-    const score = comparison?.score !== undefined ? comparison.score : 0
+    const score = comparison?.score ?? null;
 
     useEffect(() => {
         if (!tender || !comparison) return
@@ -439,20 +253,19 @@ export default function TenderDetails() {
                     </div>
                 </div>
 
-                {/* Score Box */}
                 <div className={cn(
                     "p-6 rounded-xl border shadow-sm flex flex-col items-center justify-center text-center transition-all",
-                    score >= 80 ? "bg-green-50 border-green-200" :
-                        score >= 50 ? "bg-yellow-50 border-yellow-200" :
-                            "bg-red-50 border-red-200"
+                    score !== null && score >= 80 ? "bg-green-50 border-green-200" :
+                        score !== null && score >= 50 ? "bg-yellow-50 border-yellow-200" :
+                            "bg-gray-50 border-gray-200"
                 )}>
                     <span className="text-sm font-medium uppercase tracking-wider text-gray-600 mb-1">Readiness Score</span>
                     <span className={cn(
                         "text-4xl font-bold",
-                        score >= 80 ? "text-green-700" :
-                            score >= 50 ? "text-yellow-700" :
-                                "text-red-700"
-                    )}>{score}%</span>
+                        score !== null && score >= 80 ? "text-green-700" :
+                            score !== null && score >= 50 ? "text-yellow-700" :
+                                score !== null ? "text-red-700" : "text-gray-400"
+                    )}>{score !== null ? `${score}%` : 'N/A'}</span>
                     
                     {hasScoreChanged && (
                         <div className="mt-3 text-xs text-orange-700 bg-orange-50 border border-orange-200 px-3 py-2 rounded-lg font-medium">
@@ -466,9 +279,9 @@ export default function TenderDetails() {
                         className={cn(
                             "mt-3 text-xs font-medium px-4 py-2 rounded-lg border transition-colors flex items-center justify-center min-w-[140px] shadow-sm",
                             score === 100 && hasScoreChanged ? "bg-primary text-white border-primary hover:bg-primary/90" :
-                            score >= 80 ? "bg-green-100 text-green-800 border-green-200 hover:bg-green-200" :
-                            score >= 50 ? "bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200" :
-                            "bg-red-100 text-red-800 border-red-200 hover:bg-red-200",
+                            score !== null && score >= 80 ? "bg-green-100 text-green-800 border-green-200 hover:bg-green-200" :
+                            score !== null && score >= 50 ? "bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200" :
+                            score !== null ? "bg-red-100 text-red-800 border-red-200 hover:bg-red-200" : "bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200",
                             isRecalculating && "opacity-70 cursor-not-allowed"
                         )}
                     >

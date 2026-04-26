@@ -1,0 +1,200 @@
+// frontend/src/lib/readiness.ts
+
+export interface ComparisonResult {
+    name: string
+    status: string
+    warning?: string
+    reason?: string
+    yourData?: string
+    requirementName?: string
+    actionHint?: string
+    actionType?: 'UPLOAD' | 'REPLACE' | 'EDIT'
+    docType?: string
+    docData?: any
+}
+
+export const checkDocStatus = (userDocs: any[], typeKey: string): ComparisonResult => {
+    const doc = userDocs?.find((d: any) => d.doc_type === typeKey)
+    if (!doc) return { status: 'fail', reason: 'Missing document', name: '', yourData: 'Not uploaded', actionHint: 'Upload Document', actionType: 'UPLOAD', docType: typeKey }
+    
+    const expiryStr = doc.metadata?.expiry_date ? ` (expires ${doc.metadata.expiry_date})` : '';
+
+    if (doc.computed_status !== 'valid') {
+        if (doc.computed_status === 'warning') {
+            return { status: 'fail', reason: 'Expiring soon / needs renewal', name: '', yourData: `Valid${expiryStr}`, actionHint: 'Replace Document', actionType: 'REPLACE', docType: typeKey, docData: doc }
+        }
+        const expiredStr = doc.metadata?.expiry_date ? ` (expired ${doc.metadata.expiry_date})` : '';
+        return { status: 'fail', reason: 'Document not valid', name: '', yourData: `Expired${expiredStr}`, actionHint: 'Replace Document', actionType: 'REPLACE', docType: typeKey, docData: doc }
+    }
+    return { status: 'pass', name: '', yourData: `Valid${expiryStr}` }
+}
+
+const normalizeDocKey = (key: string): string => {
+    const map: Record<string, string> = {
+        cidb_proof: 'cidb_cert',
+        cidb: 'cidb_cert',
+        bbbee: 'bbbee_cert',
+        bee: 'bbbee_cert'
+    };
+
+    return map[key] || key;
+};
+
+export const calculateReadinessScore = (tender: any, docsData: any[]): {
+    score: number | null;
+    readiness: 'READY' | 'AMBER' | 'RED' | null;
+    checks: ComparisonResult[];
+    isReady: boolean;
+} => {
+    if (!tender || !docsData) return { score: null, readiness: null, checks: [], isReady: false }
+
+    const checks: ComparisonResult[] = []
+    const requirements = tender.compliance_requirements || []
+
+    // Metadata Checks
+    if (!tender.title || tender.title.trim() === '' || tender.title === 'Untitled Tender') {
+        checks.push({
+            name: 'Tender Basics',
+            requirementName: 'Valid Tender Title',
+            status: 'fail',
+            reason: 'Title is missing or default',
+            yourData: tender.title || 'Empty',
+            actionHint: 'Edit Details',
+            actionType: 'EDIT'
+        });
+    }
+    if (!tender.client || tender.client.trim() === '') {
+        checks.push({
+            name: 'Tender Basics',
+            requirementName: 'Client Name',
+            status: 'fail',
+            reason: 'Missing Client Name',
+            yourData: 'Empty',
+            actionHint: 'Edit Details',
+            actionType: 'EDIT'
+        });
+    }
+
+    requirements.forEach((req: any) => {
+        // CIDB Check
+        if (req.rule_category === 'CIDB') {
+            const targetGrade = parseInt(req.target_value?.grade || "1")
+            const userCidb = docsData.find(d => d.doc_type === 'cidb_cert')
+
+            if (!userCidb) {
+                checks.push({ name: req.description, requirementName: `CIDB Grade ${targetGrade}`, status: 'fail', reason: 'Missing CIDB Certificate', yourData: 'Not uploaded', actionHint: 'Update CIDB Info', actionType: 'UPLOAD', docType: 'cidb_cert' })
+            } else if (userCidb.computed_status === 'expired' || userCidb.computed_status === 'warning') {
+                const statusStr = userCidb.computed_status === 'expired' ? 'CIDB Expired' : 'CIDB Expiring soon';
+                checks.push({ name: req.description, requirementName: `CIDB Grade ${targetGrade}`, status: 'fail', reason: statusStr, yourData: userCidb.computed_status === 'expired' ? 'Expired' : 'Expiring', actionHint: 'Update CIDB Info', actionType: 'REPLACE', docType: 'cidb_cert', docData: userCidb })
+            } else {
+                const userGrade = parseInt(userCidb.metadata?.grade || "0")
+                if (userGrade < targetGrade) {
+                    checks.push({ name: req.description, requirementName: `CIDB Grade ${targetGrade}`, status: 'fail', reason: `Grade ${userGrade} is too low (Need ${targetGrade})`, yourData: `Grade ${userGrade}`, actionHint: 'Update CIDB Info', actionType: 'REPLACE', docType: 'cidb_cert', docData: userCidb })
+                } else {
+                    checks.push({ name: req.description, requirementName: `CIDB Grade ${targetGrade}`, status: 'pass', yourData: `Grade ${userGrade}` })
+                }
+            }
+        }
+
+        // BBBEE Check
+        else if (req.rule_category === 'BBBEE') {
+            const minLevel = req.target_value?.min_level || 8
+            const userBbbee = docsData.find(d => d.doc_type === 'bbbee_cert')
+
+            if (!userBbbee) {
+                checks.push({ name: req.description, requirementName: `B-BBEE Level ${minLevel}`, status: 'fail', reason: 'Missing B-BBEE Certificate', yourData: 'Not uploaded', actionHint: 'Update BBBEE Info', actionType: 'UPLOAD', docType: 'bbbee_cert' })
+            } else if (userBbbee.computed_status === 'expired' || userBbbee.computed_status === 'warning') {
+                const statusStr = userBbbee.computed_status === 'expired' ? 'B-BBEE Expired' : 'B-BBEE Expiring soon';
+                checks.push({ name: req.description, requirementName: `B-BBEE Level ${minLevel}`, status: 'fail', reason: statusStr, yourData: userBbbee.computed_status === 'expired' ? 'Expired' : 'Expiring', actionHint: 'Update BBBEE Info', actionType: 'REPLACE', docType: 'bbbee_cert', docData: userBbbee })
+            } else {
+                const rawLevel = userBbbee.metadata?.bbbee_level;
+
+                if (!rawLevel) {
+                    checks.push({
+                        name: req.description,
+                        requirementName: `B-BBEE Level ${minLevel}`,
+                        status: 'fail',
+                        reason: 'Missing B-BBEE level data',
+                        yourData: 'Unknown Level',
+                        actionHint: 'Update BBBEE Info',
+                        actionType: 'REPLACE',
+                        docType: 'bbbee_cert',
+                        docData: userBbbee
+                    });
+                } else {
+                    const userLevel = parseInt(String(rawLevel));
+
+                    if (userLevel > minLevel) {
+                        checks.push({
+                            name: req.description,
+                            requirementName: `B-BBEE Level ${minLevel}`,
+                            status: 'fail',
+                            reason: `Level ${userLevel} is too low (Need ${minLevel} or better)`,
+                            yourData: `Level ${userLevel}`,
+                            actionHint: 'Update BBBEE Info',
+                            actionType: 'REPLACE',
+                            docType: 'bbbee_cert',
+                            docData: userBbbee
+                        });
+                    } else {
+                        checks.push({
+                            name: req.description,
+                            requirementName: `B-BBEE Level ${minLevel}`,
+                            status: 'pass',
+                            yourData: `Level ${userLevel}`
+                        });
+                    }
+                }
+            }
+        }
+
+        // Mandatory Docs Check
+        else if (req.rule_category === 'MANDATORY_DOC') {
+            const requiredDocs = req.target_value?.docs || []
+            requiredDocs.forEach((docKey: string) => {
+                const labelMap: Record<string, string> = {
+                    'cipc_cert': 'CIPC Registration',
+                    'sars_pin': 'Tax Clearance',
+                    'coid_letter': 'COID Letter',
+                    'uif_cert': 'UIF Registration',
+                    'bank_letter': 'Bank Letter'
+                }
+                const label = labelMap[docKey] || docKey
+                const normalizedKey = normalizeDocKey(docKey);
+                const result = checkDocStatus(docsData, normalizedKey);
+
+                checks.push({
+                    name: label,
+                    requirementName: label,
+                    status: result.status,
+                    reason: result.reason,
+                    warning: result.warning,
+                    yourData: result.yourData,
+                    actionHint: result.actionHint,
+                    actionType: result.actionType,
+                    docType: result.docType,
+                    docData: result.docData
+                })
+            })
+        }
+    })
+
+    if (checks.length === 0) {
+        return { score: null, readiness: null, checks: [], isReady: false }
+    }
+
+    const passedCount = checks.filter(c => c.status === 'pass').length
+    const totalCount = checks.length
+    const score = Math.round((passedCount / totalCount) * 100)
+
+    let readiness: 'READY' | 'AMBER' | 'RED' = 'RED';
+    if (score === 100) readiness = 'READY';
+    else if (score >= 50) readiness = 'AMBER';
+
+    return {
+        score,
+        readiness,
+        checks,
+        isReady: score === 100
+    }
+}

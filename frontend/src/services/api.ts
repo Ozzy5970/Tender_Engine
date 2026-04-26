@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase"
 import type { ApiResponse } from "@/types/api"
 import { DOCUMENT_TYPES } from "@/lib/taxonomy"
+import { calculateReadinessScore } from "@/lib/readiness"
 
 /**
  * Standardized response handler
@@ -393,78 +394,15 @@ export const TenderService = {
 
         // 3. Calculate actual readiness score based on requirements vs compliance docs
         let finalScore: number | null = null;
+        let readinessState: 'READY' | 'AMBER' | 'RED' | null = null;
+
         try {
             const { data: docs } = await CompanyService.getCompliance();
-            if (docs && requirements.length > 0) {
-                let passed = 0;
-                let total = 0;
-
-                const normalizeDocKey = (key: string) => {
-                    if (key.includes('cipc')) return 'cipc_cert';
-                    if (key.includes('cidb')) return 'cidb_cert';
-                    if (key.includes('sars')) return 'sars_pin';
-                    if (key.includes('csd')) return 'csd_summary';
-                    if (key.includes('coid')) return 'coid_letter';
-                    if (key.includes('bbbee')) return 'bbbee_cert';
-                    if (key.includes('vat')) return 'vat_reg';
-                    if (key.includes('uif')) return 'uif_letter';
-                    if (key.includes('paye')) return 'paye_reg';
-                    if (key.includes('bank')) return 'bank_letter';
-                    if (key.includes('sbd')) return 'sbd_6_1';
-                    if (key.includes('ohs')) return 'ohs_plan';
-                    if (key.includes('she')) return 'she_file';
-                    return key;
-                };
-
-                requirements.forEach(req => {
-                  if (req.rule_category === 'CIDB') {
-                    total++;
-
-                    const userDoc = docs.find(d => d.doc_type === 'cidb_cert');
-                    const requiredGrade = req.target_value?.grade;
-
-                    if (userDoc && requiredGrade !== undefined) {
-                      const userGrade = parseInt(String(userDoc.metadata?.grade || "0"));
-                      const required = parseInt(String(requiredGrade || "0"));
-                      if (userGrade >= required) passed++;
-                    }
-                  }
-
-                  else if (req.rule_category === 'BBBEE') {
-                    total++;
-
-                    const userDoc = docs.find(d => d.doc_type === 'bbbee_cert');
-                    const requiredLevel = req.target_value?.min_level;
-
-                    if (userDoc && requiredLevel !== undefined) {
-                      const userLevel = parseInt(String(userDoc.metadata?.bbbee_level || "8"));
-                      const required = parseInt(String(requiredLevel || "8"));
-                      if (userLevel <= required) passed++;
-                    }
-                  }
-
-                  else if (req.rule_category === 'MANDATORY_DOC') {
-                    const requiredDocs = req.target_value?.docs || [];
-
-                    requiredDocs.forEach((docKey: string) => {
-                      total++;
-
-                      const normalizedKey = normalizeDocKey(docKey);
-                      const doc = docs.find(d => d.doc_type === normalizedKey);
-
-                      if (doc && doc.computed_status === 'valid') {
-                        passed++;
-                      }
-                    });
-                  }
-                });
-
-                if (total > 0) {
-                  finalScore = Math.round((passed / total) * 100);
-                } else {
-                  finalScore = null;
-                }
-            }
+            const tenderForScoring = { ...tender, compliance_requirements: requirements };
+            
+            const result = calculateReadinessScore(tenderForScoring, docs || []);
+            finalScore = result.score;
+            readinessState = result.readiness;
         } catch (e) {
             console.error("Failed to calculate readiness score during tender creation", e);
         }
@@ -473,7 +411,7 @@ export const TenderService = {
         await supabase.from('tenders').update({ 
             status: 'DRAFT', 
             compliance_score: finalScore, 
-            readiness: finalScore === 100 ? 'READY' : (finalScore && finalScore >= 50 ? 'AMBER' : 'RED') 
+            readiness: readinessState
         }).eq('id', tender.id)
 
         return { data: tender, error: null, status: 201 }
