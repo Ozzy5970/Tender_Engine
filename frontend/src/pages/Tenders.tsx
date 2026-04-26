@@ -8,6 +8,7 @@ import ConfirmationModal from "@/components/ConfirmationModal"
 import { toast } from "sonner"
 import { formatTenderDate, isTenderExpired } from "@/lib/dateUtils"
 import { supabase } from "@/lib/supabase"
+import { cn } from "@/lib/utils"
 
 type TenderStatus = "processing" | "ready" | "error" | "draft"
 
@@ -47,6 +48,13 @@ export default function Tenders() {
     const { data: apiTenders, loading, refetch } = useFetch(TenderService.getAll)
     const [deleteId, setDeleteId] = useState<string | null>(null)
     const [isDeleting, setIsDeleting] = useState(false)
+    const [noPdfNoticeId, setNoPdfNoticeId] = useState<string | null>(null)
+
+    const handleNoPdfClick = (e: React.MouseEvent, tenderId: string) => {
+        e.stopPropagation()
+        setNoPdfNoticeId(tenderId)
+        setTimeout(() => setNoPdfNoticeId(null), 2500)
+    }
 
     // Using local state for now to demonstrate Filter/Search immediately
     const [tenders] = useState<Tender[]>([])
@@ -266,30 +274,48 @@ export default function Tenders() {
                                     </div>
 
                                     <div className="flex items-center gap-1">
-                                        {tender.source_pdf_path && (
+                                        <div className="relative flex items-center">
                                             <button
-                                                title="View PDF"
+                                                title={tender.source_pdf_path ? "View PDF" : "No PDF attached"}
                                                 onClick={async (e) => {
                                                     e.stopPropagation();
+
+                                                    if (!tender.source_pdf_path) {
+                                                        handleNoPdfClick(e, tender.id);
+                                                        return;
+                                                    }
+
                                                     try {
                                                         const { data, error } = await supabase.storage
-                                                            .from('compliance')
-                                                            .createSignedUrl(tender.source_pdf_path as string, 3600);
-                                                        
+                                                            .from("compliance")
+                                                            .createSignedUrl(tender.source_pdf_path, 3600);
+
                                                         if (error) throw error;
+
                                                         if (data?.signedUrl) {
-                                                            window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+                                                            window.open(data.signedUrl, "_blank", "noopener,noreferrer");
                                                         }
                                                     } catch (err) {
                                                         console.error("Failed to open PDF", err);
                                                         toast.error("Could not open PDF.");
                                                     }
                                                 }}
-                                                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                                                className={cn(
+                                                    "p-2 rounded-full transition-colors",
+                                                    tender.source_pdf_path
+                                                        ? "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                                                        : "text-gray-300 hover:text-gray-400 hover:bg-gray-50 cursor-not-allowed"
+                                                )}
                                             >
                                                 <Eye className="w-4 h-4" />
                                             </button>
-                                        )}
+
+                                            {noPdfNoticeId === tender.id && (
+                                                <div className="absolute right-0 top-full mt-1 z-20 whitespace-nowrap rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm">
+                                                    No PDF attached
+                                                </div>
+                                            )}
+                                        </div>
                                         <button
                                             title="Delete Tender"
                                             onClick={(e) => {
