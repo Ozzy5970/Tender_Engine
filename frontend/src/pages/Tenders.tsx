@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { Plus, FileText, ChevronRight, Loader2, AlertCircle, CheckCircle2, Search, Filter, Trash2, Lock, Eye } from "lucide-react"
+import { Plus, FileText, ChevronRight, Loader2, AlertCircle, CheckCircle2, Search, Filter, Trash2, Lock, Eye, Pencil } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useFetch } from "@/hooks/useFetch"
 import { TenderService } from "@/services/api"
@@ -316,6 +316,16 @@ export default function Tenders() {
                                                 </div>
                                             )}
                                         </div>
+                                        <button
+                                            title="Edit Requirements"
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                navigate(`/tenders/${tender.id}/edit`)
+                                            }}
+                                            className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
+                                        >
+                                            <Pencil className="w-4 h-4" />
+                                        </button>
                                         <button
                                             title="Delete Tender"
                                             onClick={(e) => {

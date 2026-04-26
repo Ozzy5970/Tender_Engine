@@ -485,13 +485,15 @@ export default function TenderIngest() {
     const [traceId, setTraceId] = useState<string>("")
     const [uploadedPdfPath, setUploadedPdfPath] = useState<string | null>(null)
     const [submitIntent, setSubmitIntent] = useState<"draft" | "analyze" | null>(null)
+    const [wasAnalyzedOnLoad, setWasAnalyzedOnLoad] = useState(false)
 
     const {
         register,
         handleSubmit,
         reset,
         getValues,
-        watch
+        watch,
+        formState: { isDirty }
     } = useForm<ManualFormInput, any, ManualFormOutput>({
         resolver: zodResolver(manualFormSchema),
         defaultValues: {
@@ -524,6 +526,7 @@ export default function TenderIngest() {
                 const res = await TenderService.getById(id)
                 if (res.data) {
                     const t: any = res.data;
+                    setWasAnalyzedOnLoad(t.compliance_score !== null && t.compliance_score !== undefined);
                     const docs: Record<string, boolean> = {
                         cipc_cert: false, cidb_proof: false, sars_pin: false, csd_summary: false,
                         coid_letter: false, bbbee_cert: false, vat_reg: false, uif_letter: false,
@@ -1052,7 +1055,22 @@ export default function TenderIngest() {
                         <div className="flex gap-4 pt-6 mt-6">
                             <button
                                 type="button"
-                                onClick={() => { setSubmitIntent("draft"); handleSubmit((data) => handleFormSubmit(data, true))(); }}
+                                onClick={() => { 
+                                    if (isEditMode && wasAnalyzedOnLoad && !isDirty) {
+                                        navigate("/tenders");
+                                        return;
+                                    }
+
+                                    if (isEditMode && wasAnalyzedOnLoad && isDirty) {
+                                        const proceed = window.confirm("Saving as a draft will remove the current readiness score until you re-analyze this tender. Continue?");
+                                        if (!proceed) {
+                                            setSubmitIntent(null);
+                                            return;
+                                        }
+                                    }
+                                    setSubmitIntent("draft"); 
+                                    handleSubmit((data) => handleFormSubmit(data, true))(); 
+                                }}
                                 disabled={status === 'processing' || submitIntent !== null}
                                 className="w-1/3 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center"
                             >
