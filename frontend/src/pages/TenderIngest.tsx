@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react"
 import { Upload, X, FileText, Loader2, AlertTriangle, ArrowLeft } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { TenderService } from "@/services/api"
 import * as Sentry from "@sentry/react"
 import { useForm } from "react-hook-form"
@@ -470,6 +470,11 @@ const normalizeTenderAiData = (data: RawTenderAiPayload, prev: ManualFormState, 
 type UploadState = "idle" | "uploading" | "processing" | "error" | "complete" | "blocked"
 
 export default function TenderIngest() {
+    const { id } = useParams()
+    const isEditMode = !!id
+
+
+
     const navigate = useNavigate()
     const [file, setFile] = useState<File | null>(null)
     const [status, setStatus] = useState<UploadState>("idle")
@@ -510,6 +515,66 @@ export default function TenderIngest() {
     });
 
     const [watchGrade, watchClass, watchBbbee, watchPrefPoints, watchCompulsoryBriefing] = watch(['grade', 'class', 'bbbee', 'prefPoints', 'compulsoryBriefing']);
+    useEffect(() => {
+        if (id) {
+            setProcessStep("Loading tender details...")
+            setStatus("processing")
+            import("@/services/api").then(async ({ TenderService }) => {
+                const res = await TenderService.getById(id)
+                if (res.data) {
+                    const t: any = res.data;
+                    const docs: Record<string, boolean> = {
+                        cipc_cert: false, cidb_proof: false, sars_pin: false, csd_summary: false,
+                        coid_letter: false, bbbee_cert: false, vat_reg: false, uif_letter: false,
+                        paye_reg: false, bank_letter: false, sbd_6_1: false, ohs_plan: false, she_file: false
+                    };
+                    
+                    let cidbGrade = ""; let cidbClass = ""; let minBbbee = ""; let prefPoints = "";
+                    let compulsoryBriefing = false; let additionalReturnables = ""; let tenderDesc = ""; let notes = "";
+
+                    t.compliance_requirements?.forEach((req: any) => {
+                        if (req.rule_category === 'CIDB') {
+                            cidbGrade = req.target_value.grade || "";
+                            cidbClass = req.target_value.class || "";
+                        }
+                        if (req.rule_category === 'BBBEE') minBbbee = String(req.target_value.min_level || "");
+                        if (req.rule_category === 'PREFERENCE_POINTS') prefPoints = req.target_value.system || "";
+                        if (req.rule_category === 'COMPULSORY_BRIEFING') compulsoryBriefing = true;
+                        if (req.rule_category === 'ADDITIONAL_RETURNABLE') additionalReturnables = req.target_value.text || "";
+                        if (req.rule_category === 'TENDER_DESCRIPTION') tenderDesc = req.target_value.text || "";
+                        if (req.rule_category === 'SPECIAL_CONDITIONS') notes = req.target_value.text || "";
+                        if (req.rule_category === 'MANDATORY_DOC' && Array.isArray(req.target_value.docs)) {
+                            req.target_value.docs.forEach((doc: string) => { if (doc in docs) docs[doc] = true; });
+                        }
+                    });
+
+                    reset({
+                        title: t.title || "",
+                        client: t.client_name || "",
+                        tenderNumber: t.reference_number || "",
+                        tenderDescription: tenderDesc,
+                        closingDate: t.closing_date ? t.closing_date.split('T')[0] : "",
+                        grade: cidbGrade,
+                        class: cidbClass,
+                        bbbee: minBbbee,
+                        prefPoints: prefPoints,
+                        compulsoryBriefing: compulsoryBriefing,
+                        additionalReturnables: additionalReturnables,
+                        notes: notes,
+                        mandatoryDocs: docs as any
+                    });
+                    
+                    if (t.source_pdf_path) setUploadedPdfPath(t.source_pdf_path);
+                    setIngestMode("manual");
+                    setStatus("idle");
+                } else {
+                    setErrorMsg("Failed to load tender");
+                    setStatus("error");
+                }
+            })
+        }
+    }, [id, reset])
+
     const inputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
@@ -582,7 +647,7 @@ export default function TenderIngest() {
             // Dynamic import to avoid errors if not top-level yet
             const { TenderService } = await import("@/services/api")
 
-            const res = await TenderService.createManualTender({
+            const payload = {
                 title: manualForm.title,
                 client_name: manualForm.client,
                 tender_number: manualForm.tenderNumber,
@@ -599,7 +664,10 @@ export default function TenderIngest() {
                     min_bbbee_level: manualForm.bbbee,
                     mandatory_docs: manualForm.mandatoryDocs ? Object.entries(manualForm.mandatoryDocs).filter(([_, v]) => v).map(([k]) => k) : []
                 }
-            }, isDraft)
+            };
+            const res = (isEditMode && id)
+                ? await TenderService.updateManualTender(id, payload, isDraft)
+                : await TenderService.createManualTender(payload, isDraft);
 
             if (res.error) {
                 console.error(`${prefix} tender save failure:`, res.error);

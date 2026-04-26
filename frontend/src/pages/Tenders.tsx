@@ -230,7 +230,7 @@ export default function Tenders() {
                             return (
                                 <div
                                     key={tender.id}
-                                    onClick={() => navigate(`/tenders/${tender.id}`)}
+                                    onClick={() => navigate(tender.readinessScore === null || tender.readinessScore === undefined ? `/tenders/${tender.id}/edit` : `/tenders/${tender.id}`)}
                                     className="p-4 hover:bg-gray-50 transition-colors cursor-pointer flex items-center justify-between group"
                                 >
                                     <div className="flex items-center gap-4">

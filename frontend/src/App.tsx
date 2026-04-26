@@ -418,6 +418,7 @@ function App() {
 
             <Route path="tenders" element={<Tenders />} />
             <Route path="tenders/new" element={<TenderIngest />} />
+            <Route path="tenders/:id/edit" element={<TenderIngest />} />
             <Route path="tenders/:id" element={<TenderDetails />} />
             <Route path="compliance" element={<Compliance />} />
 
