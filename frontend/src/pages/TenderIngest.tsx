@@ -6,6 +6,7 @@ import * as Sentry from "@sentry/react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
+import { READINESS_FIELDS } from "@/lib/readiness"
 // import { cn } from "@/lib/utils"
 
 const debugLog = (...args: any[]) => {
@@ -484,8 +485,16 @@ export default function TenderIngest() {
     const [ingestMode, setIngestMode] = useState<"upload" | "manual">("upload")
     const [traceId, setTraceId] = useState<string>("")
     const [uploadedPdfPath, setUploadedPdfPath] = useState<string | null>(null)
-    const [submitIntent, setSubmitIntent] = useState<"draft" | "analyze" | null>(null)
+    type PendingSubmitIntent = "draft" | "analyze" | null;
+    const [submitIntent, setSubmitIntent] = useState<PendingSubmitIntent>(null)
     const [wasAnalyzedOnLoad, setWasAnalyzedOnLoad] = useState(false)
+    const [confirmModal, setConfirmModal] = useState<{
+        open: boolean;
+        title: string;
+        message: string;
+        confirmLabel: string;
+        intent: PendingSubmitIntent;
+    } | null>(null);
 
     const {
         register,
@@ -634,6 +643,79 @@ export default function TenderIngest() {
         }
     }
 
+
+    const hasReadinessChanges = () => {
+        return Object.keys(dirtyFields).some(field =>
+            READINESS_FIELDS.includes(field) ||
+            field.startsWith("mandatoryDocs")
+        );
+    };
+
+    const submitWithIntent = (intent: "draft" | "analyze") => {
+        const hasChanges = isDirty || Object.keys(dirtyFields).length > 0;
+        const hasReadinessImpact = hasReadinessChanges();
+
+        if (isEditMode && hasChanges) {
+            if (intent === "draft" && wasAnalyzedOnLoad) {
+                if (hasReadinessImpact) {
+                    setConfirmModal({
+                        open: true,
+                        title: "Save changes as draft?",
+                        message: "These changes will remove the current readiness score until you run Save & Analyze again.",
+                        confirmLabel: "Save Draft",
+                        intent
+                    });
+                    return;
+                } else {
+                    setConfirmModal({
+                        open: true,
+                        title: "Save requirement changes?",
+                        message: "You have changed this tender’s requirements. Do you want to save these changes as a draft?",
+                        confirmLabel: "Save Changes",
+                        intent
+                    });
+                    return;
+                }
+            }
+
+            if (intent === "draft" && !wasAnalyzedOnLoad) {
+                setConfirmModal({
+                    open: true,
+                    title: "Save requirement changes?",
+                    message: "You have changed this tender’s requirements. Do you want to save these changes as a draft?",
+                    confirmLabel: "Save Changes",
+                    intent
+                });
+                return;
+            }
+
+            if (intent === "analyze" && wasAnalyzedOnLoad) {
+                if (hasReadinessImpact) {
+                    setConfirmModal({
+                        open: true,
+                        title: "Re-analyze tender?",
+                        message: "You changed this tender’s requirements. Saving will re-run the readiness check and replace the current score.",
+                        confirmLabel: "Save & Analyze",
+                        intent
+                    });
+                    return;
+                }
+            }
+        }
+
+        if (intent === "draft" && isEditMode && wasAnalyzedOnLoad && !hasChanges) {
+            navigate("/tenders");
+            return;
+        }
+
+        if (intent === "analyze" && isEditMode && wasAnalyzedOnLoad && !hasChanges && id) {
+            navigate(`/tenders/${id}`);
+            return;
+        }
+
+        setSubmitIntent(intent);
+        handleSubmit((data) => handleFormSubmit(data, intent === "draft"))();
+    }
 
     const handleFormSubmit = async (manualForm: ManualFormOutput, isDraft: boolean = false) => {
         const activeTrace = traceId || "manual-entry-no-trace";
@@ -1055,24 +1137,7 @@ export default function TenderIngest() {
                         <div className="flex gap-4 pt-6 mt-6">
                             <button
                                 type="button"
-                                onClick={() => { 
-                                    const hasChanges = isDirty || Object.keys(dirtyFields).length > 0;
-                                    
-                                    if (isEditMode && wasAnalyzedOnLoad && !hasChanges) {
-                                        navigate("/tenders");
-                                        return;
-                                    }
-
-                                    if (isEditMode && wasAnalyzedOnLoad && hasChanges) {
-                                        const proceed = window.confirm("Saving as a draft will remove the current readiness score until you re-analyze this tender. Continue?");
-                                        if (!proceed) {
-                                            setSubmitIntent(null);
-                                            return;
-                                        }
-                                    }
-                                    setSubmitIntent("draft"); 
-                                    handleSubmit((data) => handleFormSubmit(data, true))(); 
-                                }}
+                                onClick={() => submitWithIntent("draft")}
                                 disabled={status === 'processing' || submitIntent !== null}
                                 className="w-1/3 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center"
                             >
@@ -1081,7 +1146,7 @@ export default function TenderIngest() {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => { setSubmitIntent("analyze"); handleSubmit((data) => handleFormSubmit(data, false))(); }}
+                                onClick={() => submitWithIntent("analyze")}
                                 disabled={status === 'processing' || submitIntent !== null}
                                 className="w-2/3 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors flex items-center justify-center"
                             >
@@ -1213,6 +1278,43 @@ export default function TenderIngest() {
                     </div>
                 )}
             </div>
+
+            {confirmModal?.open && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center gap-3 mb-4 text-amber-600">
+                            <AlertTriangle className="w-6 h-6" />
+                            <h3 className="text-lg font-bold text-gray-900">{confirmModal.title}</h3>
+                        </div>
+                        <p className="text-gray-600 mb-8">{confirmModal.message}</p>
+                        
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => {
+                                    setConfirmModal(null);
+                                    setSubmitIntent(null);
+                                }}
+                                className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const intent = confirmModal.intent;
+                                    setConfirmModal(null);
+                                    if (intent) {
+                                        setSubmitIntent(intent);
+                                        handleSubmit((data) => handleFormSubmit(data, intent === "draft"))();
+                                    }
+                                }}
+                                className="px-4 py-2 bg-black text-white font-medium hover:bg-gray-800 rounded-lg transition-colors"
+                            >
+                                {confirmModal.confirmLabel}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

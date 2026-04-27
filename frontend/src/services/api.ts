@@ -518,25 +518,14 @@ export const TenderService = {
             })
         }
 
-        const { error: deleteError } = await supabase
-            .from('compliance_requirements')
-            .delete()
-            .eq('tender_id', tender.id)
+        const { error: rpcError } = await supabase.rpc('update_tender_requirements', {
+            p_tender_id: tender.id,
+            p_requirements: requirements
+        });
 
-        if (deleteError) {
-            console.error("Failed to delete old requirements", deleteError);
-            throw deleteError;
-        }
-
-        if (requirements.length > 0) {
-            const { error: insertError } = await supabase
-                .from('compliance_requirements')
-                .insert(requirements)
-
-            if (insertError) {
-                console.error("Failed to insert updated requirements", insertError);
-                throw insertError;
-            }
+        if (rpcError) {
+            console.error("Failed to update tender requirements via RPC", rpcError);
+            throw rpcError;
         }
 
         if (isDraft) {

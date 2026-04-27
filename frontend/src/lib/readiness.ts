@@ -1,5 +1,12 @@
 // frontend/src/lib/readiness.ts
 
+export const READINESS_FIELDS = [
+    "grade",
+    "class",
+    "bbbee",
+    "prefPoints",
+    "mandatoryDocs"
+];
 export interface ComparisonResult {
     name: string
     status: string
