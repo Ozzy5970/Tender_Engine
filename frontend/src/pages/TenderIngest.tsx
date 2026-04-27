@@ -689,17 +689,15 @@ export default function TenderIngest() {
                 return;
             }
 
-            if (intent === "analyze" && wasAnalyzedOnLoad) {
-                if (hasReadinessImpact) {
-                    setConfirmModal({
-                        open: true,
-                        title: "Re-analyze tender?",
-                        message: "You changed this tender’s requirements. Saving will re-run the readiness check and replace the current score.",
-                        confirmLabel: "Save & Analyze",
-                        intent
-                    });
-                    return;
-                }
+            if (intent === "analyze") {
+                setConfirmModal({
+                    open: true,
+                    title: "Save changes?",
+                    message: "This will update the tender and refresh the readiness score.",
+                    confirmLabel: "Save & Analyze",
+                    intent
+                });
+                return;
             }
         }
 
