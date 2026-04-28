@@ -88,6 +88,8 @@ export interface ManualTenderData {
     tender_description?: string
     additional_returnables?: string
     compulsory_briefing?: boolean
+    briefing_date?: string
+    briefing_details?: string
     notes?: string
     preference_points?: string
     source_pdf_path?: string
@@ -361,7 +363,7 @@ export const TenderService = {
                 tender_id: tender.id,
                 rule_category: 'COMPULSORY_BRIEFING',
                 description: `Compulsory Briefing Session Required`,
-                target_value: { required: true },
+                target_value: { required: true, date: data.briefing_date || null, details: data.briefing_details || null },
                 is_killer: true
             })
         }
@@ -503,7 +505,7 @@ export const TenderService = {
                 tender_id: tender.id,
                 rule_category: 'COMPULSORY_BRIEFING',
                 description: `Compulsory Briefing Session Required`,
-                target_value: { required: true },
+                target_value: { required: true, date: data.briefing_date || null, details: data.briefing_details || null },
                 is_killer: true
             })
         }

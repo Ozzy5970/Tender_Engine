@@ -543,7 +543,7 @@ export default function TenderIngest() {
                     };
                     
                     let cidbGrade = ""; let cidbClass = ""; let minBbbee = ""; let prefPoints = "";
-                    let compulsoryBriefing = false; let additionalReturnables = ""; let tenderDesc = ""; let notes = "";
+                    let compulsoryBriefing = false; let briefingDate = ""; let briefingDetails = ""; let additionalReturnables = ""; let tenderDesc = ""; let notes = "";
 
                     t.compliance_requirements?.forEach((req: any) => {
                         if (req.rule_category === 'CIDB') {
@@ -552,7 +552,11 @@ export default function TenderIngest() {
                         }
                         if (req.rule_category === 'BBBEE') minBbbee = String(req.target_value.min_level || "");
                         if (req.rule_category === 'PREFERENCE_POINTS') prefPoints = req.target_value.system || "";
-                        if (req.rule_category === 'COMPULSORY_BRIEFING') compulsoryBriefing = true;
+                        if (req.rule_category === 'COMPULSORY_BRIEFING') {
+                            compulsoryBriefing = true;
+                            briefingDate = req.target_value.date || "";
+                            briefingDetails = req.target_value.details || "";
+                        }
                         if (req.rule_category === 'ADDITIONAL_RETURNABLE') additionalReturnables = req.target_value.text || "";
                         if (req.rule_category === 'TENDER_DESCRIPTION') tenderDesc = req.target_value.text || "";
                         if (req.rule_category === 'SPECIAL_CONDITIONS') notes = req.target_value.text || "";
@@ -572,6 +576,8 @@ export default function TenderIngest() {
                         bbbee: minBbbee,
                         prefPoints: prefPoints,
                         compulsoryBriefing: compulsoryBriefing,
+                        briefingDate: briefingDate,
+                        briefingDetails: briefingDetails,
                         additionalReturnables: additionalReturnables,
                         notes: notes,
                         mandatoryDocs: docs as any
@@ -738,6 +744,8 @@ export default function TenderIngest() {
                 tender_description: manualForm.tenderDescription,
                 closing_date: manualForm.closingDate,
                 compulsory_briefing: manualForm.compulsoryBriefing,
+                briefing_date: manualForm.briefingDate,
+                briefing_details: manualForm.briefingDetails,
                 additional_returnables: manualForm.additionalReturnables,
                 notes: manualForm.notes,
                 preference_points: manualForm.prefPoints,
