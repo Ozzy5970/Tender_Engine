@@ -194,6 +194,17 @@ export default function TenderDetails() {
         }
     };
 
+    const groupedChecks = useMemo(() => {
+        if (!comparison?.checks || !Array.isArray(comparison.checks)) return {};
+        return comparison.checks.reduce((acc, check) => {
+            if (!check) return acc;
+            const section = check.section || 'Other Requirements';
+            if (!acc[section]) acc[section] = [];
+            acc[section].push(check);
+            return acc;
+        }, {} as Record<string, ComparisonResult[]>);
+    }, [comparison?.checks]);
+
     if (tenderLoading || docsLoading) {
         return <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
     }
@@ -211,17 +222,6 @@ export default function TenderDetails() {
         comparison &&
         tender &&
         comparison.score !== tender.readinessScore;
-
-    const groupedChecks = useMemo(() => {
-        if (!comparison?.checks || !Array.isArray(comparison.checks)) return {};
-        return comparison.checks.reduce((acc, check) => {
-            if (!check) return acc;
-            const section = check.section || 'Other Requirements';
-            if (!acc[section]) acc[section] = [];
-            acc[section].push(check);
-            return acc;
-        }, {} as Record<string, ComparisonResult[]>);
-    }, [comparison?.checks]);
 
     return (
         <div className="max-w-4xl mx-auto py-8 space-y-8">
