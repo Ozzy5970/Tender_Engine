@@ -7,33 +7,34 @@ export const READINESS_FIELDS = [
     "prefPoints",
     "mandatoryDocs"
 ];
+
 export interface ComparisonResult {
     name: string
-    status: string
-    warning?: string
-    reason?: string
-    yourData?: string
+    section: string
+    status: "pass" | "fail" | "warning" | "info"
     requirementName?: string
+    yourData?: string
+    message?: string
     actionHint?: string
     actionType?: 'UPLOAD' | 'REPLACE' | 'EDIT'
     docType?: string
     docData?: any
 }
 
-export const checkDocStatus = (userDocs: any[], typeKey: string): ComparisonResult => {
+export const checkDocStatus = (userDocs: any[], typeKey: string): Omit<ComparisonResult, 'section'> => {
     const doc = userDocs?.find((d: any) => d.doc_type === typeKey)
-    if (!doc) return { status: 'fail', reason: 'Missing document', name: '', yourData: 'Not uploaded', actionHint: 'Upload Document', actionType: 'UPLOAD', docType: typeKey }
+    if (!doc) return { status: 'fail', message: 'Upload a valid document.', name: '', yourData: 'Not uploaded', actionHint: 'Upload Document', actionType: 'UPLOAD', docType: typeKey }
     
     const expiryStr = doc.metadata?.expiry_date ? ` (expires ${doc.metadata.expiry_date})` : '';
 
     if (doc.computed_status !== 'valid') {
         if (doc.computed_status === 'warning') {
-            return { status: 'fail', reason: 'Expiring soon / needs renewal', name: '', yourData: `Valid${expiryStr}`, actionHint: 'Replace Document', actionType: 'REPLACE', docType: typeKey, docData: doc }
+            return { status: 'fail', message: 'Expiring soon / needs renewal', name: '', yourData: `Valid${expiryStr}`, actionHint: 'Replace Document', actionType: 'REPLACE', docType: typeKey, docData: doc }
         }
         const expiredStr = doc.metadata?.expiry_date ? ` (expired ${doc.metadata.expiry_date})` : '';
-        return { status: 'fail', reason: 'Document not valid', name: '', yourData: `Expired${expiredStr}`, actionHint: 'Replace Document', actionType: 'REPLACE', docType: typeKey, docData: doc }
+        return { status: 'fail', message: 'Document not valid', name: '', yourData: `Expired${expiredStr}`, actionHint: 'Replace Document', actionType: 'REPLACE', docType: typeKey, docData: doc }
     }
-    return { status: 'pass', name: '', yourData: `Valid${expiryStr}` }
+    return { status: 'pass', name: '', yourData: `Valid${expiryStr}`, message: 'Your document is valid.' }
 }
 
 const normalizeDocKey = (key: string): string => {
@@ -62,9 +63,10 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
     if (!tender.title || tender.title.trim() === '' || tender.title === 'Untitled Tender') {
         checks.push({
             name: 'Tender Basics',
+            section: 'Tender Details',
             requirementName: 'Valid Tender Title',
             status: 'fail',
-            reason: 'Title is missing or default',
+            message: 'Title is missing or default',
             yourData: tender.title || 'Empty',
             actionHint: 'Edit Details',
             actionType: 'EDIT'
@@ -73,9 +75,10 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
     if (!tender.client || tender.client.trim() === '') {
         checks.push({
             name: 'Tender Basics',
+            section: 'Tender Details',
             requirementName: 'Client Name',
             status: 'fail',
-            reason: 'Missing Client Name',
+            message: 'Missing Client Name',
             yourData: 'Empty',
             actionHint: 'Edit Details',
             actionType: 'EDIT'
@@ -89,16 +92,16 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
             const userCidb = docsData.find(d => d.doc_type === 'cidb_cert')
 
             if (!userCidb) {
-                checks.push({ name: req.description, requirementName: `CIDB Grade ${targetGrade}`, status: 'fail', reason: 'Missing CIDB Certificate', yourData: 'Not uploaded', actionHint: 'Update CIDB Info', actionType: 'UPLOAD', docType: 'cidb_cert' })
+                checks.push({ name: req.description || 'CIDB Requirement', section: 'CIDB', requirementName: `CIDB Grade ${targetGrade}`, status: 'fail', message: 'Upload a valid CIDB Certificate.', yourData: 'Not uploaded', actionHint: 'Update CIDB Info', actionType: 'UPLOAD', docType: 'cidb_cert' })
             } else if (userCidb.computed_status === 'expired' || userCidb.computed_status === 'warning') {
                 const statusStr = userCidb.computed_status === 'expired' ? 'CIDB Expired' : 'CIDB Expiring soon';
-                checks.push({ name: req.description, requirementName: `CIDB Grade ${targetGrade}`, status: 'fail', reason: statusStr, yourData: userCidb.computed_status === 'expired' ? 'Expired' : 'Expiring', actionHint: 'Update CIDB Info', actionType: 'REPLACE', docType: 'cidb_cert', docData: userCidb })
+                checks.push({ name: req.description || 'CIDB Requirement', section: 'CIDB', requirementName: `CIDB Grade ${targetGrade}`, status: 'fail', message: statusStr, yourData: userCidb.computed_status === 'expired' ? 'Expired' : 'Expiring', actionHint: 'Update CIDB Info', actionType: 'REPLACE', docType: 'cidb_cert', docData: userCidb })
             } else {
                 const userGrade = parseInt(userCidb.metadata?.grade || "0")
                 if (userGrade < targetGrade) {
-                    checks.push({ name: req.description, requirementName: `CIDB Grade ${targetGrade}`, status: 'fail', reason: `Grade ${userGrade} is too low (Need ${targetGrade})`, yourData: `Grade ${userGrade}`, actionHint: 'Update CIDB Info', actionType: 'REPLACE', docType: 'cidb_cert', docData: userCidb })
+                    checks.push({ name: req.description || 'CIDB Requirement', section: 'CIDB', requirementName: `CIDB Grade ${targetGrade}`, status: 'fail', message: `Your CIDB grade is below the required level.`, yourData: `Grade ${userGrade}`, actionHint: 'Update CIDB Info', actionType: 'REPLACE', docType: 'cidb_cert', docData: userCidb })
                 } else {
-                    checks.push({ name: req.description, requirementName: `CIDB Grade ${targetGrade}`, status: 'pass', yourData: `Grade ${userGrade}` })
+                    checks.push({ name: req.description || 'CIDB Requirement', section: 'CIDB', requirementName: `CIDB Grade ${targetGrade}`, status: 'pass', message: 'Your CIDB grade meets or exceeds the requirement.', yourData: `Grade ${userGrade}` })
                 }
             }
         }
@@ -109,19 +112,20 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
             const userBbbee = docsData.find(d => d.doc_type === 'bbbee_cert')
 
             if (!userBbbee) {
-                checks.push({ name: req.description, requirementName: `B-BBEE Level ${minLevel}`, status: 'fail', reason: 'Missing B-BBEE Certificate', yourData: 'Not uploaded', actionHint: 'Update BBBEE Info', actionType: 'UPLOAD', docType: 'bbbee_cert' })
+                checks.push({ name: req.description || 'B-BBEE Requirement', section: 'B-BBEE', requirementName: `B-BBEE Level ${minLevel}`, status: 'fail', message: 'Upload a valid B-BBEE Certificate.', yourData: 'Not uploaded', actionHint: 'Update BBBEE Info', actionType: 'UPLOAD', docType: 'bbbee_cert' })
             } else if (userBbbee.computed_status === 'expired' || userBbbee.computed_status === 'warning') {
                 const statusStr = userBbbee.computed_status === 'expired' ? 'B-BBEE Expired' : 'B-BBEE Expiring soon';
-                checks.push({ name: req.description, requirementName: `B-BBEE Level ${minLevel}`, status: 'fail', reason: statusStr, yourData: userBbbee.computed_status === 'expired' ? 'Expired' : 'Expiring', actionHint: 'Update BBBEE Info', actionType: 'REPLACE', docType: 'bbbee_cert', docData: userBbbee })
+                checks.push({ name: req.description || 'B-BBEE Requirement', section: 'B-BBEE', requirementName: `B-BBEE Level ${minLevel}`, status: 'fail', message: statusStr, yourData: userBbbee.computed_status === 'expired' ? 'Expired' : 'Expiring', actionHint: 'Update BBBEE Info', actionType: 'REPLACE', docType: 'bbbee_cert', docData: userBbbee })
             } else {
                 const rawLevel = userBbbee.metadata?.bbbee_level;
 
                 if (!rawLevel) {
                     checks.push({
-                        name: req.description,
+                        name: req.description || 'B-BBEE Requirement',
+                        section: 'B-BBEE',
                         requirementName: `B-BBEE Level ${minLevel}`,
                         status: 'fail',
-                        reason: 'Missing B-BBEE level data',
+                        message: 'Missing B-BBEE level data.',
                         yourData: 'Unknown Level',
                         actionHint: 'Update BBBEE Info',
                         actionType: 'REPLACE',
@@ -133,10 +137,11 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
 
                     if (userLevel > minLevel) {
                         checks.push({
-                            name: req.description,
+                            name: req.description || 'B-BBEE Requirement',
+                            section: 'B-BBEE',
                             requirementName: `B-BBEE Level ${minLevel}`,
                             status: 'fail',
-                            reason: `Level ${userLevel} is too low (Need ${minLevel} or better)`,
+                            message: `Your B-BBEE level is below the required level.`,
                             yourData: `Level ${userLevel}`,
                             actionHint: 'Update BBBEE Info',
                             actionType: 'REPLACE',
@@ -145,9 +150,11 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                         });
                     } else {
                         checks.push({
-                            name: req.description,
+                            name: req.description || 'B-BBEE Requirement',
+                            section: 'B-BBEE',
                             requirementName: `B-BBEE Level ${minLevel}`,
                             status: 'pass',
+                            message: 'Your B-BBEE level meets or exceeds the requirement.',
                             yourData: `Level ${userLevel}`
                         });
                     }
@@ -172,10 +179,10 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
 
                 checks.push({
                     name: label,
+                    section: 'Mandatory Returnables',
                     requirementName: label,
-                    status: result.status,
-                    reason: result.reason,
-                    warning: result.warning,
+                    status: result.status as any,
+                    message: result.message,
                     yourData: result.yourData,
                     actionHint: result.actionHint,
                     actionType: result.actionType,
@@ -184,19 +191,63 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                 })
             })
         }
+        
+        // Preference Points
+        else if (req.rule_category === 'PREFERENCE_POINTS') {
+            checks.push({
+                name: req.description || 'Preference Points',
+                section: 'Preference Points',
+                requirementName: 'Points System',
+                status: 'info',
+                message: 'This tender uses preference points. Ensure your scoring documents are correct.',
+                yourData: req.target_value?.system || 'Unknown'
+            });
+        }
+        
+        // Compulsory Briefing
+        else if (req.rule_category === 'COMPULSORY_BRIEFING') {
+            checks.push({
+                name: req.description || 'Briefing Session',
+                section: 'Tender Details',
+                requirementName: 'Briefing Session',
+                status: 'info',
+                message: 'Compulsory briefing attendance required.',
+                yourData: 'Required'
+            });
+        }
+        
+        // Special Conditions
+        else if (req.rule_category === 'SPECIAL_CONDITIONS') {
+            checks.push({
+                name: 'Special Condition',
+                section: 'Other Conditions',
+                requirementName: 'Other Conditions',
+                status: 'info',
+                message: req.description || 'See tender documents for special conditions.',
+                yourData: 'Noted'
+            });
+        }
     })
 
     if (checks.length === 0) {
         return { score: null, readiness: null, checks: [], isReady: false }
     }
 
-    const passedCount = checks.filter(c => c.status === 'pass').length
-    const totalCount = checks.length
-    const score = Math.round((passedCount / totalCount) * 100)
-
-    let readiness: 'READY' | 'AMBER' | 'RED' = 'RED';
-    if (score === 100) readiness = 'READY';
-    else if (score >= 50) readiness = 'AMBER';
+    // Only 'pass' or 'fail' checks count towards the percentage score
+    // 'info' checks are informational only and do not affect Math
+    const scorableChecks = checks.filter(c => c.status === 'pass' || c.status === 'fail');
+    
+    let score = null;
+    let readiness: 'READY' | 'AMBER' | 'RED' | null = null;
+    
+    if (scorableChecks.length > 0) {
+        const passedCount = scorableChecks.filter(c => c.status === 'pass').length;
+        score = Math.round((passedCount / scorableChecks.length) * 100);
+        
+        readiness = 'RED';
+        if (score === 100) readiness = 'READY';
+        else if (score >= 50) readiness = 'AMBER';
+    }
 
     return {
         score,

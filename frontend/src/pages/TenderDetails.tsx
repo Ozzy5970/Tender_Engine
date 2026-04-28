@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react"
 import { useLocation, useParams, useNavigate } from "react-router-dom"
-import { ArrowLeft, CheckCircle2, ShieldAlert, Loader2, Zap, Trash2, Pencil } from "lucide-react"
+import { CheckCircle2, ShieldAlert, Loader2, Zap, Trash2, Pencil } from "lucide-react"
 import FeedbackModal from "@/components/FeedbackModal"
 import DocumentUploadModal from "@/components/DocumentUploadModal"
 import { cn } from "@/lib/utils"
@@ -212,19 +212,20 @@ export default function TenderDetails() {
         tender &&
         comparison.score !== tender.readinessScore;
 
+    const groupedChecks = useMemo(() => {
+        if (!comparison?.checks) return {};
+        return comparison.checks.reduce((acc, check) => {
+            const section = check.section || 'Other Requirements';
+            if (!acc[section]) acc[section] = [];
+            acc[section].push(check);
+            return acc;
+        }, {} as Record<string, ComparisonResult[]>);
+    }, [comparison?.checks]);
+
     return (
         <div className="max-w-4xl mx-auto py-8 space-y-8">
             {/* Navigation & Actions */}
-            <div className="flex items-center justify-between">
-                <button
-                    onClick={() => navigate("/tenders")}
-                    className="flex items-center text-sm text-gray-500 hover:text-gray-900 transition-colors"
-                >
-                    <ArrowLeft className="w-4 h-4 mr-1" />
-                    Back to Tenders
-                </button>
-
-                <button
+            <div className="flex items-center justify-end">                <button
                     onClick={async () => {
                         if (window.confirm("Are you sure? This cannot be undone.")) {
                             await TenderService.deleteTender(id!)
@@ -336,44 +337,72 @@ export default function TenderDetails() {
                             </div>
                         )}
                     </div>
-                    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase text-gray-500">
-                                <tr>
-                                    <th className="px-4 py-3 font-medium">Requirement</th>
-                                    <th className="px-4 py-3 font-medium">Your Data</th>
-                                    <th className="px-4 py-3 font-medium">Result</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {comparison?.checks.map((item, idx) => (
-                                    <tr key={idx} className="hover:bg-gray-50/50">
-                                        <td className="px-4 py-3 font-medium text-gray-900">{item.requirementName || item.name}</td>
-                                        <td className="px-4 py-3 text-gray-600">{item.yourData || '-'}</td>
-                                        <td className="px-4 py-3">
-                                            {item.status === "pass" ? (
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Pass</span>
-                                            ) : (
-                                                <div className="flex flex-col items-start">
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Fail</span>
-                                                    {item.reason && <span className="text-[10px] text-red-600 mt-1">{item.reason}</span>}
-                                                    {item.actionHint && item.actionType ? (
+                    <div className="space-y-6">
+                        {Object.entries(groupedChecks).map(([sectionName, items]) => (
+                            <div key={sectionName} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                                <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
+                                    <h3 className="font-bold text-gray-900">{sectionName}</h3>
+                                </div>
+                                <div className="divide-y divide-gray-100">
+                                    {items.map((item, idx) => (
+                                        <div key={idx} className={cn(
+                                            "p-5 flex flex-col sm:flex-row gap-4 justify-between items-start transition-colors hover:bg-gray-50/50",
+                                            item.status === 'pass' ? 'border-l-4 border-l-green-400' :
+                                            item.status === 'fail' ? 'border-l-4 border-l-red-400' :
+                                            item.status === 'warning' ? 'border-l-4 border-l-yellow-400' :
+                                            'border-l-4 border-l-blue-400'
+                                        )}>
+                                            <div className="space-y-3 flex-1 w-full">
+                                                <div className="flex items-center gap-2">
+                                                    <h4 className="font-bold text-gray-900">{item.name}</h4>
+                                                    <span className={cn(
+                                                        "inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider",
+                                                        item.status === 'pass' ? 'bg-green-100 text-green-800' :
+                                                        item.status === 'fail' ? 'bg-red-100 text-red-800' :
+                                                        item.status === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                                                        'bg-blue-100 text-blue-800'
+                                                    )}>{item.status}</span>
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50/50 p-3 rounded-lg border border-gray-100">
+                                                    <div>
+                                                        <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Required</span>
+                                                        <span className="font-medium text-gray-800 text-sm">{item.requirementName || "-"}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Your Company</span>
+                                                        <span className="font-medium text-gray-800 text-sm">{item.yourData || "-"}</span>
+                                                    </div>
+                                                </div>
+                                                {item.message && (
+                                                    <p className={cn(
+                                                        "text-sm font-medium",
+                                                        item.status === 'fail' ? 'text-red-600' :
+                                                        item.status === 'warning' ? 'text-yellow-700' :
+                                                        item.status === 'pass' ? 'text-green-700' : 'text-blue-700'
+                                                    )}>{item.message}</p>
+                                                )}
+                                            </div>
+                                            {(item.actionHint) && (
+                                                <div className="shrink-0 mt-3 sm:mt-0">
+                                                    {item.actionType ? (
                                                         <button 
                                                             onClick={() => handleActionClick(item)}
-                                                            className="mt-1.5 flex items-center gap-1 text-[10px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-1 rounded transition-colors"
+                                                            className="flex items-center gap-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-md transition-colors whitespace-nowrap"
                                                         >
-                                                            <Zap className="w-3 h-3"/> {item.actionHint}
+                                                            <Zap className="w-3.5 h-3.5"/> {item.actionHint}
                                                         </button>
-                                                    ) : item.actionHint ? (
-                                                        <span className="text-[10px] font-medium text-blue-600 mt-1.5 flex items-center gap-1"><Zap className="w-3 h-3"/> {item.actionHint}</span>
-                                                    ) : null}
+                                                    ) : (
+                                                        <span className="text-xs font-medium text-blue-600 flex items-center gap-1.5 px-3 py-1.5 whitespace-nowrap">
+                                                            <Zap className="w-3.5 h-3.5"/> {item.actionHint}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                     
                     {/* Inline Edit Requirements Block */}
