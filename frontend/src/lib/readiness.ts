@@ -69,20 +69,79 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
     requirements.forEach((req: any) => {
         // CIDB Check
         if (req.rule_category === 'CIDB') {
-            const targetGrade = parseInt(req.target_value?.grade || "1")
-            const userCidb = safeDocsData.find(d => d.doc_type === 'cidb_cert')
+            const targetGradeStr = req.target_value?.grade;
+            const targetGrade = parseInt(targetGradeStr || "1");
+            const targetClass = String(req.target_value?.class || "").toUpperCase().trim();
+            const userCidb = safeDocsData.find(d => d.doc_type === 'cidb_cert');
 
             if (!userCidb) {
-                checks.push({ name: req.description || 'CIDB Requirement', section: 'CIDB', requirementName: `CIDB Grade ${targetGrade}`, status: 'fail', message: 'Upload a valid CIDB Certificate.', yourData: 'Not uploaded', actionHint: 'Update CIDB Info', actionType: 'UPLOAD', docType: 'cidb_cert' })
-            } else if (userCidb.computed_status === 'expired' || userCidb.computed_status === 'warning') {
-                const statusStr = userCidb.computed_status === 'expired' ? 'CIDB Expired' : 'CIDB Expiring soon';
-                checks.push({ name: req.description || 'CIDB Requirement', section: 'CIDB', requirementName: `CIDB Grade ${targetGrade}`, status: 'fail', message: statusStr, yourData: userCidb.computed_status === 'expired' ? 'Expired' : 'Expiring', actionHint: 'Update CIDB Info', actionType: 'REPLACE', docType: 'cidb_cert', docData: userCidb })
-            } else {
-                const userGrade = parseInt(userCidb.metadata?.grade || "0")
-                if (userGrade < targetGrade) {
-                    checks.push({ name: req.description || 'CIDB Requirement', section: 'CIDB', requirementName: `CIDB Grade ${targetGrade}`, status: 'fail', message: `Your CIDB grade is below the required level.`, yourData: `Grade ${userGrade}`, actionHint: 'Update CIDB Info', actionType: 'REPLACE', docType: 'cidb_cert', docData: userCidb })
+                if (targetGradeStr) {
+                    checks.push({ name: 'CIDB Grade', section: 'CIDB', requirementName: `Grade ${targetGrade}`, status: 'fail', message: 'Upload a valid CIDB Certificate.', yourData: 'Not uploaded', actionHint: 'Upload Document', actionType: 'UPLOAD', docType: 'cidb_cert' });
                 } else {
-                    checks.push({ name: req.description || 'CIDB Requirement', section: 'CIDB', requirementName: `CIDB Grade ${targetGrade}`, status: 'pass', message: 'Your CIDB grade meets or exceeds the requirement.', yourData: `Grade ${userGrade}` })
+                    checks.push({ name: 'CIDB Grade', section: 'CIDB', requirementName: 'Not specified', status: 'info', message: 'Tender does not explicitly define a CIDB grade requirement.', yourData: 'Not uploaded' });
+                }
+                
+                if (targetClass) {
+                    checks.push({ name: 'CIDB Class of Work', section: 'CIDB', requirementName: targetClass, status: 'fail', message: 'Upload a valid CIDB Certificate.', yourData: 'Not uploaded', actionHint: 'Upload Document', actionType: 'UPLOAD', docType: 'cidb_cert' });
+                } else {
+                    checks.push({ name: 'CIDB Class of Work', section: 'CIDB', requirementName: 'Not specified', status: 'info', message: 'Tender does not explicitly define a class of work.', yourData: 'Not uploaded' });
+                }
+                
+                checks.push({ name: 'CIDB Status', section: 'CIDB', requirementName: 'Active', status: 'fail', message: 'Upload a valid CIDB Certificate.', yourData: 'Not uploaded', actionHint: 'Upload Document', actionType: 'UPLOAD', docType: 'cidb_cert' });
+                checks.push({ name: 'CIDB Expiry', section: 'CIDB', requirementName: 'Valid on submission', status: 'fail', message: 'Upload a valid CIDB Certificate.', yourData: 'Not uploaded', actionHint: 'Upload Document', actionType: 'UPLOAD', docType: 'cidb_cert' });
+            } else {
+                const metadata = userCidb.metadata || {};
+                
+                // Extract aliases safely
+                const rawGrade = metadata.grade || metadata.cidb_grade || metadata.contractor_grade;
+                const rawClass = metadata.class || metadata.class_of_work || metadata.work_class;
+                const rawStatus = metadata.status || userCidb.status || userCidb.computed_status;
+                const rawExpiry = userCidb.expiry_date || metadata.expiry_date || metadata.valid_until;
+
+                const userGrade = parseInt(String(rawGrade || "0"));
+                const userClass = String(rawClass || "").toUpperCase().trim();
+                const userStatus = String(rawStatus || "").toUpperCase().trim();
+                const userExpiry = String(rawExpiry || "");
+
+                // 1. Grade Check
+                if (targetGradeStr) {
+                    if (userGrade < targetGrade) {
+                        checks.push({ name: 'CIDB Grade', section: 'CIDB', requirementName: `Grade ${targetGrade}`, status: 'fail', message: `Tender requires Grade ${targetGrade}. Your company is Grade ${userGrade}.`, yourData: `Grade ${userGrade}`, actionHint: 'Replace Document', actionType: 'REPLACE', docType: 'cidb_cert', docData: userCidb });
+                    } else {
+                        checks.push({ name: 'CIDB Grade', section: 'CIDB', requirementName: `Grade ${targetGrade}`, status: 'pass', message: 'Your CIDB grade meets or exceeds the tender requirement.', yourData: `Grade ${userGrade}` });
+                    }
+                } else {
+                    checks.push({ name: 'CIDB Grade', section: 'CIDB', requirementName: 'Not specified', status: 'info', message: 'Tender does not explicitly define a CIDB grade requirement.', yourData: userGrade ? `Grade ${userGrade}` : 'Not uploaded' });
+                }
+
+                // 2. Class Check
+                if (targetClass) {
+                    if (!userClass || userClass !== targetClass) {
+                        checks.push({ name: 'CIDB Class of Work', section: 'CIDB', requirementName: targetClass, status: 'fail', message: `Tender requires ${targetClass}. Your company is registered for ${userClass || 'Unknown'}.`, yourData: userClass || 'Unknown', actionHint: 'Replace Document', actionType: 'REPLACE', docType: 'cidb_cert', docData: userCidb });
+                    } else {
+                        checks.push({ name: 'CIDB Class of Work', section: 'CIDB', requirementName: targetClass, status: 'pass', message: 'Your CIDB class matches the tender requirement.', yourData: userClass });
+                    }
+                } else {
+                    checks.push({ name: 'CIDB Class of Work', section: 'CIDB', requirementName: 'Not specified', status: 'info', message: 'Tender does not explicitly define a class of work.', yourData: userClass || 'Not uploaded' });
+                }
+
+                // 3. Status Check
+                const isActive = ['ACTIVE', 'VALID', 'PASS'].includes(userStatus);
+                if (isActive) {
+                    checks.push({ name: 'CIDB Status', section: 'CIDB', requirementName: 'Active', status: 'pass', message: 'Your CIDB registration is active.', yourData: 'Active' });
+                } else {
+                    checks.push({ name: 'CIDB Status', section: 'CIDB', requirementName: 'Active', status: 'fail', message: 'Your CIDB registration is inactive or suspended.', yourData: userStatus || 'Inactive', actionHint: 'Replace Document', actionType: 'REPLACE', docType: 'cidb_cert', docData: userCidb });
+                }
+
+                // 4. Expiry Check
+                if (userCidb.computed_status === 'expired') {
+                    checks.push({ name: 'CIDB Expiry', section: 'CIDB', requirementName: 'Valid on submission', status: 'fail', message: 'Your CIDB certificate has expired.', yourData: userExpiry ? `Expired ${userExpiry}` : 'Expired', actionHint: 'Replace Document', actionType: 'REPLACE', docType: 'cidb_cert', docData: userCidb });
+                } else if (userCidb.computed_status === 'warning') {
+                    checks.push({ name: 'CIDB Expiry', section: 'CIDB', requirementName: 'Valid on submission', status: 'warning', message: 'Your CIDB certificate is expiring soon.', yourData: userExpiry ? `Expires ${userExpiry}` : 'Expiring', actionHint: 'Replace Document', actionType: 'REPLACE', docType: 'cidb_cert', docData: userCidb });
+                } else if (!userExpiry && userCidb.computed_status !== 'valid') {
+                    checks.push({ name: 'CIDB Expiry', section: 'CIDB', requirementName: 'Valid on submission', status: 'fail', message: 'Expiry date is missing.', yourData: 'Unknown', actionHint: 'Replace Document', actionType: 'REPLACE', docType: 'cidb_cert', docData: userCidb });
+                } else {
+                    checks.push({ name: 'CIDB Expiry', section: 'CIDB', requirementName: 'Valid on submission', status: 'pass', message: 'Your CIDB certificate is valid.', yourData: userExpiry ? `Expires ${userExpiry}` : 'Valid' });
                 }
             }
         }
