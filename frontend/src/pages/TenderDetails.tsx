@@ -233,12 +233,15 @@ export default function TenderDetails() {
     const briefingDate = briefingReq?.target_value?.date;
     const briefingDetails = briefingReq?.target_value?.details;
     
-    const cidbDoc = docsData?.find(d => d.doc_type === 'cidb_cert');
-    const userCidbGrade = cidbDoc?.metadata?.grade;
-    const userCidbClass = cidbDoc?.metadata?.class;
     
     const MissingBadge = () => <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider bg-red-50 text-red-700 border border-red-100">Missing</span>;
     const NotCapturedBadge = () => <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider bg-amber-50 text-amber-700 border border-amber-100">Not Captured</span>;
+
+    const companyProfileAny = companyProfile as any;
+    const companyLocation = [
+      companyProfileAny?.city,
+      companyProfileAny?.province
+    ].filter(Boolean).join(", ");
 
     const hasScoreChanged =
         comparison &&
@@ -312,8 +315,8 @@ export default function TenderDetails() {
                             {(companyProfile as any)?.company_name ? <p className="font-medium text-gray-900">{(companyProfile as any).company_name}</p> : <NotCapturedBadge />}
                         </div>
                         <div className="space-y-1">
-                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Company Address</span>
-                            {(companyProfile as any)?.company_address ? <p className="font-medium text-gray-900">{(companyProfile as any).company_address}</p> : <NotCapturedBadge />}
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Company Location</span>
+                            {companyLocation ? <p className="font-medium text-gray-900">{companyLocation}</p> : <NotCapturedBadge />}
                         </div>
                         <div className="space-y-1">
                             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Contact Name</span>
@@ -321,11 +324,11 @@ export default function TenderDetails() {
                         </div>
                         <div className="space-y-1">
                             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Tax Reference Number</span>
-                            {(companyProfile as any)?.tax_number ? <p className="font-medium text-gray-900">{(companyProfile as any).tax_number}</p> : <NotCapturedBadge />}
+                            {((companyProfile as any)?.tax_reference_number || (companyProfile as any)?.tax_reference) ? <p className="font-medium text-gray-900">{((companyProfile as any)?.tax_reference_number || (companyProfile as any)?.tax_reference)}</p> : <NotCapturedBadge />}
                         </div>
                         <div className="space-y-1">
-                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">CIDB Registration</span>
-                            {userCidbGrade ? <p className="font-medium text-gray-900">Grade {userCidbGrade}{userCidbClass ? ` ${userCidbClass}` : ''}</p> : <NotCapturedBadge />}
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">CIPC Registration Number</span>
+                            {(companyProfile as any)?.registration_number ? <p className="font-medium text-gray-900">{(companyProfile as any).registration_number}</p> : <NotCapturedBadge />}
                         </div>
                     </div>
                 </div>
