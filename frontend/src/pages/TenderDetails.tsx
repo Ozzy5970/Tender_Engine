@@ -243,6 +243,9 @@ export default function TenderDetails() {
       companyProfileAny?.province
     ].filter(Boolean).join(", ");
 
+    const issuingEntity =
+      (tender as any).client_name || tender.client || (tender as any).issuing_entity || "";
+
     const hasScoreChanged =
         comparison &&
         tender &&
@@ -266,15 +269,11 @@ export default function TenderDetails() {
                     </div>
                     <div className="space-y-1">
                         <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Issuing Entity / Client</span>
-                        {tender.client ? <p className="font-medium text-gray-900">{tender.client}</p> : <MissingBadge />}
+                        {issuingEntity ? <p className="font-medium text-gray-900">{issuingEntity}</p> : <MissingBadge />}
                     </div>
                     <div className="space-y-1">
                         <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Closing Date</span>
                         {dueDate ? <p className="font-medium text-gray-900">{dueDate}</p> : <NotCapturedBadge />}
-                    </div>
-                    <div className="space-y-1">
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Location</span>
-                        {tender.location ? <p className="font-medium text-gray-900">{tender.location}</p> : <NotCapturedBadge />}
                     </div>
                     <div className="space-y-1 md:col-span-2">
                         <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Tender Description / Scope</span>
