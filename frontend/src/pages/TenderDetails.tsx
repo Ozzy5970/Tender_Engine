@@ -205,6 +205,9 @@ export default function TenderDetails() {
         }, {} as Record<string, ComparisonResult[]>);
     }, [comparison?.checks]);
 
+    const failCount = comparison?.checks?.filter(c => c.status === 'fail').length || 0;
+    const warningCount = comparison?.checks?.filter(c => c.status === 'warning').length || 0;
+
     if (tenderLoading || docsLoading) {
         return <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
     }
@@ -307,19 +310,25 @@ export default function TenderDetails() {
                 </div>
             </div>
 
-                        {/* Prominent Success State */}
-            {score === 100 && (
-                <div className="p-5 rounded-xl border bg-green-50 border-green-200 shadow-sm flex items-start gap-4 transition-all mb-8">
-                    <CheckCircle2 className="w-6 h-6 text-green-600 shrink-0 mt-0.5" />
-                    <div>
-                        <h3 className="font-bold text-lg text-green-800">You're ready to submit this tender</h3>
-                        <p className="text-sm mt-1 text-green-700">All checked requirements currently pass. Review the tender pack before final submission.</p>
-                    </div>
+                        {score !== null && (
+                <div className={cn("px-4 py-3 rounded-lg border text-sm font-medium flex items-center gap-2.5", 
+                    failCount > 0 ? "bg-red-50 border-red-200 text-red-800" :
+                    warningCount > 0 ? "bg-amber-50 border-amber-200 text-amber-800" :
+                    "bg-green-50 border-green-200 text-green-800"
+                )}>
+                    {failCount > 0 || warningCount > 0 ? <ShieldAlert className={cn("w-4 h-4 shrink-0", failCount > 0 ? "text-red-600" : "text-amber-600")} /> : <CheckCircle2 className="w-4 h-4 shrink-0 text-green-600" />}
+                    <span>
+                        {failCount > 0 
+                            ? `You have ${failCount} issue${failCount !== 1 ? 's' : ''} to fix before this tender is ready.` 
+                            : warningCount > 0
+                            ? `You have ${warningCount} item${warningCount !== 1 ? 's' : ''} to review.`
+                            : "All requirements met. Ready to submit."}
+                    </span>
                 </div>
             )}
 
             {/* Result Columns */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="w-full">
                 {/* Compliance Section */}
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
@@ -470,41 +479,6 @@ export default function TenderDetails() {
                                     <p>Note: Compliance rules (CIDB, B-BBEE, Documents) must be updated via the "Recalculate Readiness" engine or by fixing individual items in the Compliance Comparison table above.</p>
                                 </div>
                             </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* AI Insights Section (Real Data) */}
-                <div className="space-y-4">
-                    <h2 className="text-xl font-bold text-gray-900 flex items-center">
-                        <Zap className="w-5 h-5 mr-2 text-primary" />
-                        AI Strategic Insights
-                    </h2>
-
-                    {tender.risks && tender.risks.length > 0 ? (
-                        <div className="space-y-4">
-                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                                <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
-                                    <Zap className="w-4 h-4 text-blue-600" /> Winning Strategy
-                                </h3>
-                                <p className="text-sm text-blue-800">{tender.strategy_tips || "Focus on price and B-BBEE level."}</p>
-                            </div>
-
-                            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                                <h3 className="font-bold text-red-900 mb-2 flex items-center gap-2">
-                                    <ShieldAlert className="w-4 h-4 text-red-600" /> Identified Risks
-                                </h3>
-                                <ul className="list-disc list-inside text-sm text-red-800 space-y-1">
-                                    {tender.risks.map((risk: string, i: number) => (
-                                        <li key={i}>{risk}</li>
-                                    ))}
-                                </ul>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center text-sm text-gray-500">
-                            <p>No deep insights generated yet.</p>
-                            <p className="mt-2 text-xs">Upload a full tender document to unlock AI strategy.</p>
                         </div>
                     )}
                 </div>
