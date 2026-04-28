@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react"
-import { useLocation, useParams, useNavigate } from "react-router-dom"
-import { CheckCircle2, ShieldAlert, Loader2, Zap, Trash2, Pencil } from "lucide-react"
+import { useLocation, useParams } from "react-router-dom"
+import { CheckCircle2, ShieldAlert, Loader2, Zap, Pencil } from "lucide-react"
 import FeedbackModal from "@/components/FeedbackModal"
 import DocumentUploadModal from "@/components/DocumentUploadModal"
 import { cn } from "@/lib/utils"
@@ -40,7 +40,7 @@ interface UserDocument {
 
 export default function TenderDetails() {
     const { id } = useParams()
-    const navigate = useNavigate()
+
 
     // 1. Fetch Tender Data - useFetch logic needs to be stable or we manually manage state if we need to update it
     // Actually, useFetch returns { data, setData, ... } usually if implemented that way, or we just rely on reload
@@ -227,22 +227,7 @@ export default function TenderDetails() {
         comparison.score !== tender.readinessScore;
 
     return (
-        <div className="max-w-4xl mx-auto py-8 space-y-8">
-            {/* Navigation & Actions */}
-            <div className="flex items-center justify-end">                <button
-                    onClick={async () => {
-                        if (window.confirm("Are you sure? This cannot be undone.")) {
-                            await TenderService.deleteTender(id!)
-                            navigate("/tenders")
-                        }
-                    }}
-                    className="flex items-center px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
-                >
-                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                    Delete
-                </button>
-            </div>
-
+        <div className="max-w-4xl mx-auto pt-2 pb-8 space-y-6">
             {/* Header & Score Card */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
                 <div className="md:col-span-2 space-y-3">
@@ -369,7 +354,7 @@ export default function TenderDetails() {
                                                     item.status === 'pass' ? 'border-l-4 border-l-green-400' :
                                                     item.status === 'fail' ? 'border-l-4 border-l-red-400' :
                                                     item.status === 'warning' ? 'border-l-4 border-l-yellow-400' :
-                                                    'border-l-4 border-l-blue-400'
+                                                    ''
                                                 )}>
                                                     <div className="space-y-3 flex-1 w-full">
                                                         <div className="flex items-center gap-2">
@@ -379,25 +364,32 @@ export default function TenderDetails() {
                                                                 item.status === 'pass' ? 'bg-green-100 text-green-800' :
                                                                 item.status === 'fail' ? 'bg-red-100 text-red-800' :
                                                                 item.status === 'warning' ? 'bg-yellow-100 text-yellow-800' :
-                                                                'bg-blue-100 text-blue-800'
+                                                                'bg-gray-100 text-gray-600'
                                                             )}>{item.status || "INFO"}</span>
                                                         </div>
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50/50 p-3 rounded-lg border border-gray-100">
-                                                            <div>
-                                                                <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Required</span>
-                                                                <span className="font-medium text-gray-800 text-sm">{item.requirementName || "-"}</span>
+                                                        {item.status === 'info' ? (
+                                                            <div className="bg-gray-50/50 p-3 rounded-lg border border-gray-100">
+                                                                <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Tender Requirement</span>
+                                                                <span className="font-medium text-gray-800 text-sm">{item.requirementName || item.yourData || "-"}</span>
                                                             </div>
-                                                            <div>
-                                                                <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Your Company</span>
-                                                                <span className="font-medium text-gray-800 text-sm">{item.yourData || "-"}</span>
+                                                        ) : (
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50/50 p-3 rounded-lg border border-gray-100">
+                                                                <div>
+                                                                    <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Required</span>
+                                                                    <span className="font-medium text-gray-800 text-sm">{item.requirementName || "-"}</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Your Company</span>
+                                                                    <span className="font-medium text-gray-800 text-sm">{item.yourData || "-"}</span>
+                                                                </div>
                                                             </div>
-                                                        </div>
+                                                        )}
                                                         {item.message && (
                                                             <p className={cn(
                                                                 "text-sm font-medium",
                                                                 item.status === 'fail' ? 'text-red-600' :
                                                                 item.status === 'warning' ? 'text-yellow-700' :
-                                                                item.status === 'pass' ? 'text-green-700' : 'text-blue-700'
+                                                                item.status === 'pass' ? 'text-green-700' : 'text-gray-600'
                                                             )}>{item.message}</p>
                                                         )}
                                                     </div>
