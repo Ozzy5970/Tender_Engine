@@ -175,41 +175,7 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
             })
         }
         
-        // Preference Points
-        else if (req.rule_category === 'PREFERENCE_POINTS') {
-            checks.push({
-                name: req.description || 'Preference Points',
-                section: 'Preference Points',
-                requirementName: 'Points System',
-                status: 'info',
-                message: 'This tender uses preference points. Ensure your scoring documents are correct.',
-                yourData: req.target_value?.system || 'Unknown'
-            });
-        }
-        
-        // Compulsory Briefing
-        else if (req.rule_category === 'COMPULSORY_BRIEFING') {
-            checks.push({
-                name: req.description || 'Briefing Session',
-                section: 'Other Requirements',
-                requirementName: 'Briefing Session',
-                status: 'info',
-                message: 'Compulsory briefing attendance required.',
-                yourData: 'Required'
-            });
-        }
-        
-        // Special Conditions
-        else if (req.rule_category === 'SPECIAL_CONDITIONS') {
-            checks.push({
-                name: 'Special Condition',
-                section: 'Other Conditions',
-                requirementName: 'Other Conditions',
-                status: 'info',
-                message: req.description || 'See tender documents for special conditions.',
-                yourData: 'Noted'
-            });
-        }
+        // Other info checks removed to let Tender Details UI handle them natively
     })
 
     if (checks.length === 0) {
