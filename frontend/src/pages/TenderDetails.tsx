@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react"
 import { useParams, useLocation } from "react-router-dom"
-import { CheckCircle2, ShieldAlert, Loader2, Zap, Pencil, MapPin } from "lucide-react"
+import { CheckCircle2, ShieldAlert, Loader2, Zap, Pencil, Building2, FileText } from "lucide-react"
 import FeedbackModal from "@/components/FeedbackModal"
 import DocumentUploadModal from "@/components/DocumentUploadModal"
 import { cn } from "@/lib/utils"
@@ -49,6 +49,7 @@ export default function TenderDetails() {
     // Simpler: use local state initialized from fetch
     const { data: fetchedTender, loading: tenderLoading, error: tenderError } = useFetch(() => TenderService.getById(id!), [id || ''])
     const { data: userDocs, loading: docsLoading, refetch: refetchDocs } = useFetch(CompanyService.getCompliance, [])
+    const { data: companyProfile, loading: profileLoading } = useFetch(CompanyService.getProfile, [])
 
     const [tender, setTender] = useState<Tender | null>(null)
     const [showFeedbackModal, setShowFeedbackModal] = useState(false)
@@ -209,7 +210,7 @@ export default function TenderDetails() {
     const failCount = comparison?.checks?.filter(c => c.status === 'fail').length || 0;
     const warningCount = comparison?.checks?.filter(c => c.status === 'warning').length || 0;
 
-    if (tenderLoading || docsLoading) {
+    if (tenderLoading || docsLoading || profileLoading) {
         return <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
     }
 
@@ -222,6 +223,23 @@ export default function TenderDetails() {
         tender.closing_date || tender.deadline
     );
 
+    const tenderDescReq = tender.compliance_requirements?.find(r => r.rule_category === 'TENDER_DESCRIPTION');
+    const specialCondReq = tender.compliance_requirements?.find(r => r.rule_category === 'SPECIAL_CONDITIONS');
+    const briefingReq = tender.compliance_requirements?.find(r => r.rule_category === 'COMPULSORY_BRIEFING');
+
+    const tenderDescription = tenderDescReq?.target_value?.text || tenderDescReq?.description;
+    const specialConditions = specialCondReq?.target_value?.text || specialCondReq?.description;
+    const briefingRequired = !!briefingReq;
+    const briefingDate = briefingReq?.target_value?.date;
+    const briefingDetails = briefingReq?.target_value?.details;
+    
+    const cidbDoc = docsData?.find(d => d.doc_type === 'cidb_cert');
+    const userCidbGrade = cidbDoc?.metadata?.grade;
+    const userCidbClass = cidbDoc?.metadata?.class;
+    
+    const MissingBadge = () => <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider bg-red-50 text-red-700 border border-red-100">Missing</span>;
+    const NotCapturedBadge = () => <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider bg-amber-50 text-amber-700 border border-amber-100">Not Captured</span>;
+
     const hasScoreChanged =
         comparison &&
         tender &&
@@ -229,27 +247,90 @@ export default function TenderDetails() {
 
     return (
         <div className="max-w-4xl mx-auto pt-2 pb-8 space-y-6">
-            {/* Header & Score Card */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
-                <div className="md:col-span-2 space-y-3">
-                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight leading-tight">{tender.title}</h1>
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mt-2">
-                        <span className="font-medium text-gray-700 bg-gray-100/80 px-2.5 py-0.5 rounded-md border border-gray-200">{tender.client}</span>
-                        {tender.location && (
-                            <>
-                                <span className="text-gray-300">•</span>
-                                <span className="flex items-center"><MapPin className="w-3.5 h-3.5 mr-1" /> {tender.location}</span>
-                            </>
-                        )}
-                        {dueDate && (
-                            <>
-                                <span className="text-gray-300">•</span>
-                                <span>Due: {dueDate}</span>
-                            </>
-                        )}
+            {/* SECTION 1 - Tender Basics */}
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                <div className="bg-gray-50 px-5 py-3 border-b border-gray-200 flex flex-col justify-center">
+                    <div className="flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-gray-500" />
+                        <h2 className="text-lg font-bold text-gray-900">Tender Basics / Capture Completeness</h2>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1 ml-7">Context only. These fields do not affect the readiness score.</p>
+                </div>
+                <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1">
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Tender Title</span>
+                        {tender.title && tender.title !== 'Untitled Tender' ? <p className="font-medium text-gray-900">{tender.title}</p> : <MissingBadge />}
+                    </div>
+                    <div className="space-y-1">
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Issuing Entity / Client</span>
+                        {tender.client ? <p className="font-medium text-gray-900">{tender.client}</p> : <MissingBadge />}
+                    </div>
+                    <div className="space-y-1">
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Closing Date</span>
+                        {dueDate ? <p className="font-medium text-gray-900">{dueDate}</p> : <NotCapturedBadge />}
+                    </div>
+                    <div className="space-y-1">
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Location</span>
+                        {tender.location ? <p className="font-medium text-gray-900">{tender.location}</p> : <NotCapturedBadge />}
+                    </div>
+                    <div className="space-y-1 md:col-span-2">
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Tender Description / Scope</span>
+                        {tenderDescription ? <p className="font-medium text-gray-900">{tenderDescription}</p> : <NotCapturedBadge />}
+                    </div>
+                    <div className="space-y-1 md:col-span-2">
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Special Conditions / Notes</span>
+                        {specialConditions ? <p className="font-medium text-gray-900">{specialConditions}</p> : <NotCapturedBadge />}
+                    </div>
+                    <div className="space-y-1">
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Compulsory Briefing</span>
+                        {briefingRequired ? <p className="font-medium text-gray-900">Required</p> : <p className="font-medium text-gray-900">Not Required</p>}
+                    </div>
+                    {briefingRequired && (
+                        <div className="space-y-1">
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Briefing Details</span>
+                            <p className="font-medium text-gray-900">
+                                {briefingDate ? `${briefingDate} ` : ""}
+                                {briefingDetails ? `- ${briefingDetails}` : (briefingDate ? "" : <NotCapturedBadge />)}
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Middle Row: Profile & Score */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+                
+                {/* SECTION 2 - Company Profile Summary */}
+                <div className="md:col-span-2 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+                    <div className="bg-gray-50 px-5 py-3 border-b border-gray-200 flex items-center gap-2">
+                        <Building2 className="w-5 h-5 text-gray-500" />
+                        <h2 className="text-lg font-bold text-gray-900">Company Profile Summary</h2>
+                    </div>
+                    <div className="p-5 flex-1 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div className="space-y-1">
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Company Name</span>
+                            {(companyProfile as any)?.company_name ? <p className="font-medium text-gray-900">{(companyProfile as any).company_name}</p> : <NotCapturedBadge />}
+                        </div>
+                        <div className="space-y-1">
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Company Address</span>
+                            {(companyProfile as any)?.company_address ? <p className="font-medium text-gray-900">{(companyProfile as any).company_address}</p> : <NotCapturedBadge />}
+                        </div>
+                        <div className="space-y-1">
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Contact Name</span>
+                            {(companyProfile as any)?.full_name ? <p className="font-medium text-gray-900">{(companyProfile as any).full_name}</p> : <NotCapturedBadge />}
+                        </div>
+                        <div className="space-y-1">
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Tax Reference Number</span>
+                            {(companyProfile as any)?.tax_number ? <p className="font-medium text-gray-900">{(companyProfile as any).tax_number}</p> : <NotCapturedBadge />}
+                        </div>
+                        <div className="space-y-1">
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">CIDB Registration</span>
+                            {userCidbGrade ? <p className="font-medium text-gray-900">Grade {userCidbGrade}{userCidbClass ? ` ${userCidbClass}` : ''}</p> : <NotCapturedBadge />}
+                        </div>
                     </div>
                 </div>
 
+                {/* Readiness Score Card */}
                 <div className={cn(
                     "p-6 rounded-xl border shadow-sm flex flex-col items-center justify-center text-center transition-all",
                     score !== null && score >= 80 ? "bg-green-50 border-green-200" :
