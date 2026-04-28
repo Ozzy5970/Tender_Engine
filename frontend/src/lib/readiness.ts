@@ -22,7 +22,8 @@ export interface ComparisonResult {
 }
 
 export const checkDocStatus = (userDocs: any[], typeKey: string): Omit<ComparisonResult, 'section'> => {
-    const doc = userDocs?.find((d: any) => d.doc_type === typeKey)
+    const safeDocs = (userDocs || []).filter((doc: any) => doc && typeof doc === 'object');
+    const doc = safeDocs.find((d: any) => d.doc_type === typeKey)
     if (!doc) return { status: 'fail', message: 'Upload a valid document.', name: '', yourData: 'Not uploaded', actionHint: 'Upload Document', actionType: 'UPLOAD', docType: typeKey }
     
     const expiryStr = doc.metadata?.expiry_date ? ` (expires ${doc.metadata.expiry_date})` : '';
@@ -57,7 +58,13 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
     if (!tender || !docsData) return { score: null, readiness: null, checks: [], isReady: false }
 
     const checks: ComparisonResult[] = []
-    const requirements = tender.compliance_requirements || []
+    const requirements = (tender.compliance_requirements || []).filter(
+        (req: any) => req && typeof req === 'object' && req.rule_category
+    );
+    
+    const safeDocsData = (docsData || []).filter(
+        (doc: any) => doc && typeof doc === 'object'
+    );
 
     // Metadata Checks
     if (!tender.title || tender.title.trim() === '' || tender.title === 'Untitled Tender') {
@@ -89,7 +96,7 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
         // CIDB Check
         if (req.rule_category === 'CIDB') {
             const targetGrade = parseInt(req.target_value?.grade || "1")
-            const userCidb = docsData.find(d => d.doc_type === 'cidb_cert')
+            const userCidb = safeDocsData.find(d => d.doc_type === 'cidb_cert')
 
             if (!userCidb) {
                 checks.push({ name: req.description || 'CIDB Requirement', section: 'CIDB', requirementName: `CIDB Grade ${targetGrade}`, status: 'fail', message: 'Upload a valid CIDB Certificate.', yourData: 'Not uploaded', actionHint: 'Update CIDB Info', actionType: 'UPLOAD', docType: 'cidb_cert' })
@@ -109,7 +116,7 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
         // BBBEE Check
         else if (req.rule_category === 'BBBEE') {
             const minLevel = req.target_value?.min_level || 8
-            const userBbbee = docsData.find(d => d.doc_type === 'bbbee_cert')
+            const userBbbee = safeDocsData.find(d => d.doc_type === 'bbbee_cert')
 
             if (!userBbbee) {
                 checks.push({ name: req.description || 'B-BBEE Requirement', section: 'B-BBEE', requirementName: `B-BBEE Level ${minLevel}`, status: 'fail', message: 'Upload a valid B-BBEE Certificate.', yourData: 'Not uploaded', actionHint: 'Update BBBEE Info', actionType: 'UPLOAD', docType: 'bbbee_cert' })
@@ -164,7 +171,9 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
 
         // Mandatory Docs Check
         else if (req.rule_category === 'MANDATORY_DOC') {
-            const requiredDocs = req.target_value?.docs || []
+            const requiredDocs = (req.target_value?.docs || []).filter(
+                (key: any) => typeof key === 'string' && key.trim() !== ''
+            );
             requiredDocs.forEach((docKey: string) => {
                 const labelMap: Record<string, string> = {
                     'cipc_cert': 'CIPC Registration',
@@ -175,7 +184,7 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                 }
                 const label = labelMap[docKey] || docKey
                 const normalizedKey = normalizeDocKey(docKey);
-                const result = checkDocStatus(docsData, normalizedKey);
+                const result = checkDocStatus(safeDocsData, normalizedKey);
 
                 checks.push({
                     name: label,
