@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react"
-import { useLocation, useParams } from "react-router-dom"
-import { CheckCircle2, ShieldAlert, Loader2, Zap, Pencil } from "lucide-react"
+import { useParams, useLocation } from "react-router-dom"
+import { CheckCircle2, ShieldAlert, Loader2, Zap, Pencil, MapPin } from "lucide-react"
 import FeedbackModal from "@/components/FeedbackModal"
 import DocumentUploadModal from "@/components/DocumentUploadModal"
 import { cn } from "@/lib/utils"
@@ -18,6 +18,7 @@ interface Tender {
     client: string
     deadline: string
     closing_date?: string
+    location?: string
     required_cidb_grade?: number
     compliance_requirements?: {
         rule_category: string
@@ -232,11 +233,17 @@ export default function TenderDetails() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
                 <div className="md:col-span-2 space-y-3">
                     <h1 className="text-3xl font-bold text-gray-900 tracking-tight leading-tight">{tender.title}</h1>
-                    <div className="flex items-center gap-3 text-sm text-gray-500">
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mt-2">
                         <span className="font-medium text-gray-700 bg-gray-100/80 px-2.5 py-0.5 rounded-md border border-gray-200">{tender.client}</span>
+                        {tender.location && (
+                            <>
+                                <span className="text-gray-300">•</span>
+                                <span className="flex items-center"><MapPin className="w-3.5 h-3.5 mr-1" /> {tender.location}</span>
+                            </>
+                        )}
                         {dueDate && (
                             <>
-                                <span>•</span>
+                                <span className="text-gray-300">•</span>
                                 <span>Due: {dueDate}</span>
                             </>
                         )}

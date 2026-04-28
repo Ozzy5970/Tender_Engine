@@ -66,32 +66,6 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
         (doc: any) => doc && typeof doc === 'object'
     );
 
-    // Metadata Checks
-    if (!tender.title || tender.title.trim() === '' || tender.title === 'Untitled Tender') {
-        checks.push({
-            name: 'Tender Basics',
-            section: 'Tender Details',
-            requirementName: 'Valid Tender Title',
-            status: 'fail',
-            message: 'Title is missing or default',
-            yourData: tender.title || 'Empty',
-            actionHint: 'Edit Details',
-            actionType: 'EDIT'
-        });
-    }
-    if (!tender.client || tender.client.trim() === '') {
-        checks.push({
-            name: 'Tender Basics',
-            section: 'Tender Details',
-            requirementName: 'Client Name',
-            status: 'fail',
-            message: 'Missing Client Name',
-            yourData: 'Empty',
-            actionHint: 'Edit Details',
-            actionType: 'EDIT'
-        });
-    }
-
     requirements.forEach((req: any) => {
         // CIDB Check
         if (req.rule_category === 'CIDB') {
@@ -217,7 +191,7 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
         else if (req.rule_category === 'COMPULSORY_BRIEFING') {
             checks.push({
                 name: req.description || 'Briefing Session',
-                section: 'Tender Details',
+                section: 'Other Requirements',
                 requirementName: 'Briefing Session',
                 status: 'info',
                 message: 'Compulsory briefing attendance required.',
