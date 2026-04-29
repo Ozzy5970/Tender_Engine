@@ -152,18 +152,16 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
             const userBbbee = safeDocsData.find(d => d.doc_type === 'bbbee_cert')
 
             if (!userBbbee) {
-                checks.push({ name: req.description || 'B-BBEE Requirement', section: 'B-BBEE', requirementName: `B-BBEE Level ${minLevel}`, status: 'fail', message: 'Upload a valid B-BBEE Certificate.', yourData: 'Not uploaded', actionHint: 'Update BBBEE Info', actionType: 'UPLOAD', docType: 'bbbee_cert' })
-            } else if (userBbbee.computed_status === 'expired' || userBbbee.computed_status === 'warning') {
-                const statusStr = userBbbee.computed_status === 'expired' ? 'B-BBEE Expired' : 'B-BBEE Expiring soon';
-                checks.push({ name: req.description || 'B-BBEE Requirement', section: 'B-BBEE', requirementName: `B-BBEE Level ${minLevel}`, status: 'fail', message: statusStr, yourData: userBbbee.computed_status === 'expired' ? 'Expired' : 'Expiring', actionHint: 'Update BBBEE Info', actionType: 'REPLACE', docType: 'bbbee_cert', docData: userBbbee })
+                checks.push({ name: 'B-BBEE Level', section: 'B-BBEE', requirementName: `Level ${minLevel}`, status: 'fail', message: 'Upload a valid B-BBEE Certificate.', yourData: 'Not uploaded', actionHint: 'Update BBBEE Info', actionType: 'UPLOAD', docType: 'bbbee_cert' });
+                checks.push({ name: 'B-BBEE Expiry', section: 'B-BBEE', requirementName: 'Valid on submission', status: 'fail', message: 'Upload a valid B-BBEE Certificate.', yourData: 'Not uploaded', actionHint: 'Update BBBEE Info', actionType: 'UPLOAD', docType: 'bbbee_cert' });
             } else {
                 const rawLevel = userBbbee.metadata?.bbbee_level;
 
                 if (!rawLevel) {
                     checks.push({
-                        name: req.description || 'B-BBEE Requirement',
+                        name: 'B-BBEE Level',
                         section: 'B-BBEE',
-                        requirementName: `B-BBEE Level ${minLevel}`,
+                        requirementName: `Level ${minLevel}`,
                         status: 'fail',
                         message: 'Missing B-BBEE level data.',
                         yourData: 'Unknown Level',
@@ -177,9 +175,9 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
 
                     if (userLevel > minLevel) {
                         checks.push({
-                            name: req.description || 'B-BBEE Requirement',
+                            name: 'B-BBEE Level',
                             section: 'B-BBEE',
-                            requirementName: `B-BBEE Level ${minLevel}`,
+                            requirementName: `Level ${minLevel}`,
                             status: 'fail',
                             message: `Your B-BBEE level is below the required level.`,
                             yourData: `Level ${userLevel}`,
@@ -190,15 +188,32 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                         });
                     } else {
                         checks.push({
-                            name: req.description || 'B-BBEE Requirement',
+                            name: 'B-BBEE Level',
                             section: 'B-BBEE',
-                            requirementName: `B-BBEE Level ${minLevel}`,
+                            requirementName: `Level ${minLevel}`,
                             status: 'pass',
                             message: 'Your B-BBEE level meets or exceeds the requirement.',
                             yourData: `Level ${userLevel}`
                         });
                     }
                 }
+
+                const expiryDate = userBbbee.expiry_date || userBbbee.metadata?.expiry_date;
+                const statusStr = userBbbee.computed_status === 'expired' ? 'Expired' : userBbbee.computed_status === 'warning' ? 'Expiring soon' : 'Valid';
+                const statusCode = userBbbee.computed_status === 'expired' ? 'fail' : userBbbee.computed_status === 'warning' ? 'warning' : 'pass';
+
+                checks.push({
+                    name: 'B-BBEE Expiry',
+                    section: 'B-BBEE',
+                    requirementName: 'Valid on submission',
+                    status: statusCode,
+                    message: statusCode !== 'pass' ? `B-BBEE is ${statusStr.toLowerCase()}.` : '',
+                    yourData: expiryDate ? new Date(expiryDate).toISOString().split('T')[0] : (statusStr === 'Valid' ? 'Valid' : statusStr),
+                    actionHint: statusCode !== 'pass' ? 'Update BBBEE Info' : undefined,
+                    actionType: statusCode !== 'pass' ? 'REPLACE' : undefined,
+                    docType: 'bbbee_cert',
+                    docData: userBbbee
+                });
             }
         }
 
