@@ -223,8 +223,67 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                 (key: any) => typeof key === 'string' && key.trim() !== ''
             );
             requiredDocs.forEach((docKey: string) => {
+                if (docKey === 'cipc_cert') {
+                    const userCipc = safeDocsData.find(d => d.doc_type === 'cipc_cert');
+                    if (!userCipc) {
+                        checks.push({
+                            name: 'CIPC Status',
+                            section: 'CIPC',
+                            requirementName: 'Active',
+                            status: 'fail',
+                            message: 'Company is not active or not registered.',
+                            yourData: 'Not uploaded',
+                            actionHint: 'Upload CIPC Document',
+                            actionType: 'UPLOAD',
+                            docType: 'cipc_cert'
+                        });
+                    } else {
+                        const metadata = userCipc.metadata || {};
+                        const rawEntityStatus =
+                            metadata.entity_status ||
+                            metadata.entityStatus ||
+                            metadata.status ||
+                            metadata.company_status ||
+                            metadata.registration_status ||
+                            metadata.entityStatusText;
+
+                        const normalizedStatus = String(rawEntityStatus || "").trim().toLowerCase();
+                        const isActive = ["active", "valid", "registered"].includes(normalizedStatus);
+
+                        const registrationNumber =
+                            metadata.registration_number ||
+                            metadata.registrationNumber ||
+                            metadata.registration_no ||
+                            metadata.reg_number ||
+                            metadata.company_registration_number ||
+                            metadata.cipc_registration_number ||
+                            metadata.cipc_number;
+
+                        const displayStatus = rawEntityStatus ? String(rawEntityStatus).trim() : 'Unknown';
+
+                        checks.push({
+                            name: 'CIPC Status',
+                            section: 'CIPC',
+                            requirementName: 'Active',
+                            status: isActive ? 'pass' : 'fail',
+                            message: isActive ? '' : 'Company is not active or not registered.',
+                            yourData: displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1).toLowerCase(),
+                            actionHint: isActive ? undefined : 'Update CIPC Info',
+                            actionType: isActive ? undefined : 'REPLACE',
+                            docType: 'cipc_cert',
+                            docData: {
+                                ...userCipc,
+                                metadata: {
+                                    ...metadata,
+                                    registration_number: registrationNumber
+                                }
+                            }
+                        });
+                    }
+                    return;
+                }
+
                 const labelMap: Record<string, string> = {
-                    'cipc_cert': 'CIPC Registration',
                     'sars_pin': 'Tax Clearance',
                     'coid_letter': 'COID Letter',
                     'uif_cert': 'UIF Registration',

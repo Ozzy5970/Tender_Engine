@@ -436,7 +436,7 @@ export default function TenderDetails() {
                                         <h3 className="font-bold text-gray-900">{sectionName}</h3>
                                     </div>
                                     <div className="divide-y divide-gray-100">
-                                        {sectionName === "CIDB" || sectionName === "B-BBEE" ? (
+                                        {sectionName === "CIDB" || sectionName === "B-BBEE" || sectionName === "CIPC" ? (
                                             <div className="p-5 flex flex-col sm:flex-row gap-6 justify-between items-start transition-colors hover:bg-gray-50/50">
                                                 <div className="w-full flex-1 overflow-x-auto">
                                                     <table className="w-full text-left min-w-[400px]">
@@ -451,7 +451,7 @@ export default function TenderDetails() {
                                                         <tbody className="divide-y divide-gray-50">
                                                             {items.map((item, idx) => {
                                                                 if (!item) return null;
-                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '');
+                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '');
                                                                 return (
                                                                     <tr key={idx} className="group">
                                                                         <td className="py-3 pr-4 align-top">
@@ -491,12 +491,21 @@ export default function TenderDetails() {
                                                             })}
                                                         </tbody>
                                                     </table>
+
+                                                    {sectionName === "CIPC" && items.some(i => i?.docType === 'cipc_cert' && i?.docData?.metadata?.registration_number) && (
+                                                        <div className="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2">
+                                                            <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">Registration Number:</span>
+                                                            <span className="text-sm font-medium text-gray-800">
+                                                                {items.find(i => i?.docType === 'cipc_cert')?.docData?.metadata?.registration_number}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                     
                                                     {items.some(i => i?.message && i.status !== 'pass' && i.status !== 'info') && (
                                                         <div className="mt-4 pt-3 border-t border-gray-100 space-y-1.5">
                                                             {items.map((item, idx) => {
                                                                 if (!item || !item.message || item.status === 'pass' || item.status === 'info') return null;
-                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '');
+                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '');
                                                                 return (
                                                                     <p key={`msg-${idx}`} className={cn(
                                                                         "text-xs font-medium",
