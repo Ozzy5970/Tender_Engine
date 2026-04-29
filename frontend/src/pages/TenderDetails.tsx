@@ -492,14 +492,26 @@ export default function TenderDetails() {
                                                         </tbody>
                                                     </table>
 
-                                                    {sectionName === "CIPC" && items.some(i => i?.docType === 'cipc_cert' && i?.docData?.metadata?.registration_number) && (
-                                                        <div className="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2">
-                                                            <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">Registration Number:</span>
-                                                            <span className="text-sm font-medium text-gray-800">
-                                                                {items.find(i => i?.docType === 'cipc_cert')?.docData?.metadata?.registration_number}
-                                                            </span>
-                                                        </div>
-                                                    )}
+                                                    {sectionName === "CIPC" && (() => {
+                                                        const cipcItem = items.find(i => i?.docType === 'cipc_cert');
+                                                        const regNum = cipcItem?.docData?.metadata?.registration_number;
+                                                        if (!regNum) return null;
+                                                        
+                                                        const cipcStatusItem = items.find(i => i?.name === "CIPC Status");
+                                                        const isPass = cipcStatusItem?.status === "pass";
+                                                        
+                                                        return (
+                                                            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2">
+                                                                <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">Registration Number:</span>
+                                                                <span className={cn(
+                                                                    "text-xs font-bold px-2 py-0.5 rounded border",
+                                                                    isPass ? "text-green-700 bg-green-50 border-green-100" : "text-gray-700 bg-gray-50 border-gray-200"
+                                                                )}>
+                                                                    {regNum}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })()}
                                                     
                                                     {items.some(i => i?.message && i.status !== 'pass' && i.status !== 'info') && (
                                                         <div className="mt-4 pt-3 border-t border-gray-100 space-y-1.5">

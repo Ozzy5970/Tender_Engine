@@ -247,8 +247,12 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             metadata.registration_status ||
                             metadata.entityStatusText;
 
-                        const normalizedStatus = String(rawEntityStatus || "").trim().toLowerCase();
-                        const isActive = ["active", "valid", "registered"].includes(normalizedStatus);
+                        const normalizedStatus = String(rawEntityStatus || "")
+                            .trim()
+                            .toLowerCase()
+                            .replace(/[_-]+/g, " ")
+                            .replace(/\s+/g, " ");
+                        const isActive = ["active", "valid", "registered", "in business", "inbusiness", "business"].includes(normalizedStatus);
 
                         const registrationNumber =
                             metadata.registration_number ||
