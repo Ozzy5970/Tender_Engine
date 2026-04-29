@@ -436,7 +436,104 @@ export default function TenderDetails() {
                                         <h3 className="font-bold text-gray-900">{sectionName}</h3>
                                     </div>
                                     <div className="divide-y divide-gray-100">
-                                        {items.map((item, idx) => {
+                                        {sectionName === "CIDB" ? (
+                                            <div className="p-5 flex flex-col sm:flex-row gap-6 justify-between items-start transition-colors hover:bg-gray-50/50">
+                                                <div className="w-full flex-1 overflow-x-auto">
+                                                    <table className="w-full text-left min-w-[400px]">
+                                                        <thead>
+                                                            <tr>
+                                                                <th className="py-2 pr-4 text-[11px] font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100">Label</th>
+                                                                <th className="py-2 pr-4 text-[11px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100">Required</th>
+                                                                <th className="py-2 pr-4 text-[11px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100">Your Company</th>
+                                                                <th className="py-2 text-[11px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100">Status</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-gray-50">
+                                                            {items.map((item, idx) => {
+                                                                if (!item) return null;
+                                                                const label = item.name.replace('CIDB ', '');
+                                                                return (
+                                                                    <tr key={idx} className="group">
+                                                                        <td className="py-3 pr-4 align-top">
+                                                                            <span className="text-sm font-bold text-gray-800">{label}</span>
+                                                                        </td>
+                                                                        <td className="py-3 pr-4 align-top">
+                                                                            <span className="text-sm text-gray-600 font-medium">{item.requirementName || "-"}</span>
+                                                                        </td>
+                                                                        <td className="py-3 pr-4 align-top">
+                                                                            <span className={cn(
+                                                                                "text-sm font-medium",
+                                                                                item.status === 'pass' ? 'text-green-700' :
+                                                                                item.status === 'fail' ? 'text-red-700' :
+                                                                                item.status === 'warning' ? 'text-yellow-700' :
+                                                                                'text-gray-800'
+                                                                            )}>{item.yourData || "-"}</span>
+                                                                        </td>
+                                                                        <td className="py-3 align-top">
+                                                                            {item.status !== 'info' ? (
+                                                                                <span className={cn(
+                                                                                    "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider",
+                                                                                    item.status === 'pass' ? 'bg-green-100 text-green-800' :
+                                                                                    item.status === 'fail' ? 'bg-red-100 text-red-800' :
+                                                                                    item.status === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                                                                                    'bg-gray-100 text-gray-600'
+                                                                                )}>
+                                                                                    {item.status === 'pass' ? 'PASS' :
+                                                                                     item.status === 'fail' ? 'FAIL' :
+                                                                                     item.status === 'warning' ? 'WARNING' : item.status}
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="text-gray-400 text-xs font-medium">-</span>
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                    
+                                                    {items.some(i => i?.message && i.status !== 'pass' && i.status !== 'info') && (
+                                                        <div className="mt-4 pt-3 border-t border-gray-100 space-y-1.5">
+                                                            {items.map((item, idx) => {
+                                                                if (!item || !item.message || item.status === 'pass' || item.status === 'info') return null;
+                                                                const label = item.name.replace('CIDB ', '');
+                                                                return (
+                                                                    <p key={`msg-${idx}`} className={cn(
+                                                                        "text-xs font-medium",
+                                                                        item.status === 'fail' ? 'text-red-600' : 'text-yellow-700'
+                                                                    )}>
+                                                                        <span className="font-bold mr-1">{label}:</span> {item.message}
+                                                                    </p>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {(() => {
+                                                    const actionItem = items.find(i => i?.status === 'fail' && i.actionHint) || 
+                                                                       items.find(i => i?.status === 'warning' && i.actionHint) ||
+                                                                       items.find(i => i?.actionHint);
+                                                    if (!actionItem) return null;
+                                                    return (
+                                                        <div className="shrink-0 mt-4 sm:mt-0">
+                                                            {actionItem.actionType ? (
+                                                                <button 
+                                                                    onClick={() => handleActionClick(actionItem)}
+                                                                    className="flex items-center gap-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-md transition-colors whitespace-nowrap"
+                                                                >
+                                                                    <Zap className="w-3.5 h-3.5"/> {actionItem.actionHint}
+                                                                </button>
+                                                            ) : (
+                                                                <span className="text-xs font-medium text-blue-600 flex items-center gap-1.5 px-3 py-1.5 whitespace-nowrap">
+                                                                    <Zap className="w-3.5 h-3.5"/> {actionItem.actionHint}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
+                                        ) : (
+                                        items.map((item, idx) => {
                                             if (!item) return null;
                                             return (
                                                 <div key={idx} className={cn(
@@ -501,7 +598,8 @@ export default function TenderDetails() {
                                                     )}
                                                 </div>
                                             );
-                                        })}
+                                        })
+                                        )}
                                     </div>
                                 </div>
                             ))}
