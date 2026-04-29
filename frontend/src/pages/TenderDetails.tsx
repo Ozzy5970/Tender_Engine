@@ -197,7 +197,6 @@ export default function TenderDetails() {
     };
 
     const groupedChecks = useMemo(() => {
-        console.log("Readiness checks:", comparison?.checks);
         if (!comparison?.checks || !Array.isArray(comparison.checks)) return {};
         return comparison.checks.reduce((acc, check) => {
             if (!check) return acc;
@@ -441,15 +440,15 @@ export default function TenderDetails() {
                                             if (!item) return null;
                                             return (
                                                 <div key={idx} className={cn(
-                                                    "p-5 flex flex-col sm:flex-row gap-4 justify-between items-start transition-colors hover:bg-gray-50/50",
+                                                    "py-3 px-5 flex flex-col sm:flex-row gap-4 justify-between items-start transition-colors hover:bg-gray-50/50",
                                                     item.status === 'pass' ? 'border-l-4 border-l-green-400' :
                                                     item.status === 'fail' ? 'border-l-4 border-l-red-400' :
                                                     item.status === 'warning' ? 'border-l-4 border-l-yellow-400' :
                                                     ''
                                                 )}>
-                                                    <div className="space-y-3 flex-1 w-full">
+                                                    <div className="space-y-1.5 flex-1 w-full">
                                                         <div className="flex items-center gap-2">
-                                                            <h4 className="font-bold text-gray-900">{item.name || "Requirement"}</h4>
+                                                            <h4 className="font-bold text-gray-900 text-sm">{item.name || "Requirement"}</h4>
                                                             <span className={cn(
                                                                 "inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider",
                                                                 item.status === 'pass' ? 'bg-green-100 text-green-800' :
@@ -459,27 +458,27 @@ export default function TenderDetails() {
                                                             )}>{item.status || "INFO"}</span>
                                                         </div>
                                                         {item.status === 'info' ? (
-                                                            <div className="bg-gray-50/50 p-3 rounded-lg border border-gray-100">
-                                                                <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Tender Requirement</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-gray-500 text-[11px] font-bold uppercase tracking-wider block">Tender Requirement:</span>
                                                                 <span className="font-medium text-gray-800 text-sm">{item.requirementName || item.yourData || "-"}</span>
                                                             </div>
                                                         ) : (
-                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50/50 p-3 rounded-lg border border-gray-100">
-                                                                <div>
-                                                                    <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Required</span>
+                                                            <div className="flex flex-col sm:flex-row sm:gap-6 gap-1">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-gray-500 text-[11px] font-bold uppercase tracking-wider block">Required:</span>
                                                                     <span className="font-medium text-gray-800 text-sm">{item.requirementName || "-"}</span>
                                                                 </div>
-                                                                <div>
-                                                                    <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Your Company</span>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-gray-500 text-[11px] font-bold uppercase tracking-wider block">Your Company:</span>
                                                                     <span className="font-medium text-gray-800 text-sm">{item.yourData || "-"}</span>
                                                                 </div>
                                                             </div>
                                                         )}
                                                         {item.message && (
                                                             <p className={cn(
-                                                                "text-sm font-medium",
-                                                                item.status === 'fail' ? 'text-red-600' :
-                                                                item.status === 'warning' ? 'text-yellow-700' :
+                                                                "text-sm mt-1",
+                                                                item.status === 'fail' ? 'text-red-600 font-medium' :
+                                                                item.status === 'warning' ? 'text-yellow-700 font-medium' :
                                                                 item.status === 'pass' ? 'text-green-700' : 'text-gray-600'
                                                             )}>{item.message}</p>
                                                         )}
