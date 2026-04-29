@@ -197,6 +197,7 @@ export default function TenderDetails() {
     };
 
     const groupedChecks = useMemo(() => {
+        console.log("Readiness checks:", comparison?.checks);
         if (!comparison?.checks || !Array.isArray(comparison.checks)) return {};
         return comparison.checks.reduce((acc, check) => {
             if (!check) return acc;
