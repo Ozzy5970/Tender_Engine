@@ -504,8 +504,8 @@ export default function TenderDetails() {
                                                             <div className="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2">
                                                                 <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">Registration Number:</span>
                                                                 <span className={cn(
-                                                                    "text-xs font-bold px-2 py-0.5 rounded border",
-                                                                    isPass ? "text-green-700 bg-green-50 border-green-100" : "text-gray-700 bg-gray-50 border-gray-200"
+                                                                    "text-sm font-medium",
+                                                                    isPass ? "text-green-700" : "text-gray-700"
                                                                 )}>
                                                                     {regNum}
                                                                 </span>

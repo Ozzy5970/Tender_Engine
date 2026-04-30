@@ -287,6 +287,10 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                     return;
                 }
 
+                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert'].includes(docKey)) {
+                    return;
+                }
+
                 const labelMap: Record<string, string> = {
                     'sars_pin': 'Tax Clearance',
                     'coid_letter': 'COID Letter',
