@@ -287,7 +287,100 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                     return;
                 }
 
-                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert'].includes(docKey)) {
+                const taxKeys = ['sars_pin', 'tax_clearance', 'tax_clearance_pin', 'tax_compliance', 'tax_compliance_status'];
+                if (taxKeys.includes(docKey)) {
+                    const userTax = safeDocsData.find(d => taxKeys.includes(d.doc_type));
+                    if (!userTax) {
+                        checks.push({
+                            name: 'Tax Status',
+                            section: 'Tax Clearance',
+                            requirementName: 'Compliant',
+                            status: 'fail',
+                            message: 'Upload a valid Tax Clearance document.',
+                            yourData: 'Not uploaded',
+                            actionHint: 'Upload Document',
+                            actionType: 'UPLOAD',
+                            docType: docKey
+                        });
+                        checks.push({
+                            name: 'Tax Expiry',
+                            section: 'Tax Clearance',
+                            requirementName: 'Valid on submission',
+                            status: 'fail',
+                            message: 'Upload a valid Tax Clearance document.',
+                            yourData: 'Not uploaded',
+                            actionHint: 'Upload Document',
+                            actionType: 'UPLOAD',
+                            docType: docKey
+                        });
+                    } else {
+                        const metadata = userTax.metadata || {};
+                        const rawStatus = metadata.status || metadata.tax_status || metadata.compliance_status || metadata.tax_compliance_status;
+                        const rawPin = metadata.pin || metadata.tax_pin || metadata.sars_pin || metadata.tax_compliance_pin;
+                        const rawExpiry = userTax.expiry_date || metadata.expiry_date || metadata.valid_until;
+
+                        const normalizedStatus = String(rawStatus || "")
+                            .trim()
+                            .toLowerCase()
+                            .replace(/[_-]+/g, " ")
+                            .replace(/\s+/g, " ");
+
+                        const isCompliant = [
+                            "compliant",
+                            "tax compliant",
+                            "tax compliant status",
+                            "valid",
+                            "active",
+                            "good standing"
+                        ].includes(normalizedStatus);
+                        
+                        const displayStatus = rawStatus ? String(rawStatus).trim() : 'Unknown';
+                        
+                        checks.push({
+                            name: 'Tax Status',
+                            section: 'Tax Clearance',
+                            requirementName: 'Compliant',
+                            status: isCompliant ? 'pass' : 'fail',
+                            message: isCompliant ? '' : 'Your tax status is non-compliant or unknown.',
+                            yourData: displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1).toLowerCase(),
+                            actionHint: isCompliant ? undefined : 'Update Tax Info',
+                            actionType: isCompliant ? undefined : 'REPLACE',
+                            docType: userTax.doc_type,
+                            docData: {
+                                ...userTax,
+                                metadata: {
+                                    ...metadata,
+                                    pin: rawPin
+                                }
+                            }
+                        });
+
+                        let expiryStatus: 'pass' | 'warning' | 'fail' = 'pass';
+                        if (!rawExpiry) {
+                            expiryStatus = 'fail';
+                        } else if (userTax.computed_status === 'expired') {
+                            expiryStatus = 'fail';
+                        } else if (userTax.computed_status === 'warning') {
+                            expiryStatus = 'warning';
+                        }
+
+                        checks.push({
+                            name: 'Tax Expiry',
+                            section: 'Tax Clearance',
+                            requirementName: 'Valid on submission',
+                            status: expiryStatus,
+                            message: expiryStatus === 'fail' ? (rawExpiry ? 'Tax clearance has expired.' : 'Expiry date is missing.') : expiryStatus === 'warning' ? 'Tax clearance is expiring soon.' : '',
+                            yourData: rawExpiry ? String(rawExpiry).split('T')[0] : 'Unknown',
+                            actionHint: expiryStatus !== 'pass' ? 'Update Tax Info' : undefined,
+                            actionType: expiryStatus !== 'pass' ? 'REPLACE' : undefined,
+                            docType: userTax.doc_type,
+                            docData: userTax
+                        });
+                    }
+                    return;
+                }
+
+                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys].includes(docKey)) {
                     return;
                 }
 

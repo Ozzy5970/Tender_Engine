@@ -436,7 +436,7 @@ export default function TenderDetails() {
                                         <h3 className="font-bold text-gray-900">{sectionName}</h3>
                                     </div>
                                     <div className="divide-y divide-gray-100">
-                                        {sectionName === "CIDB" || sectionName === "B-BBEE" || sectionName === "CIPC" ? (
+                                        {sectionName === "CIDB" || sectionName === "B-BBEE" || sectionName === "CIPC" || sectionName === "Tax Clearance" ? (
                                             <div className="p-5 flex flex-col sm:flex-row gap-6 justify-between items-start transition-colors hover:bg-gray-50/50">
                                                 <div className="w-full flex-1 overflow-x-auto">
                                                     <table className="w-full text-left min-w-[400px]">
@@ -451,7 +451,7 @@ export default function TenderDetails() {
                                                         <tbody className="divide-y divide-gray-50">
                                                             {items.map((item, idx) => {
                                                                 if (!item) return null;
-                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '');
+                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '').replace('Tax ', '');
                                                                 return (
                                                                     <tr key={idx} className="group">
                                                                         <td className="py-3 pr-4 align-top">
@@ -512,12 +512,32 @@ export default function TenderDetails() {
                                                             </div>
                                                         );
                                                     })()}
+
+                                                    {sectionName === "Tax Clearance" && (() => {
+                                                        const taxStatusItem = items.find(i => i?.name === "Tax Status");
+                                                        const pin = taxStatusItem?.docData?.metadata?.pin;
+                                                        if (!pin) return null;
+                                                        
+                                                        const isPass = taxStatusItem?.status === "pass";
+                                                        
+                                                        return (
+                                                            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2">
+                                                                <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">PIN:</span>
+                                                                <span className={cn(
+                                                                    "text-sm font-medium",
+                                                                    isPass ? "text-green-700" : "text-gray-700"
+                                                                )}>
+                                                                    {pin}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })()}
                                                     
                                                     {items.some(i => i?.message && i.status !== 'pass' && i.status !== 'info') && (
                                                         <div className="mt-4 pt-3 border-t border-gray-100 space-y-1.5">
                                                             {items.map((item, idx) => {
                                                                 if (!item || !item.message || item.status === 'pass' || item.status === 'info') return null;
-                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '');
+                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '').replace('Tax ', '');
                                                                 return (
                                                                     <p key={`msg-${idx}`} className={cn(
                                                                         "text-xs font-medium",
