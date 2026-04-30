@@ -380,7 +380,101 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                     return;
                 }
 
-                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys].includes(docKey)) {
+                const csdKeys = ['csd_summary', 'csd', 'csd_report', 'csd_supplier_summary'];
+                if (csdKeys.includes(docKey)) {
+                    const userCsd = safeDocsData.find(d => csdKeys.includes(d.doc_type));
+                    if (!userCsd) {
+                        checks.push({
+                            name: 'CSD Status',
+                            section: 'CSD',
+                            requirementName: 'Active',
+                            status: 'fail',
+                            message: 'Upload a valid CSD Summary.',
+                            yourData: 'Not uploaded',
+                            actionHint: 'Upload Document',
+                            actionType: 'UPLOAD',
+                            docType: docKey
+                        });
+                        checks.push({
+                            name: 'CSD Expiry',
+                            section: 'CSD',
+                            requirementName: 'Valid on submission',
+                            status: 'fail',
+                            message: 'Upload a valid CSD Summary.',
+                            yourData: 'Not uploaded',
+                            actionHint: 'Upload Document',
+                            actionType: 'UPLOAD',
+                            docType: docKey
+                        });
+                    } else {
+                        const metadata = userCsd.metadata || {};
+                        const rawStatus = metadata.registration_status || metadata.status || metadata.supplier_status || metadata.csd_status;
+                        const rawMaaa = metadata.maaa_number || metadata.maaa || metadata.supplier_number || metadata.csd_number;
+                        const rawExpiry = userCsd.expiry_date || metadata.expiry_date || metadata.valid_until;
+
+                        const normalizedStatus = String(rawStatus || "")
+                            .trim()
+                            .toLowerCase()
+                            .replace(/[_-]+/g, " ")
+                            .replace(/\s+/g, " ");
+
+                        const isActive = [
+                            "active",
+                            "valid",
+                            "registered",
+                            "active supplier",
+                            "registered supplier",
+                            "supplier active",
+                            "supplier registered"
+                        ].includes(normalizedStatus);
+                        
+                        const displayStatus = rawStatus ? String(rawStatus).trim() : 'Unknown';
+                        
+                        checks.push({
+                            name: 'CSD Status',
+                            section: 'CSD',
+                            requirementName: 'Active',
+                            status: isActive ? 'pass' : 'fail',
+                            message: isActive ? '' : 'Your CSD registration is inactive or unknown.',
+                            yourData: displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1).toLowerCase(),
+                            actionHint: isActive ? undefined : 'Update CSD Info',
+                            actionType: isActive ? undefined : 'REPLACE',
+                            docType: userCsd.doc_type,
+                            docData: {
+                                ...userCsd,
+                                metadata: {
+                                    ...metadata,
+                                    maaa_number: rawMaaa
+                                }
+                            }
+                        });
+
+                        let expiryStatus: 'pass' | 'warning' | 'fail' = 'pass';
+                        if (!rawExpiry) {
+                            expiryStatus = 'fail';
+                        } else if (userCsd.computed_status === 'expired') {
+                            expiryStatus = 'fail';
+                        } else if (userCsd.computed_status === 'warning') {
+                            expiryStatus = 'warning';
+                        }
+
+                        checks.push({
+                            name: 'CSD Expiry',
+                            section: 'CSD',
+                            requirementName: 'Valid on submission',
+                            status: expiryStatus,
+                            message: expiryStatus === 'fail' ? (rawExpiry ? 'CSD registration has expired.' : 'Expiry date is missing.') : expiryStatus === 'warning' ? 'CSD registration is expiring soon.' : '',
+                            yourData: rawExpiry ? String(rawExpiry).split('T')[0] : 'Unknown',
+                            actionHint: expiryStatus !== 'pass' ? 'Update CSD Info' : undefined,
+                            actionType: expiryStatus !== 'pass' ? 'REPLACE' : undefined,
+                            docType: userCsd.doc_type,
+                            docData: userCsd
+                        });
+                    }
+                    return;
+                }
+
+                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys, ...csdKeys].includes(docKey)) {
                     return;
                 }
 
