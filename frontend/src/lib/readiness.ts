@@ -548,7 +548,95 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                     return;
                 }
 
-                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys, ...csdKeys, ...bankKeys].includes(docKey)) {
+                const coidKeys = ['coid_letter', 'coida_letter', 'coid_good_standing', 'coida_good_standing', 'letter_of_good_standing'];
+                if (coidKeys.includes(docKey)) {
+                    const userCoid = safeDocsData.find(d => coidKeys.includes(d.doc_type));
+                    if (!userCoid) {
+                        checks.push({
+                            name: 'COID Status',
+                            section: 'COID',
+                            requirementName: 'Good Standing',
+                            status: 'fail',
+                            message: 'Upload a valid COID Letter of Good Standing.',
+                            yourData: 'Not uploaded',
+                            actionHint: 'Upload Document',
+                            actionType: 'UPLOAD',
+                            docType: docKey
+                        });
+                        checks.push({
+                            name: 'COID Expiry',
+                            section: 'COID',
+                            requirementName: 'Valid on submission',
+                            status: 'fail',
+                            message: 'Upload a valid COID Letter of Good Standing.',
+                            yourData: 'Unknown',
+                            actionHint: 'Upload Document',
+                            actionType: 'UPLOAD',
+                            docType: docKey
+                        });
+                    } else {
+                        const metadata = userCoid.metadata || {};
+                        const rawStatus = metadata.status || metadata.coid_status || metadata.coida_status || metadata.good_standing_status || userCoid.status;
+                        const rawExpiry = userCoid.expiry_date || metadata.expiry_date || metadata.valid_until;
+                        
+                        const normalizedStatus = String(rawStatus || "")
+                            .trim()
+                            .toLowerCase()
+                            .replace(/[_-]+/g, " ")
+                            .replace(/\s+/g, " ");
+
+                        const isGoodStanding = ["good standing", "valid", "active", "compliant"].includes(normalizedStatus);
+
+                        let expiryStatus: 'pass' | 'warning' | 'fail' = 'pass';
+                        if (!rawExpiry) {
+                            expiryStatus = 'warning';
+                        } else if (userCoid.computed_status === 'expired') {
+                            expiryStatus = 'fail';
+                        } else if (userCoid.computed_status === 'warning') {
+                            expiryStatus = 'warning';
+                        }
+
+                        let statusStatus: 'pass' | 'warning' | 'fail' = 'pass';
+                        if (!isGoodStanding) {
+                            statusStatus = 'fail';
+                        } else if (expiryStatus === 'fail') {
+                            statusStatus = 'fail';
+                        } else if (expiryStatus === 'warning') {
+                            statusStatus = 'warning';
+                        }
+
+                        const displayStatus = rawStatus ? String(rawStatus).trim() : 'Unknown';
+
+                        checks.push({
+                            name: 'COID Status',
+                            section: 'COID',
+                            requirementName: 'Good Standing',
+                            status: statusStatus,
+                            message: statusStatus === 'fail' ? (isGoodStanding ? 'COID Letter has expired.' : 'COID Letter is not in good standing.') : statusStatus === 'warning' ? 'COID Letter is expiring soon.' : '',
+                            yourData: displayStatus,
+                            actionHint: statusStatus !== 'pass' ? 'Update COID Info' : undefined,
+                            actionType: statusStatus !== 'pass' ? 'REPLACE' : undefined,
+                            docType: userCoid.doc_type,
+                            docData: userCoid
+                        });
+
+                        checks.push({
+                            name: 'COID Expiry',
+                            section: 'COID',
+                            requirementName: 'Valid on submission',
+                            status: expiryStatus,
+                            message: expiryStatus === 'fail' ? (rawExpiry ? 'COID Letter has expired.' : 'Expiry date is missing.') : expiryStatus === 'warning' ? 'COID Letter is expiring soon.' : '',
+                            yourData: rawExpiry ? String(rawExpiry).split('T')[0] : 'Unknown',
+                            actionHint: expiryStatus !== 'pass' ? 'Update COID Info' : undefined,
+                            actionType: expiryStatus !== 'pass' ? 'REPLACE' : undefined,
+                            docType: userCoid.doc_type,
+                            docData: userCoid
+                        });
+                    }
+                    return;
+                }
+
+                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys, ...csdKeys, ...bankKeys, ...coidKeys].includes(docKey)) {
                     return;
                 }
 
