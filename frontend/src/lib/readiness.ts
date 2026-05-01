@@ -474,7 +474,81 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                     return;
                 }
 
-                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys, ...csdKeys].includes(docKey)) {
+                const bankKeys = ['bank_letter', 'bank_confirmation', 'bank_account_confirmation', 'proof_of_bank_account'];
+                if (bankKeys.includes(docKey)) {
+                    const userBank = safeDocsData.find(d => bankKeys.includes(d.doc_type));
+                    if (!userBank) {
+                        checks.push({
+                            name: 'Bank Letter Status',
+                            section: 'Bank Letter',
+                            requirementName: 'Uploaded',
+                            status: 'fail',
+                            message: 'Upload a valid Bank Letter.',
+                            yourData: 'Not uploaded',
+                            actionHint: 'Upload Document',
+                            actionType: 'UPLOAD',
+                            docType: docKey
+                        });
+                        checks.push({
+                            name: 'Bank Letter Expiry',
+                            section: 'Bank Letter',
+                            requirementName: 'Valid on submission',
+                            status: 'fail',
+                            message: 'Upload a valid Bank Letter.',
+                            yourData: 'Not uploaded',
+                            actionHint: 'Upload Document',
+                            actionType: 'UPLOAD',
+                            docType: docKey
+                        });
+                    } else {
+                        const rawExpiry = userBank.expiry_date || (userBank.metadata && (userBank.metadata.expiry_date || userBank.metadata.valid_until));
+                        
+                        let expiryStatus: 'pass' | 'warning' | 'fail' | 'info' = 'pass';
+                        if (!rawExpiry) {
+                            expiryStatus = 'info';
+                        } else if (userBank.computed_status === 'expired') {
+                            expiryStatus = 'fail';
+                        } else if (userBank.computed_status === 'warning') {
+                            expiryStatus = 'warning';
+                        }
+
+                        let statusStatus: 'pass' | 'warning' | 'fail' = 'pass';
+                        if (expiryStatus === 'fail') {
+                            statusStatus = 'fail';
+                        } else if (expiryStatus === 'warning') {
+                            statusStatus = 'warning';
+                        }
+
+                        checks.push({
+                            name: 'Bank Letter Status',
+                            section: 'Bank Letter',
+                            requirementName: 'Uploaded',
+                            status: statusStatus,
+                            message: statusStatus === 'fail' ? 'Bank Letter has expired.' : statusStatus === 'warning' ? 'Bank Letter is expiring soon.' : '',
+                            yourData: rawExpiry ? `Uploaded (expires ${String(rawExpiry).split('T')[0]})` : 'Uploaded',
+                            actionHint: statusStatus !== 'pass' ? 'Update Bank Letter' : undefined,
+                            actionType: statusStatus !== 'pass' ? 'REPLACE' : undefined,
+                            docType: userBank.doc_type,
+                            docData: userBank
+                        });
+
+                        checks.push({
+                            name: 'Bank Letter Expiry',
+                            section: 'Bank Letter',
+                            requirementName: 'Valid on submission',
+                            status: expiryStatus,
+                            message: expiryStatus === 'fail' ? 'Bank Letter has expired.' : expiryStatus === 'warning' ? 'Bank Letter is expiring soon.' : '',
+                            yourData: rawExpiry ? String(rawExpiry).split('T')[0] : 'No expiry captured',
+                            actionHint: (expiryStatus === 'fail' || expiryStatus === 'warning') ? 'Update Bank Letter' : undefined,
+                            actionType: (expiryStatus === 'fail' || expiryStatus === 'warning') ? 'REPLACE' : undefined,
+                            docType: userBank.doc_type,
+                            docData: userBank
+                        });
+                    }
+                    return;
+                }
+
+                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys, ...csdKeys, ...bankKeys].includes(docKey)) {
                     return;
                 }
 
