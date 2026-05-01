@@ -191,6 +191,7 @@ export const DOCUMENT_TYPES = {
             { key: "account_holder", label: "Account Holder Name", type: "text", required: true },
             { key: "account_number_last4", label: "Account Last 4", type: "text", required: false, validationRegex: "^\\d{4}$" },
             { key: "issue_date", label: "Issue Date", type: "date", required: false },
+            { key: "expiry_date", label: "Expiry Date", type: "date", required: false },
             { key: "branch_code", label: "Branch Code", type: "text", required: false }
         ]
     }
