@@ -799,6 +799,59 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                     return;
                 }
 
+                const vatKeys = ['vat_registration', 'vat_reg', 'vat', 'vat_certificate', 'vat_proof'];
+                if (vatKeys.includes(docKey)) {
+                    const userVat = safeDocsData.find(d => vatKeys.includes(d.doc_type));
+                    if (!userVat) {
+                        checks.push({
+                            name: 'VAT Status',
+                            section: 'VAT',
+                            requirementName: 'Active',
+                            status: 'fail',
+                            message: 'Upload a valid VAT Registration.',
+                            yourData: 'Not uploaded',
+                            actionHint: 'Upload Document',
+                            actionType: 'UPLOAD',
+                            docType: docKey
+                        });
+                    } else {
+                        const metadata = userVat.metadata || {};
+                        const rawStatus = metadata.status || metadata.vat_status || metadata.registration_status || metadata.company_status || userVat.status;
+                        const vatNumber = metadata.vat_number || metadata.vat_no || metadata.vat_registration_number || metadata.reference || metadata.reference_number || metadata.registration_number;
+                        
+                        const normalizedStatus = String(rawStatus || "")
+                            .trim()
+                            .toLowerCase()
+                            .replace(/[_-]+/g, " ")
+                            .replace(/\s+/g, " ");
+
+                        const isActive = ["active", "valid", "registered"].includes(normalizedStatus);
+
+                        let statusStatus: 'pass' | 'warning' | 'fail' = isActive ? 'pass' : 'fail';
+                        const displayStatus = rawStatus ? String(rawStatus).trim().charAt(0).toUpperCase() + String(rawStatus).trim().slice(1).toLowerCase() : 'Unknown';
+
+                        checks.push({
+                            name: 'VAT Status',
+                            section: 'VAT',
+                            requirementName: 'Active',
+                            status: statusStatus,
+                            message: statusStatus === 'fail' ? 'VAT Registration is not active or valid.' : '',
+                            yourData: displayStatus,
+                            actionHint: statusStatus !== 'pass' ? 'Update VAT Info' : undefined,
+                            actionType: statusStatus !== 'pass' ? 'REPLACE' : undefined,
+                            docType: userVat.doc_type,
+                            docData: {
+                                ...userVat,
+                                metadata: {
+                                    ...metadata,
+                                    vat_number: vatNumber
+                                }
+                            }
+                        });
+                    }
+                    return;
+                }
+
                 const payeKeys = ['paye_registration', 'paye_reg', 'paye', 'paye_certificate', 'paye_proof'];
                 if (payeKeys.includes(docKey)) {
                     const userPaye = safeDocsData.find(d => payeKeys.includes(d.doc_type));
@@ -953,7 +1006,7 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                     return;
                 }
 
-                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys, ...csdKeys, ...bankKeys, ...coidKeys, ...uifKeys, ...sheKeys, ...ohsKeys, ...payeKeys, ...sbdKeys].includes(docKey)) {
+                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys, ...csdKeys, ...bankKeys, ...coidKeys, ...uifKeys, ...sheKeys, ...ohsKeys, ...vatKeys, ...payeKeys, ...sbdKeys].includes(docKey)) {
                     return;
                 }
 

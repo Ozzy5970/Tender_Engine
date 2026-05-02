@@ -436,7 +436,7 @@ export default function TenderDetails() {
                                         <h3 className="font-bold text-gray-900">{sectionName}</h3>
                                     </div>
                                     <div className="divide-y divide-gray-100">
-                                        {sectionName === "CIDB" || sectionName === "B-BBEE" || sectionName === "CIPC" || sectionName === "Tax Clearance" || sectionName === "CSD" || sectionName === "Bank Letter" || sectionName === "COID" || sectionName === "UIF" || sectionName === "SHE File" || sectionName === "OHS Plan" || sectionName === "PAYE" || sectionName === "SBD 6.1" ? (
+                                        {sectionName === "CIDB" || sectionName === "B-BBEE" || sectionName === "CIPC" || sectionName === "Tax Clearance" || sectionName === "CSD" || sectionName === "Bank Letter" || sectionName === "COID" || sectionName === "UIF" || sectionName === "SHE File" || sectionName === "OHS Plan" || sectionName === "PAYE" || sectionName === "VAT" || sectionName === "SBD 6.1" ? (
                                             <div className="p-5 flex flex-col sm:flex-row gap-6 justify-between items-start transition-colors hover:bg-gray-50/50">
                                                 <div className="w-full flex-1 overflow-x-auto">
                                                     <table className="w-full text-left min-w-[400px]">
@@ -451,7 +451,7 @@ export default function TenderDetails() {
                                                         <tbody className="divide-y divide-gray-50">
                                                             {items.map((item, idx) => {
                                                                 if (!item) return null;
-                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '').replace('Tax ', '').replace('CSD ', '').replace('Bank Letter ', '').replace('COID ', '').replace('UIF ', '').replace('SHE File ', '').replace('OHS Plan ', '').replace('PAYE ', '').replace('SBD 6.1 ', '');
+                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '').replace('Tax ', '').replace('CSD ', '').replace('Bank Letter ', '').replace('COID ', '').replace('UIF ', '').replace('SHE File ', '').replace('OHS Plan ', '').replace('PAYE ', '').replace('VAT ', '').replace('SBD 6.1 ', '');
                                                                 return (
                                                                     <tr key={idx} className="group">
                                                                         <td className="py-3 pr-4 align-top">
@@ -668,6 +668,25 @@ export default function TenderDetails() {
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">PAYE Number:</span>
                                                                     <span className={cn("text-sm font-medium", isPass ? "text-green-700" : "text-gray-700")}>{payeNumber}</span>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()}
+
+                                                    {sectionName === "VAT" && (() => {
+                                                        const vatStatusItem = items.find(i => i?.name === "VAT Status");
+                                                        const meta = vatStatusItem?.docData?.metadata || {};
+                                                        const isPass = vatStatusItem?.status === "pass";
+                                                        
+                                                        const vatNumber = meta.vat_number || meta.vat_no || meta.vat_registration_number || meta.reference || meta.reference_number || meta.registration_number;
+                                                        
+                                                        if (!vatNumber) return null;
+                                                        
+                                                        return (
+                                                            <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap gap-x-6 gap-y-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">VAT Number:</span>
+                                                                    <span className={cn("text-sm font-medium", isPass ? "text-green-700" : "text-gray-700")}>{vatNumber}</span>
                                                                 </div>
                                                             </div>
                                                         );
