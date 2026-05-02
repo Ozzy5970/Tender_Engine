@@ -636,7 +636,7 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                     return;
                 }
 
-                const uifKeys = ['uif_registration', 'uif', 'uif_letter', 'uif_certificate', 'uif_proof', 'uif_cert'];
+                const uifKeys = ['uif_registration', 'uif', 'uif_letter', 'uif_certificate', 'uif_proof', 'uif_cert', 'uif_reg'];
                 if (uifKeys.includes(docKey)) {
                     const userUif = safeDocsData.find(d => uifKeys.includes(d.doc_type));
                     if (!userUif) {
