@@ -636,7 +636,60 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                     return;
                 }
 
-                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys, ...csdKeys, ...bankKeys, ...coidKeys].includes(docKey)) {
+                const uifKeys = ['uif_registration', 'uif', 'uif_letter', 'uif_certificate', 'uif_proof', 'uif_cert'];
+                if (uifKeys.includes(docKey)) {
+                    const userUif = safeDocsData.find(d => uifKeys.includes(d.doc_type));
+                    if (!userUif) {
+                        checks.push({
+                            name: 'UIF Status',
+                            section: 'UIF',
+                            requirementName: 'Active',
+                            status: 'fail',
+                            message: 'Upload a valid UIF Registration document.',
+                            yourData: 'Not uploaded',
+                            actionHint: 'Upload Document',
+                            actionType: 'UPLOAD',
+                            docType: docKey
+                        });
+                    } else {
+                        const metadata = userUif.metadata || {};
+                        const rawStatus = metadata.status || metadata.uif_status || metadata.registration_status || metadata.company_status || userUif.status;
+                        const rawReference = metadata.uif_reference || metadata.uif_ref || metadata.reference || metadata.reference_number || metadata.uif_number;
+                        
+                        const normalizedStatus = String(rawStatus || "")
+                            .trim()
+                            .toLowerCase()
+                            .replace(/[_-]+/g, " ")
+                            .replace(/\s+/g, " ");
+
+                        const isActive = ["active", "valid", "registered"].includes(normalizedStatus);
+
+                        let statusStatus: 'pass' | 'warning' | 'fail' = isActive ? 'pass' : 'fail';
+                        const displayStatus = rawStatus ? String(rawStatus).trim().charAt(0).toUpperCase() + String(rawStatus).trim().slice(1).toLowerCase() : 'Unknown';
+
+                        checks.push({
+                            name: 'UIF Status',
+                            section: 'UIF',
+                            requirementName: 'Active',
+                            status: statusStatus,
+                            message: statusStatus === 'fail' ? 'UIF Registration is not active or valid.' : '',
+                            yourData: displayStatus,
+                            actionHint: statusStatus !== 'pass' ? 'Update UIF Info' : undefined,
+                            actionType: statusStatus !== 'pass' ? 'REPLACE' : undefined,
+                            docType: userUif.doc_type,
+                            docData: {
+                                ...userUif,
+                                metadata: {
+                                    ...metadata,
+                                    uif_reference: rawReference
+                                }
+                            }
+                        });
+                    }
+                    return;
+                }
+
+                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys, ...csdKeys, ...bankKeys, ...coidKeys, ...uifKeys].includes(docKey)) {
                     return;
                 }
 
