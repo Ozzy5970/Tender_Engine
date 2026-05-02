@@ -141,16 +141,7 @@ export default function TenderDetails() {
 
     const score = comparison?.score ?? null;
 
-    useEffect(() => {
-        if (!tender || !comparison) return
 
-        if (comparison.score === 100 && !tender.has_rated) {
-            const timer = setTimeout(() => {
-                setShowFeedbackModal(true)
-            }, 2000)
-            return () => clearTimeout(timer)
-        }
-    }, [comparison, tender])
 
     const handleRecalculateReadiness = async () => {
         if (!tender || !comparison) return;
@@ -437,7 +428,7 @@ export default function TenderDetails() {
                                         <h3 className="font-bold text-gray-900">{sectionName}</h3>
                                     </div>
                                     <div className="divide-y divide-gray-100">
-                                        {sectionName === "CIDB" || sectionName === "B-BBEE" || sectionName === "CIPC" || sectionName === "Tax Clearance" || sectionName === "CSD" || sectionName === "Bank Letter" || sectionName === "COID" || sectionName === "UIF" || sectionName === "SHE File" || sectionName === "OHS Plan" || sectionName === "PAYE" || sectionName === "VAT" || sectionName === "SBD 6.1" ? (
+                                        {sectionName === "CIDB" || sectionName === "B-BBEE" || sectionName === "CIPC" || sectionName === "Tax Clearance" || sectionName === "CSD" || sectionName === "Bank Letter" || sectionName === "COID" || sectionName === "UIF" || sectionName === "SHE File" || sectionName === "OHS Plan" || sectionName === "PAYE" || sectionName === "VAT" || sectionName === "SBD 6.1" || sectionName === "Shareholding" ? (
                                             <div className="p-5 flex flex-col sm:flex-row gap-6 justify-between items-start transition-colors hover:bg-gray-50/50">
                                                 <div className="w-full flex-1 overflow-x-auto">
                                                     <table className="w-full text-left min-w-[400px]">
@@ -452,7 +443,7 @@ export default function TenderDetails() {
                                                         <tbody className="divide-y divide-gray-50">
                                                             {items.map((item, idx) => {
                                                                 if (!item) return null;
-                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '').replace('Tax ', '').replace('CSD ', '').replace('Bank Letter ', '').replace('COID ', '').replace('UIF ', '').replace('SHE File ', '').replace('OHS Plan ', '').replace('PAYE ', '').replace('VAT ', '').replace('SBD 6.1 ', '');
+                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '').replace('Tax ', '').replace('CSD ', '').replace('Bank Letter ', '').replace('COID ', '').replace('UIF ', '').replace('SHE File ', '').replace('OHS Plan ', '').replace('PAYE ', '').replace('VAT ', '').replace('SBD 6.1 ', '').replace('Shareholding ', '');
                                                                 return (
                                                                     <tr key={idx} className="group">
                                                                         <td className="py-3 pr-4 align-top">
@@ -689,6 +680,48 @@ export default function TenderDetails() {
                                                                     <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">VAT Number:</span>
                                                                     <span className={cn("text-sm font-medium", isPass ? "text-green-700" : "text-gray-700")}>{vatNumber}</span>
                                                                 </div>
+                                                            </div>
+                                                        );
+                                                    })()}
+
+                                                    {sectionName === "Shareholding" && (() => {
+                                                        const shareStatusItem = items.find(i => i?.name === "Shareholding Status");
+                                                        const meta = shareStatusItem?.docData?.metadata || {};
+                                                        const isPass = shareStatusItem?.status === "pass";
+                                                        
+                                                        const shareholder = meta.shareholder_name;
+                                                        const ownership = meta.ownership_percent;
+                                                        const shareClass = meta.share_class;
+                                                        const sharesHeld = meta.number_of_shares;
+                                                        
+                                                        if (!shareholder && !ownership && !shareClass && !sharesHeld) return null;
+                                                        
+                                                        return (
+                                                            <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap gap-x-6 gap-y-2">
+                                                                {shareholder && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">Shareholder:</span>
+                                                                        <span className={cn("text-sm font-medium", isPass ? "text-green-700" : "text-gray-700")}>{shareholder}</span>
+                                                                    </div>
+                                                                )}
+                                                                {ownership && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">Ownership:</span>
+                                                                        <span className={cn("text-sm font-medium", isPass ? "text-green-700" : "text-gray-700")}>{ownership}</span>
+                                                                    </div>
+                                                                )}
+                                                                {shareClass && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">Share Class:</span>
+                                                                        <span className={cn("text-sm font-medium", isPass ? "text-green-700" : "text-gray-700")}>{shareClass}</span>
+                                                                    </div>
+                                                                )}
+                                                                {sharesHeld && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">Shares Held:</span>
+                                                                        <span className={cn("text-sm font-medium", isPass ? "text-green-700" : "text-gray-700")}>{sharesHeld}</span>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         );
                                                     })()}

@@ -798,7 +798,50 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                     }
                     return;
                 }
+                const shareholdingKeys = ['shareholding', 'share_certificate', 'share_cert', 'shareholding_certificate', 'shareholders_certificate', 'share_register', 'shareholding_register'];
+                if (shareholdingKeys.includes(docKey)) {
+                    const userShare = safeDocsData.find(d => shareholdingKeys.includes(d.doc_type));
+                    if (!userShare) {
+                        checks.push({
+                            name: 'Shareholding Status',
+                            section: 'Shareholding',
+                            requirementName: 'Uploaded / Valid',
+                            status: 'fail',
+                            message: 'Upload Shareholding / Share Certificate.',
+                            yourData: 'Not uploaded',
+                            actionHint: 'Upload Document',
+                            actionType: 'UPLOAD',
+                            docType: docKey
+                        });
+                    } else {
+                        const metadata = userShare.metadata || {};
+                        const shareholder = metadata.shareholder_name || metadata.shareholder || metadata.shareholderName || metadata.owner_name || metadata.ownerName;
+                        const ownership = metadata.ownership_percentage || metadata.ownership_percent || metadata.ownership || metadata.ownershipPercentage || metadata.ownershipPercent;
+                        const shareClass = metadata.share_class || metadata.shareClass || metadata.class_of_shares || metadata.share_type;
+                        const sharesHeld = metadata.shares_held || metadata.sharesHeld || metadata.number_of_shares || metadata.shares;
 
+                        checks.push({
+                            name: 'Shareholding Status',
+                            section: 'Shareholding',
+                            requirementName: 'Uploaded / Valid',
+                            status: 'pass',
+                            message: '',
+                            yourData: 'Uploaded',
+                            docType: userShare.doc_type,
+                            docData: {
+                                ...userShare,
+                                metadata: {
+                                    ...metadata,
+                                    shareholder_name: shareholder,
+                                    ownership_percent: ownership,
+                                    share_class: shareClass,
+                                    number_of_shares: sharesHeld
+                                }
+                            }
+                        });
+                    }
+                    return;
+                }
                 const vatKeys = ['vat_registration', 'vat_reg', 'vat_cert', 'vat', 'vat_certificate', 'vat_proof'];
                 if (vatKeys.includes(docKey)) {
                     const userVat = safeDocsData.find(d => vatKeys.includes(d.doc_type));
@@ -1006,7 +1049,7 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                     return;
                 }
 
-                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys, ...csdKeys, ...bankKeys, ...coidKeys, ...uifKeys, ...sheKeys, ...ohsKeys, ...vatKeys, ...payeKeys, ...sbdKeys].includes(docKey)) {
+                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys, ...csdKeys, ...bankKeys, ...coidKeys, ...uifKeys, ...sheKeys, ...ohsKeys, ...vatKeys, ...payeKeys, ...sbdKeys, ...shareholdingKeys].includes(docKey)) {
                     return;
                 }
 
