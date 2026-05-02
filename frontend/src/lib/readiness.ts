@@ -799,7 +799,161 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                     return;
                 }
 
-                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys, ...csdKeys, ...bankKeys, ...coidKeys, ...uifKeys, ...sheKeys, ...ohsKeys].includes(docKey)) {
+                const payeKeys = ['paye_registration', 'paye_reg', 'paye', 'paye_certificate', 'paye_proof'];
+                if (payeKeys.includes(docKey)) {
+                    const userPaye = safeDocsData.find(d => payeKeys.includes(d.doc_type));
+                    if (!userPaye) {
+                        checks.push({
+                            name: 'PAYE Status',
+                            section: 'PAYE',
+                            requirementName: 'Active',
+                            status: 'fail',
+                            message: 'Upload a valid PAYE Registration.',
+                            yourData: 'Not uploaded',
+                            actionHint: 'Upload Document',
+                            actionType: 'UPLOAD',
+                            docType: docKey
+                        });
+                    } else {
+                        const metadata = userPaye.metadata || {};
+                        const rawStatus = metadata.status || metadata.paye_status || metadata.registration_status || metadata.company_status || userPaye.status;
+                        const payeNumber = metadata.paye_number || metadata.paye_no || metadata.reference || metadata.reference_number || metadata.registration_number;
+                        
+                        const normalizedStatus = String(rawStatus || "")
+                            .trim()
+                            .toLowerCase()
+                            .replace(/[_-]+/g, " ")
+                            .replace(/\s+/g, " ");
+
+                        const isActive = ["active", "valid", "registered"].includes(normalizedStatus);
+
+                        let statusStatus: 'pass' | 'warning' | 'fail' = isActive ? 'pass' : 'fail';
+                        const displayStatus = rawStatus ? String(rawStatus).trim().charAt(0).toUpperCase() + String(rawStatus).trim().slice(1).toLowerCase() : 'Unknown';
+
+                        checks.push({
+                            name: 'PAYE Status',
+                            section: 'PAYE',
+                            requirementName: 'Active',
+                            status: statusStatus,
+                            message: statusStatus === 'fail' ? 'PAYE Registration is not active or valid.' : '',
+                            yourData: displayStatus,
+                            actionHint: statusStatus !== 'pass' ? 'Update PAYE Info' : undefined,
+                            actionType: statusStatus !== 'pass' ? 'REPLACE' : undefined,
+                            docType: userPaye.doc_type,
+                            docData: {
+                                ...userPaye,
+                                metadata: {
+                                    ...metadata,
+                                    paye_number: payeNumber
+                                }
+                            }
+                        });
+                    }
+                    return;
+                }
+
+                const sbdKeys = ['sbd_6_1', 'sbd6_1', 'sbd_61', 'preference_points_claim', 'preference_points', 'sbd_preference_points'];
+                if (sbdKeys.includes(docKey)) {
+                    const userSbd = safeDocsData.find(d => sbdKeys.includes(d.doc_type));
+                    if (!userSbd) {
+                        checks.push({
+                            name: 'SBD 6.1 Status',
+                            section: 'SBD 6.1',
+                            requirementName: 'Signed / Completed',
+                            status: 'fail',
+                            message: 'Upload a completed SBD 6.1 form.',
+                            yourData: 'Not uploaded',
+                            actionHint: 'Upload Document',
+                            actionType: 'UPLOAD',
+                            docType: docKey
+                        });
+                        checks.push({
+                            name: 'SBD 6.1 B-BBEE Level Claimed',
+                            section: 'SBD 6.1',
+                            requirementName: 'Captured',
+                            status: 'fail',
+                            message: '',
+                            yourData: 'Not uploaded',
+                            docType: docKey
+                        });
+                        checks.push({
+                            name: 'SBD 6.1 Preference Points Claimed',
+                            section: 'SBD 6.1',
+                            requirementName: 'Captured',
+                            status: 'fail',
+                            message: '',
+                            yourData: 'Not uploaded',
+                            docType: docKey
+                        });
+                    } else {
+                        const metadata = userSbd.metadata || {};
+                        const rawStatus = metadata.status || metadata.form_status || metadata.signature_status || metadata.completion_status || userSbd.status;
+                        const bbbeeLevel = metadata.bbbee_level_claimed || metadata.b_bbee_level_claimed || metadata.bbbee_level || metadata.claimed_bbbee_level;
+                        const prefPoints = metadata.preference_points_claimed || metadata.points_claimed || metadata.preference_points || metadata.claimed_points;
+                        const signatory = metadata.authorized_signatory || metadata.signatory || metadata.signed_by;
+                        const signatureDate = metadata.signature_date || metadata.signed_date || metadata.date_signed;
+                        
+                        const normalizedStatus = String(rawStatus || "")
+                            .trim()
+                            .toLowerCase()
+                            .replace(/[_-]+/g, " ")
+                            .replace(/\s+/g, " ");
+
+                        const isSigned = ["signed", "completed", "complete", "submitted"].includes(normalizedStatus);
+
+                        let statusStatus: 'pass' | 'warning' | 'fail' = isSigned ? 'pass' : 'fail';
+                        const displayStatus = rawStatus ? String(rawStatus).trim().charAt(0).toUpperCase() + String(rawStatus).trim().slice(1).toLowerCase() : 'Unknown';
+
+                        checks.push({
+                            name: 'SBD 6.1 Status',
+                            section: 'SBD 6.1',
+                            requirementName: 'Signed / Completed',
+                            status: statusStatus,
+                            message: statusStatus === 'fail' ? 'SBD 6.1 is not signed or completed.' : '',
+                            yourData: displayStatus,
+                            actionHint: statusStatus !== 'pass' ? 'Update SBD 6.1' : undefined,
+                            actionType: statusStatus !== 'pass' ? 'REPLACE' : undefined,
+                            docType: userSbd.doc_type,
+                            docData: {
+                                ...userSbd,
+                                metadata: {
+                                    ...metadata,
+                                    authorized_signatory: signatory,
+                                    signature_date: signatureDate
+                                }
+                            }
+                        });
+
+                        checks.push({
+                            name: 'SBD 6.1 B-BBEE Level Claimed',
+                            section: 'SBD 6.1',
+                            requirementName: 'Captured',
+                            status: bbbeeLevel ? 'pass' : 'warning',
+                            message: !bbbeeLevel ? 'B-BBEE Level Claimed is missing.' : '',
+                            yourData: bbbeeLevel ? String(bbbeeLevel) : 'Not captured',
+                            actionHint: !bbbeeLevel ? 'Update Data' : undefined,
+                            actionType: !bbbeeLevel ? 'REPLACE' : undefined,
+                            docType: userSbd.doc_type,
+                            docData: userSbd
+                        });
+
+                        checks.push({
+                            name: 'SBD 6.1 Preference Points Claimed',
+                            section: 'SBD 6.1',
+                            requirementName: 'Captured',
+                            status: prefPoints ? 'pass' : 'warning',
+                            message: !prefPoints ? 'Preference Points Claimed is missing.' : '',
+                            yourData: prefPoints ? String(prefPoints) : 'Not captured',
+                            actionHint: !prefPoints ? 'Update Data' : undefined,
+                            actionType: !prefPoints ? 'REPLACE' : undefined,
+                            docType: userSbd.doc_type,
+                            docData: userSbd
+                        });
+                    }
+                    return;
+                }
+
+                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys, ...csdKeys, ...bankKeys, ...coidKeys, ...uifKeys, ...sheKeys, ...ohsKeys, ...payeKeys, ...sbdKeys].includes(docKey)) {
                     return;
                 }
 

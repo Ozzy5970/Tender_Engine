@@ -436,7 +436,7 @@ export default function TenderDetails() {
                                         <h3 className="font-bold text-gray-900">{sectionName}</h3>
                                     </div>
                                     <div className="divide-y divide-gray-100">
-                                        {sectionName === "CIDB" || sectionName === "B-BBEE" || sectionName === "CIPC" || sectionName === "Tax Clearance" || sectionName === "CSD" || sectionName === "Bank Letter" || sectionName === "COID" || sectionName === "UIF" || sectionName === "SHE File" || sectionName === "OHS Plan" ? (
+                                        {sectionName === "CIDB" || sectionName === "B-BBEE" || sectionName === "CIPC" || sectionName === "Tax Clearance" || sectionName === "CSD" || sectionName === "Bank Letter" || sectionName === "COID" || sectionName === "UIF" || sectionName === "SHE File" || sectionName === "OHS Plan" || sectionName === "PAYE" || sectionName === "SBD 6.1" ? (
                                             <div className="p-5 flex flex-col sm:flex-row gap-6 justify-between items-start transition-colors hover:bg-gray-50/50">
                                                 <div className="w-full flex-1 overflow-x-auto">
                                                     <table className="w-full text-left min-w-[400px]">
@@ -451,7 +451,7 @@ export default function TenderDetails() {
                                                         <tbody className="divide-y divide-gray-50">
                                                             {items.map((item, idx) => {
                                                                 if (!item) return null;
-                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '').replace('Tax ', '').replace('CSD ', '').replace('Bank Letter ', '').replace('COID ', '').replace('UIF ', '').replace('SHE File ', '').replace('OHS Plan ', '');
+                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '').replace('Tax ', '').replace('CSD ', '').replace('Bank Letter ', '').replace('COID ', '').replace('UIF ', '').replace('SHE File ', '').replace('OHS Plan ', '').replace('PAYE ', '').replace('SBD 6.1 ', '');
                                                                 return (
                                                                     <tr key={idx} className="group">
                                                                         <td className="py-3 pr-4 align-top">
@@ -654,11 +654,58 @@ export default function TenderDetails() {
                                                         );
                                                     })()}
 
+                                                    {sectionName === "PAYE" && (() => {
+                                                        const payeStatusItem = items.find(i => i?.name === "PAYE Status");
+                                                        const meta = payeStatusItem?.docData?.metadata || {};
+                                                        const isPass = payeStatusItem?.status === "pass";
+                                                        
+                                                        const payeNumber = meta.paye_number || meta.paye_no || meta.reference || meta.reference_number || meta.registration_number;
+                                                        
+                                                        if (!payeNumber) return null;
+                                                        
+                                                        return (
+                                                            <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap gap-x-6 gap-y-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">PAYE Number:</span>
+                                                                    <span className={cn("text-sm font-medium", isPass ? "text-green-700" : "text-gray-700")}>{payeNumber}</span>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()}
+
+                                                    {sectionName === "SBD 6.1" && (() => {
+                                                        const sbdStatusItem = items.find(i => i?.name === "SBD 6.1 Status");
+                                                        const meta = sbdStatusItem?.docData?.metadata || {};
+                                                        const isPass = sbdStatusItem?.status === "pass";
+                                                        
+                                                        const signatory = meta.authorized_signatory || meta.signatory || meta.signed_by;
+                                                        const signatureDate = meta.signature_date || meta.signed_date || meta.date_signed;
+                                                        
+                                                        if (!signatory && !signatureDate) return null;
+                                                        
+                                                        return (
+                                                            <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap gap-x-6 gap-y-2">
+                                                                {signatory && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">Authorized Signatory:</span>
+                                                                        <span className={cn("text-sm font-medium", isPass ? "text-green-700" : "text-gray-700")}>{signatory}</span>
+                                                                    </div>
+                                                                )}
+                                                                {signatureDate && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">Signature Date:</span>
+                                                                        <span className={cn("text-sm font-medium", isPass ? "text-green-700" : "text-gray-700")}>{signatureDate}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
+
                                                     {items.some(i => i?.message && i.status !== 'pass' && i.status !== 'info') && (
                                                         <div className="mt-4 pt-3 border-t border-gray-100 space-y-1.5">
                                                             {items.map((item, idx) => {
                                                                 if (!item || !item.message || item.status === 'pass' || item.status === 'info') return null;
-                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '').replace('Tax ', '').replace('CSD ', '').replace('Bank Letter ', '').replace('COID ', '').replace('UIF ', '').replace('SHE File ', '').replace('OHS Plan ', '');
+                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '').replace('Tax ', '').replace('CSD ', '').replace('Bank Letter ', '').replace('COID ', '').replace('UIF ', '').replace('SHE File ', '').replace('OHS Plan ', '').replace('PAYE ', '').replace('SBD 6.1 ', '');
                                                                 return (
                                                                     <p key={`msg-${idx}`} className={cn(
                                                                         "text-xs font-medium",
