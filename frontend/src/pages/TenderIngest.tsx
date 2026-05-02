@@ -35,7 +35,8 @@ const DOC_KEYWORDS = {
     bank_letter: ['bank letter', 'bank confirmation', 'cancelled cheque'],
     sbd_6_1: ['sbd 6.1', 'sbd6.1'],
     ohs_plan: ['ohs plan', 'health and safety plan', 'health & safety plan'],
-    she_file: ['she file', 'safety file']
+    she_file: ['she file', 'safety file'],
+    shareholding: ['shareholding', 'share certificate', 'shares']
 };
 
 // Tender AI Edge Function output shape
@@ -97,7 +98,8 @@ const mandatoryDocsSchema = z.object({
     bank_letter: z.boolean().default(false),
     sbd_6_1: z.boolean().default(false),
     ohs_plan: z.boolean().default(false),
-    she_file: z.boolean().default(false)
+    she_file: z.boolean().default(false),
+    shareholding: z.boolean().default(false)
 });
 
 const manualFormSchema = z.object({
@@ -1104,7 +1106,8 @@ export default function TenderIngest() {
                                     bank_letter: "Bank Confirmation",
                                     ohs_plan: "OHS Plan",
                                     she_file: "SHE File",
-                                    sbd_6_1: "SBD 6.1 Form"
+                                    sbd_6_1: "SBD 6.1 Form",
+                                    shareholding: "Shareholding / Share Certificate"
                                 }).map(([key, label]) => (
                                     <div key={key} className="flex items-center gap-2">
                                         <input
