@@ -889,9 +889,9 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                         const metadata = userSbd.metadata || {};
                         const rawStatus = metadata.status || metadata.form_status || metadata.signature_status || metadata.completion_status || userSbd.status;
                         const bbbeeLevel = metadata.bbbee_level_claimed || metadata.b_bbee_level_claimed || metadata.bbbee_level || metadata.claimed_bbbee_level;
-                        const prefPoints = metadata.preference_points_claimed || metadata.points_claimed || metadata.preference_points || metadata.claimed_points;
-                        const signatory = metadata.authorized_signatory || metadata.signatory || metadata.signed_by;
-                        const signatureDate = metadata.signature_date || metadata.signed_date || metadata.date_signed;
+                        const prefPoints = metadata.preference_points_claimed || metadata.preferencePointsClaimed || metadata.points_claimed || metadata.pointsClaimed || metadata.preference_points || metadata.preferencePoints || metadata.claimed_points || metadata.claimedPoints || metadata.preference_score_claimed || metadata.preferenceScoreClaimed || metadata.preference_points_score || metadata.preferencePointsScore || metadata.points || metadata.preference_points_claim || metadata.preferencePointsClaim;
+                        const signatory = metadata.authorized_signatory || metadata.authorised_signatory || metadata.authorizedSignatory || metadata.authorisedSignatory || metadata.signatory || metadata.signed_by || metadata.signedBy || metadata.representative_name || metadata.representativeName;
+                        const signatureDate = metadata.signature_date || metadata.signatureDate || metadata.signed_date || metadata.signedDate || metadata.date_signed || metadata.dateSigned || metadata.signing_date || metadata.signingDate;
                         
                         const normalizedStatus = String(rawStatus || "")
                             .trim()
@@ -930,7 +930,7 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             requirementName: 'Captured',
                             status: bbbeeLevel ? 'pass' : 'warning',
                             message: !bbbeeLevel ? 'B-BBEE Level Claimed is missing.' : '',
-                            yourData: bbbeeLevel ? String(bbbeeLevel) : 'Not captured',
+                            yourData: bbbeeLevel ? (String(bbbeeLevel).toLowerCase().includes('level') ? String(bbbeeLevel) : `Level ${bbbeeLevel}`) : 'Not captured',
                             actionHint: !bbbeeLevel ? 'Update Data' : undefined,
                             actionType: !bbbeeLevel ? 'REPLACE' : undefined,
                             docType: userSbd.doc_type,
