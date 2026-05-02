@@ -799,7 +799,7 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                     return;
                 }
 
-                const vatKeys = ['vat_registration', 'vat_reg', 'vat', 'vat_certificate', 'vat_proof'];
+                const vatKeys = ['vat_registration', 'vat_reg', 'vat_cert', 'vat', 'vat_certificate', 'vat_proof'];
                 if (vatKeys.includes(docKey)) {
                     const userVat = safeDocsData.find(d => vatKeys.includes(d.doc_type));
                     if (!userVat) {
