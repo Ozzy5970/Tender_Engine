@@ -166,7 +166,7 @@ export default function TenderDetails() {
                 return;
             }
 
-            const readiness = score === 100 ? "READY" : score >= 50 ? "AMBER" : "RED";
+            const readiness = score === 100 ? "GREEN" : score >= 50 ? "AMBER" : "RED";
 
             const { error } = await supabase.from("tenders").update({
                 compliance_score: score,
@@ -174,7 +174,7 @@ export default function TenderDetails() {
             }).eq("id", tender.id);
 
             if (error) {
-                console.error("Failed to update readiness score:", error);
+                console.error("Failed to update readiness score:", error, { tenderId: tender.id, attemptedScore: score, attemptedReadiness: readiness });
                 setUpdateStatus("error");
                 throw error;
             }
@@ -348,8 +348,9 @@ export default function TenderDetails() {
                     )}>{score !== null ? `${score}%` : 'N/A'}</span>
                     
                     {hasScoreChanged && (
-                        <div className="mt-3 text-xs text-orange-700 bg-orange-50 border border-orange-200 px-3 py-2 rounded-lg font-medium">
-                            Your compliance status has improved. Recalculate readiness.
+                        <div className="mt-3 text-xs text-blue-800 bg-blue-50 border border-blue-200 px-3 py-2 rounded-lg text-left">
+                            <span className="font-bold block mb-0.5">Readiness can be updated</span>
+                            <span className="font-medium">Your current documents now produce a better readiness result. Update the stored score to reflect the latest compliance status.</span>
                         </div>
                     )}
                     
@@ -357,8 +358,8 @@ export default function TenderDetails() {
                         onClick={handleRecalculateReadiness}
                         disabled={isRecalculating}
                         className={cn(
-                            "mt-3 text-xs font-medium px-4 py-2 rounded-lg border transition-colors flex items-center justify-center min-w-[140px] shadow-sm",
-                            score === 100 && hasScoreChanged ? "bg-primary text-white border-primary hover:bg-primary/90" :
+                            "mt-3 text-xs font-bold px-4 py-2 rounded-lg border transition-colors flex items-center justify-center min-w-[140px] shadow-sm",
+                            hasScoreChanged ? "bg-primary text-white border-primary hover:bg-primary/90" :
                             score !== null && score >= 80 ? "bg-green-100 text-green-800 border-green-200 hover:bg-green-200" :
                             score !== null && score >= 50 ? "bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200" :
                             score !== null ? "bg-red-100 text-red-800 border-red-200 hover:bg-red-200" : "bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200",
@@ -370,10 +371,10 @@ export default function TenderDetails() {
                                 <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                                 Updating...
                             </>
-                        ) : score === 100 && hasScoreChanged ? (
-                            "Finalise Readiness"
+                        ) : hasScoreChanged ? (
+                            "Update Readiness Score"
                         ) : (
-                            "Recalculate Readiness"
+                            "Update Readiness Score"
                         )}
                     </button>
                     {updateStatus === 'success' && (
