@@ -689,7 +689,64 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                     return;
                 }
 
-                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys, ...csdKeys, ...bankKeys, ...coidKeys, ...uifKeys].includes(docKey)) {
+                const sheKeys = ['she_file', 'she_file_index', 'she_index', 'safety_file', 'safety_health_environment_file'];
+                if (sheKeys.includes(docKey)) {
+                    const userShe = safeDocsData.find(d => sheKeys.includes(d.doc_type));
+                    if (!userShe) {
+                        checks.push({
+                            name: 'SHE File Status',
+                            section: 'SHE File',
+                            requirementName: 'Prepared / Active',
+                            status: 'fail',
+                            message: 'Upload a valid SHE File.',
+                            yourData: 'Not uploaded',
+                            actionHint: 'Upload Document',
+                            actionType: 'UPLOAD',
+                            docType: docKey
+                        });
+                    } else {
+                        const metadata = userShe.metadata || {};
+                        const rawStatus = metadata.status || metadata.she_status || metadata.file_status || metadata.document_status || userShe.status;
+                        const preparedBy = metadata.prepared_by || metadata.preparedBy || metadata.author || metadata.compiler;
+                        const issueDate = metadata.issue_date || metadata.issueDate || metadata.date_issued;
+                        const version = metadata.document_version || metadata.version || metadata.file_version;
+                        
+                        const normalizedStatus = String(rawStatus || "")
+                            .trim()
+                            .toLowerCase()
+                            .replace(/[_-]+/g, " ")
+                            .replace(/\s+/g, " ");
+
+                        const isActive = ["active", "valid", "prepared", "available", "complete"].includes(normalizedStatus);
+
+                        let statusStatus: 'pass' | 'warning' | 'fail' = isActive ? 'pass' : 'fail';
+                        const displayStatus = rawStatus ? String(rawStatus).trim().charAt(0).toUpperCase() + String(rawStatus).trim().slice(1).toLowerCase() : 'Unknown';
+
+                        checks.push({
+                            name: 'SHE File Status',
+                            section: 'SHE File',
+                            requirementName: 'Prepared / Active',
+                            status: statusStatus,
+                            message: statusStatus === 'fail' ? 'SHE File is not prepared or valid.' : '',
+                            yourData: displayStatus,
+                            actionHint: statusStatus !== 'pass' ? 'Update SHE File' : undefined,
+                            actionType: statusStatus !== 'pass' ? 'REPLACE' : undefined,
+                            docType: userShe.doc_type,
+                            docData: {
+                                ...userShe,
+                                metadata: {
+                                    ...metadata,
+                                    prepared_by: preparedBy,
+                                    issue_date: issueDate,
+                                    document_version: version
+                                }
+                            }
+                        });
+                    }
+                    return;
+                }
+
+                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys, ...csdKeys, ...bankKeys, ...coidKeys, ...uifKeys, ...sheKeys].includes(docKey)) {
                     return;
                 }
 
