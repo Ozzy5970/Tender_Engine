@@ -746,7 +746,60 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                     return;
                 }
 
-                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys, ...csdKeys, ...bankKeys, ...coidKeys, ...uifKeys, ...sheKeys].includes(docKey)) {
+                const ohsKeys = ['ohs_plan', 'occupational_health_safety_plan', 'occupational_health_and_safety_plan', 'health_safety_plan', 'safety_plan'];
+                if (ohsKeys.includes(docKey)) {
+                    const userOhs = safeDocsData.find(d => ohsKeys.includes(d.doc_type));
+                    if (!userOhs) {
+                        checks.push({
+                            name: 'OHS Plan Status',
+                            section: 'OHS Plan',
+                            requirementName: 'Prepared / Active',
+                            status: 'fail',
+                            message: 'Upload a valid OHS Plan.',
+                            yourData: 'Not uploaded',
+                            actionHint: 'Upload Document',
+                            actionType: 'UPLOAD',
+                            docType: docKey
+                        });
+                    } else {
+                        const metadata = userOhs.metadata || {};
+                        const rawStatus = metadata.status || metadata.ohs_status || metadata.plan_status || metadata.document_status || userOhs.status;
+                        const planNumber = metadata.plan_number || metadata.planNo || metadata.ohs_plan_number || metadata.document_number;
+                        
+                        const normalizedStatus = String(rawStatus || "")
+                            .trim()
+                            .toLowerCase()
+                            .replace(/[_-]+/g, " ")
+                            .replace(/\s+/g, " ");
+
+                        const isActive = ["active", "valid", "prepared", "available", "complete"].includes(normalizedStatus);
+
+                        let statusStatus: 'pass' | 'warning' | 'fail' = isActive ? 'pass' : 'fail';
+                        const displayStatus = rawStatus ? String(rawStatus).trim().charAt(0).toUpperCase() + String(rawStatus).trim().slice(1).toLowerCase() : 'Unknown';
+
+                        checks.push({
+                            name: 'OHS Plan Status',
+                            section: 'OHS Plan',
+                            requirementName: 'Prepared / Active',
+                            status: statusStatus,
+                            message: statusStatus === 'fail' ? 'OHS Plan is not prepared or valid.' : '',
+                            yourData: displayStatus,
+                            actionHint: statusStatus !== 'pass' ? 'Update OHS Plan' : undefined,
+                            actionType: statusStatus !== 'pass' ? 'REPLACE' : undefined,
+                            docType: userOhs.doc_type,
+                            docData: {
+                                ...userOhs,
+                                metadata: {
+                                    ...metadata,
+                                    plan_number: planNumber
+                                }
+                            }
+                        });
+                    }
+                    return;
+                }
+
+                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys, ...csdKeys, ...bankKeys, ...coidKeys, ...uifKeys, ...sheKeys, ...ohsKeys].includes(docKey)) {
                     return;
                 }
 

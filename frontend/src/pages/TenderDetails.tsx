@@ -436,7 +436,7 @@ export default function TenderDetails() {
                                         <h3 className="font-bold text-gray-900">{sectionName}</h3>
                                     </div>
                                     <div className="divide-y divide-gray-100">
-                                        {sectionName === "CIDB" || sectionName === "B-BBEE" || sectionName === "CIPC" || sectionName === "Tax Clearance" || sectionName === "CSD" || sectionName === "Bank Letter" || sectionName === "COID" || sectionName === "UIF" || sectionName === "SHE File" ? (
+                                        {sectionName === "CIDB" || sectionName === "B-BBEE" || sectionName === "CIPC" || sectionName === "Tax Clearance" || sectionName === "CSD" || sectionName === "Bank Letter" || sectionName === "COID" || sectionName === "UIF" || sectionName === "SHE File" || sectionName === "OHS Plan" ? (
                                             <div className="p-5 flex flex-col sm:flex-row gap-6 justify-between items-start transition-colors hover:bg-gray-50/50">
                                                 <div className="w-full flex-1 overflow-x-auto">
                                                     <table className="w-full text-left min-w-[400px]">
@@ -451,7 +451,7 @@ export default function TenderDetails() {
                                                         <tbody className="divide-y divide-gray-50">
                                                             {items.map((item, idx) => {
                                                                 if (!item) return null;
-                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '').replace('Tax ', '').replace('CSD ', '').replace('Bank Letter ', '').replace('COID ', '').replace('UIF ', '').replace('SHE File ', '');
+                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '').replace('Tax ', '').replace('CSD ', '').replace('Bank Letter ', '').replace('COID ', '').replace('UIF ', '').replace('SHE File ', '').replace('OHS Plan ', '');
                                                                 return (
                                                                     <tr key={idx} className="group">
                                                                         <td className="py-3 pr-4 align-top">
@@ -621,32 +621,35 @@ export default function TenderDetails() {
                                                         const meta = sheStatusItem?.docData?.metadata || {};
                                                         const isPass = sheStatusItem?.status === "pass";
                                                         
-                                                        const preparedBy = meta.prepared_by || meta.preparedBy || meta.author || meta.compiler;
-                                                        const issueDate = meta.issue_date || meta.issueDate || meta.date_issued;
                                                         const version = meta.document_version || meta.version || meta.file_version;
                                                         
-                                                        if (!preparedBy && !issueDate && !version) return null;
+                                                        if (!version) return null;
                                                         
                                                         return (
                                                             <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap gap-x-6 gap-y-2">
-                                                                {preparedBy && (
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">Prepared By:</span>
-                                                                        <span className={cn("text-sm font-medium", isPass ? "text-green-700" : "text-gray-700")}>{preparedBy}</span>
-                                                                    </div>
-                                                                )}
-                                                                {issueDate && (
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">Issue Date:</span>
-                                                                        <span className={cn("text-sm font-medium", isPass ? "text-green-700" : "text-gray-700")}>{issueDate}</span>
-                                                                    </div>
-                                                                )}
-                                                                {version && (
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">Version:</span>
-                                                                        <span className={cn("text-sm font-medium", isPass ? "text-green-700" : "text-gray-700")}>{version}</span>
-                                                                    </div>
-                                                                )}
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">Version:</span>
+                                                                    <span className={cn("text-sm font-medium", isPass ? "text-green-700" : "text-gray-700")}>{version}</span>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()}
+
+                                                    {sectionName === "OHS Plan" && (() => {
+                                                        const ohsStatusItem = items.find(i => i?.name === "OHS Plan Status");
+                                                        const meta = ohsStatusItem?.docData?.metadata || {};
+                                                        const isPass = ohsStatusItem?.status === "pass";
+                                                        
+                                                        const planNumber = meta.plan_number || meta.planNo || meta.ohs_plan_number || meta.document_number;
+                                                        
+                                                        if (!planNumber) return null;
+                                                        
+                                                        return (
+                                                            <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap gap-x-6 gap-y-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">Plan Number:</span>
+                                                                    <span className={cn("text-sm font-medium", isPass ? "text-green-700" : "text-gray-700")}>{planNumber}</span>
+                                                                </div>
                                                             </div>
                                                         );
                                                     })()}
@@ -655,7 +658,7 @@ export default function TenderDetails() {
                                                         <div className="mt-4 pt-3 border-t border-gray-100 space-y-1.5">
                                                             {items.map((item, idx) => {
                                                                 if (!item || !item.message || item.status === 'pass' || item.status === 'info') return null;
-                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '').replace('Tax ', '').replace('CSD ', '').replace('Bank Letter ', '').replace('COID ', '').replace('UIF ', '').replace('SHE File ', '');
+                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '').replace('Tax ', '').replace('CSD ', '').replace('Bank Letter ', '').replace('COID ', '').replace('UIF ', '').replace('SHE File ', '').replace('OHS Plan ', '');
                                                                 return (
                                                                     <p key={`msg-${idx}`} className={cn(
                                                                         "text-xs font-medium",
