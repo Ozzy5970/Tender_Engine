@@ -570,7 +570,7 @@ export const CompanyService = {
         )
     },
 
-    async getCompliance() {
+    async getCompliance(options: { includeSignedUrls?: boolean } = { includeSignedUrls: true }) {
         // 1. Fetch from canonical table to ensure ALL fields (metadata, issue_date etc) are returned
         const response = await handleRequest<any[]>(
             supabase.from('compliance_documents').select('*')
@@ -582,8 +582,8 @@ export const CompanyService = {
         const thirtyDaysFromNow = new Date();
         thirtyDaysFromNow.setDate(now.getDate() + 30);
 
-        // 2. Generate Signed URLs at Runtime and Compute Status
-        const signedDocs = await Promise.all(response.data.map(async (doc) => {
+        // 2. Compute Status and optionally generate Signed URLs at Runtime
+        const processedDocs = await Promise.all(response.data.map(async (doc) => {
             // Replicate view_compliance_summary logic
             let computed_status = doc.status === 'incomplete' ? 'incomplete' : 'valid';
             if (computed_status !== 'incomplete') {
@@ -594,6 +594,10 @@ export const CompanyService = {
                 }
             }
             doc.computed_status = computed_status;
+
+            if (options.includeSignedUrls === false) {
+                return doc;
+            }
 
             const path = doc.storage_path || doc.file_url
             const bucket = doc.bucket || 'compliance'
@@ -611,7 +615,7 @@ export const CompanyService = {
             return doc
         }))
 
-        return { ...response, data: signedDocs }
+        return { ...response, data: processedDocs }
     },
 
     async getComplianceStats() {

@@ -11,6 +11,50 @@ import { formatTenderDate } from "@/lib/dateUtils"
 
 import { calculateReadinessScore, type ComparisonResult } from "@/lib/readiness"
 
+const STRUCTURED_SECTIONS = new Set([
+  "CIDB",
+  "B-BBEE",
+  "CIPC",
+  "Tax Clearance",
+  "CSD",
+  "Bank Letter",
+  "COID",
+  "UIF",
+  "SHE File",
+  "OHS Plan",
+  "PAYE",
+  "VAT",
+  "SBD 6.1",
+  "Shareholding"
+]);
+
+function formatCheckLabel(name: string) {
+  return name
+    .replace("CIDB ", "")
+    .replace("B-BBEE ", "")
+    .replace("CIPC ", "")
+    .replace("Tax ", "")
+    .replace("CSD ", "")
+    .replace("Bank Letter ", "")
+    .replace("COID ", "")
+    .replace("UIF ", "")
+    .replace("SHE File ", "")
+    .replace("OHS Plan ", "")
+    .replace("PAYE ", "")
+    .replace("VAT ", "")
+    .replace("SBD 6.1 ", "")
+    .replace("Shareholding ", "");
+}
+
+function getStatusBadgeClass(status?: string) {
+    switch (status) {
+        case 'pass': return 'bg-green-100 text-green-800';
+        case 'fail': return 'bg-red-100 text-red-800';
+        case 'warning': return 'bg-yellow-100 text-yellow-800';
+        default: return 'bg-gray-100 text-gray-600';
+    }
+}
+
 // Extended Tender interface for local usage
 interface Tender {
     id: string
@@ -43,12 +87,9 @@ export default function TenderDetails() {
     const { id } = useParams()
 
 
-    // 1. Fetch Tender Data - useFetch logic needs to be stable or we manually manage state if we need to update it
-    // Actually, useFetch returns { data, setData, ... } usually if implemented that way, or we just rely on reload
-    // Let's assume useFetch doesn't expose setter. We will use a local state wrapper or just force reload.
-    // Simpler: use local state initialized from fetch
+    // 1. Fetch Tender Data
     const { data: fetchedTender, loading: tenderLoading, error: tenderError } = useFetch(() => TenderService.getById(id!), [id || ''])
-    const { data: userDocs, loading: docsLoading, refetch: refetchDocs } = useFetch(CompanyService.getCompliance, [])
+    const { data: userDocs, loading: docsLoading, refetch: refetchDocs } = useFetch(() => CompanyService.getCompliance({ includeSignedUrls: false }), [])
     const { data: companyProfile, loading: profileLoading } = useFetch(CompanyService.getProfile, [])
 
     const [tender, setTender] = useState<Tender | null>(null)
@@ -149,32 +190,32 @@ export default function TenderDetails() {
         setIsRecalculating(true);
         setUpdateStatus(null);
         try {
-            const score = comparison.score;
+            const newScore = comparison.score;
 
-            if (typeof score !== "number") {
+            if (typeof newScore !== "number") {
                 setUpdateStatus("error");
                 setIsRecalculating(false);
                 return;
             }
 
-            const readiness = score === 100 ? "GREEN" : score >= 50 ? "AMBER" : "RED";
+            const newReadiness = newScore === 100 ? "GREEN" : newScore >= 50 ? "AMBER" : "RED";
 
             const { error } = await supabase.from("tenders").update({
-                compliance_score: score,
-                readiness
+                compliance_score: newScore,
+                readiness: newReadiness
             }).eq("id", tender.id);
 
             if (error) {
-                console.error("Failed to update readiness score:", error, { tenderId: tender.id, attemptedScore: score, attemptedReadiness: readiness });
+                console.error("Failed to update readiness score:", error, { tenderId: tender.id, attemptedScore: newScore, attemptedReadiness: newReadiness });
                 setUpdateStatus("error");
                 throw error;
             }
 
             setTender(prev => prev ? {
                 ...prev,
-                readinessScore: score,
-                compliance_score: score,
-                readiness
+                readinessScore: newScore,
+                compliance_score: newScore,
+                readiness: newReadiness
             } : prev);
             
             setUpdateStatus("success");
@@ -237,10 +278,15 @@ export default function TenderDetails() {
     const issuingEntity =
       (tender as any).client_name || tender.client || (tender as any).issuing_entity || "";
 
+    const rawStoredScore = tender ? ((tender as any).compliance_score ?? tender.readinessScore) : undefined;
+    const parsedStoredScore = rawStoredScore === null || rawStoredScore === undefined ? undefined : Number(rawStoredScore);
+    const currentStoredScore = Number.isNaN(parsedStoredScore) ? undefined : parsedStoredScore;
+
     const hasScoreChanged =
         comparison &&
         tender &&
-        comparison.score !== tender.readinessScore;
+        typeof comparison.score === "number" &&
+        comparison.score !== currentStoredScore;
 
     return (
         <div className="max-w-4xl mx-auto pt-2 pb-8 space-y-6">
@@ -428,7 +474,7 @@ export default function TenderDetails() {
                                         <h3 className="font-bold text-gray-900">{sectionName}</h3>
                                     </div>
                                     <div className="divide-y divide-gray-100">
-                                        {sectionName === "CIDB" || sectionName === "B-BBEE" || sectionName === "CIPC" || sectionName === "Tax Clearance" || sectionName === "CSD" || sectionName === "Bank Letter" || sectionName === "COID" || sectionName === "UIF" || sectionName === "SHE File" || sectionName === "OHS Plan" || sectionName === "PAYE" || sectionName === "VAT" || sectionName === "SBD 6.1" || sectionName === "Shareholding" ? (
+                                        {STRUCTURED_SECTIONS.has(sectionName) ? (
                                             <div className="p-5 flex flex-col sm:flex-row gap-6 justify-between items-start transition-colors hover:bg-gray-50/50">
                                                 <div className="w-full flex-1 overflow-x-auto">
                                                     <table className="w-full text-left min-w-[400px]">
@@ -443,7 +489,7 @@ export default function TenderDetails() {
                                                         <tbody className="divide-y divide-gray-50">
                                                             {items.map((item, idx) => {
                                                                 if (!item) return null;
-                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '').replace('Tax ', '').replace('CSD ', '').replace('Bank Letter ', '').replace('COID ', '').replace('UIF ', '').replace('SHE File ', '').replace('OHS Plan ', '').replace('PAYE ', '').replace('VAT ', '').replace('SBD 6.1 ', '').replace('Shareholding ', '');
+                                                                const label = formatCheckLabel(item.name);
                                                                 return (
                                                                     <tr key={idx} className="group">
                                                                         <td className="py-3 pr-4 align-top">
@@ -465,10 +511,7 @@ export default function TenderDetails() {
                                                                             {item.status !== 'info' ? (
                                                                                 <span className={cn(
                                                                                     "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider",
-                                                                                    item.status === 'pass' ? 'bg-green-100 text-green-800' :
-                                                                                    item.status === 'fail' ? 'bg-red-100 text-red-800' :
-                                                                                    item.status === 'warning' ? 'bg-yellow-100 text-yellow-800' :
-                                                                                    'bg-gray-100 text-gray-600'
+                                                                                    getStatusBadgeClass(item.status)
                                                                                 )}>
                                                                                     {item.status === 'pass' ? 'PASS' :
                                                                                      item.status === 'fail' ? 'FAIL' :
@@ -735,7 +778,7 @@ export default function TenderDetails() {
                                                         <div className="mt-4 pt-3 border-t border-gray-100 space-y-1.5">
                                                             {items.map((item, idx) => {
                                                                 if (!item || !item.message || item.status === 'pass' || item.status === 'info') return null;
-                                                                const label = item.name.replace('CIDB ', '').replace('B-BBEE ', '').replace('CIPC ', '').replace('Tax ', '').replace('CSD ', '').replace('Bank Letter ', '').replace('COID ', '').replace('UIF ', '').replace('SHE File ', '').replace('OHS Plan ', '').replace('PAYE ', '').replace('VAT ', '').replace('SBD 6.1 ', '').replace('Shareholding ', '');
+                                                                const label = formatCheckLabel(item.name);
                                                                 return (
                                                                     <p key={`msg-${idx}`} className={cn(
                                                                         "text-xs font-medium",
@@ -787,10 +830,7 @@ export default function TenderDetails() {
                                                             <h4 className="font-bold text-gray-900 text-sm">{item.name || "Requirement"}</h4>
                                                             <span className={cn(
                                                                 "inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider",
-                                                                item.status === 'pass' ? 'bg-green-100 text-green-800' :
-                                                                item.status === 'fail' ? 'bg-red-100 text-red-800' :
-                                                                item.status === 'warning' ? 'bg-yellow-100 text-yellow-800' :
-                                                                'bg-gray-100 text-gray-600'
+                                                                getStatusBadgeClass(item.status)
                                                             )}>{item.status || "INFO"}</span>
                                                         </div>
                                                         {item.status === 'info' ? (
