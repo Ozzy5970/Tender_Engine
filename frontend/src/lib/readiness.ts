@@ -171,9 +171,23 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                         docData: userBbbee
                     });
                 } else {
-                    const userLevel = parseInt(String(rawLevel));
+                    const strLevel = String(rawLevel).replace(/\D/g, '');
+                    const userLevel = parseInt(strLevel);
 
-                    if (userLevel > minLevel) {
+                    if (Number.isNaN(userLevel)) {
+                        checks.push({
+                            name: 'B-BBEE Level',
+                            section: 'B-BBEE',
+                            requirementName: `Level ${minLevel}`,
+                            status: 'fail',
+                            message: 'B-BBEE level could not be verified or is non-compliant.',
+                            yourData: String(rawLevel).trim() || 'Unknown',
+                            actionHint: 'Update BBBEE Info',
+                            actionType: 'REPLACE',
+                            docType: 'bbbee_cert',
+                            docData: userBbbee
+                        });
+                    } else if (userLevel > minLevel) {
                         checks.push({
                             name: 'B-BBEE Level',
                             section: 'B-BBEE',
@@ -449,9 +463,9 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             }
                         });
 
-                        let expiryStatus: 'pass' | 'warning' | 'fail' = 'pass';
+                        let expiryStatus: 'pass' | 'warning' | 'fail' | 'info' = 'pass';
                         if (!rawExpiry) {
-                            expiryStatus = 'fail';
+                            expiryStatus = 'info';
                         } else if (userCsd.computed_status === 'expired') {
                             expiryStatus = 'fail';
                         } else if (userCsd.computed_status === 'warning') {
@@ -463,7 +477,7 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             section: 'CSD',
                             requirementName: 'Valid on submission',
                             status: expiryStatus,
-                            message: expiryStatus === 'fail' ? (rawExpiry ? 'CSD registration has expired.' : 'Expiry date is missing.') : expiryStatus === 'warning' ? 'CSD registration is expiring soon.' : '',
+                            message: expiryStatus === 'fail' ? 'CSD registration has expired.' : expiryStatus === 'warning' ? 'CSD registration is expiring soon.' : expiryStatus === 'info' ? 'CSD expiry date is not captured.' : '',
                             yourData: rawExpiry ? String(rawExpiry).split('T')[0] : 'Unknown',
                             actionHint: expiryStatus !== 'pass' ? 'Update CSD Info' : undefined,
                             actionType: expiryStatus !== 'pass' ? 'REPLACE' : undefined,
@@ -585,11 +599,11 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             .replace(/[_-]+/g, " ")
                             .replace(/\s+/g, " ");
 
-                        const isGoodStanding = ["good standing", "valid", "active", "compliant"].includes(normalizedStatus);
+                        const isGoodStanding = ["good standing", "valid", "active", "compliant", "letter of good standing", "in good standing"].includes(normalizedStatus);
 
-                        let expiryStatus: 'pass' | 'warning' | 'fail' = 'pass';
+                        let expiryStatus: 'pass' | 'warning' | 'fail' | 'info' = 'pass';
                         if (!rawExpiry) {
-                            expiryStatus = 'warning';
+                            expiryStatus = 'info';
                         } else if (userCoid.computed_status === 'expired') {
                             expiryStatus = 'fail';
                         } else if (userCoid.computed_status === 'warning') {
@@ -601,8 +615,6 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             statusStatus = 'fail';
                         } else if (expiryStatus === 'fail') {
                             statusStatus = 'fail';
-                        } else if (expiryStatus === 'warning') {
-                            statusStatus = 'warning';
                         }
 
                         const displayStatus = rawStatus ? String(rawStatus).trim() : 'Unknown';
@@ -612,7 +624,7 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             section: 'COID',
                             requirementName: 'Good Standing',
                             status: statusStatus,
-                            message: statusStatus === 'fail' ? (isGoodStanding ? 'COID Letter has expired.' : 'COID Letter is not in good standing.') : statusStatus === 'warning' ? 'COID Letter is expiring soon.' : '',
+                            message: statusStatus === 'fail' ? (isGoodStanding ? 'COID Letter has expired.' : 'COID Letter is not in good standing.') : '',
                             yourData: displayStatus,
                             actionHint: statusStatus !== 'pass' ? 'Update COID Info' : undefined,
                             actionType: statusStatus !== 'pass' ? 'REPLACE' : undefined,
@@ -625,7 +637,7 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             section: 'COID',
                             requirementName: 'Valid on submission',
                             status: expiryStatus,
-                            message: expiryStatus === 'fail' ? (rawExpiry ? 'COID Letter has expired.' : 'Expiry date is missing.') : expiryStatus === 'warning' ? 'COID Letter is expiring soon.' : '',
+                            message: expiryStatus === 'fail' ? 'COID Letter has expired.' : expiryStatus === 'warning' ? 'COID Letter is expiring soon.' : expiryStatus === 'info' ? 'COID expiry date is not captured.' : '',
                             yourData: rawExpiry ? String(rawExpiry).split('T')[0] : 'Unknown',
                             actionHint: expiryStatus !== 'pass' ? 'Update COID Info' : undefined,
                             actionType: expiryStatus !== 'pass' ? 'REPLACE' : undefined,
@@ -717,7 +729,7 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             .replace(/[_-]+/g, " ")
                             .replace(/\s+/g, " ");
 
-                        const isActive = ["active", "valid", "prepared", "available", "complete"].includes(normalizedStatus);
+                        const isActive = ["active", "valid", "prepared", "available", "complete", "approved"].includes(normalizedStatus);
 
                         let statusStatus: 'pass' | 'warning' | 'fail' = isActive ? 'pass' : 'fail';
                         const displayStatus = rawStatus ? String(rawStatus).trim().charAt(0).toUpperCase() + String(rawStatus).trim().slice(1).toLowerCase() : 'Unknown';
@@ -772,7 +784,7 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             .replace(/[_-]+/g, " ")
                             .replace(/\s+/g, " ");
 
-                        const isActive = ["active", "valid", "prepared", "available", "complete"].includes(normalizedStatus);
+                        const isActive = ["active", "valid", "prepared", "available", "complete", "approved"].includes(normalizedStatus);
 
                         let statusStatus: 'pass' | 'warning' | 'fail' = isActive ? 'pass' : 'fail';
                         const displayStatus = rawStatus ? String(rawStatus).trim().charAt(0).toUpperCase() + String(rawStatus).trim().slice(1).toLowerCase() : 'Unknown';
@@ -1079,7 +1091,25 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                     return;
                 }
 
-                if (['cidb_proof', 'cidb_cert', 'bbbee_cert', 'cipc_cert', ...taxKeys, ...csdKeys, ...bankKeys, ...coidKeys, ...uifKeys, ...sheKeys, ...ohsKeys, ...vatKeys, ...payeKeys, ...sbdKeys, ...shareholdingKeys].includes(docKey)) {
+                const STRUCTURED_DOC_KEYS = new Set([
+                    'cidb_proof',
+                    'cidb_cert',
+                    'bbbee_cert',
+                    'cipc_cert',
+                    ...taxKeys,
+                    ...csdKeys,
+                    ...bankKeys,
+                    ...coidKeys,
+                    ...uifKeys,
+                    ...sheKeys,
+                    ...ohsKeys,
+                    ...vatKeys,
+                    ...payeKeys,
+                    ...sbdKeys,
+                    ...shareholdingKeys
+                ]);
+
+                if (STRUCTURED_DOC_KEYS.has(docKey)) {
                     return;
                 }
 
@@ -1115,9 +1145,9 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
         return { score: null, readiness: null, checks: [], isReady: false }
     }
 
-    // Only 'pass' or 'fail' checks count towards the percentage score
+    // 'pass', 'fail', and 'warning' checks count towards the percentage score
     // 'info' checks are informational only and do not affect Math
-    const scorableChecks = checks.filter(c => c.status === 'pass' || c.status === 'fail');
+    const scorableChecks = checks.filter(c => c.status === 'pass' || c.status === 'fail' || c.status === 'warning');
     
     let score = null;
     let readiness: 'READY' | 'AMBER' | 'RED' | null = null;
