@@ -384,8 +384,24 @@ export const TenderService = {
                 .insert(requirements)
 
             if (reqError) {
-                // Return error but don't crash, trying to save partial data
-                return { data: tender, error: "Tender created but requirement save failed: " + reqError.message, status: 206 }
+                const { error: rollbackError } = await supabase
+                    .from("tenders")
+                    .delete()
+                    .eq("id", tender.id)
+                    .eq("user_id", user.id);
+
+                if (rollbackError) {
+                    console.error("Failed to rollback tender after requirement insert failure:", rollbackError, {
+                        tenderId: tender.id,
+                        requirementError: reqError
+                    });
+                }
+
+                return {
+                    data: null,
+                    error: "Tender creation failed because requirements could not be saved. Please try again.",
+                    status: 500
+                };
             }
         }
 
@@ -526,8 +542,16 @@ export const TenderService = {
         });
 
         if (rpcError) {
-            console.error("Failed to update tender requirements via RPC", rpcError);
-            throw rpcError;
+            console.error("Failed to update tender requirements via RPC:", {
+                tenderId: tender.id,
+                attemptedRequirementCount: requirements.length,
+                rpcError
+            });
+            return {
+                data: null,
+                error: "Tender updated, but requirements could not be saved. Please retry the update.",
+                status: 500
+            };
         }
 
         if (isDraft) {
@@ -781,7 +805,16 @@ export const CompanyService = {
 
         const response = await handleRequest(dbQuery)
 
-        if (!response.error && file && existing && existing.storage_path && existing.storage_path !== storagePath) {
+        if (response.error && file && storagePath) {
+            const { error: rollbackError } = await supabase.storage.from(bucket).remove([storagePath]);
+            if (rollbackError) {
+                console.error("Failed to rollback uploaded compliance file after DB failure:", rollbackError, {
+                    bucket,
+                    storagePath,
+                    dbError: response.error
+                });
+            }
+        } else if (!response.error && file && existing && existing.storage_path && existing.storage_path !== storagePath) {
             supabase.storage.from(bucket).remove([existing.storage_path]).catch(err => console.warn("Failed to delete overwritten file:", err))
         }
 
