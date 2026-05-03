@@ -832,12 +832,42 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                                 ...userShare,
                                 metadata: {
                                     ...metadata,
-                                    shareholder_name: shareholder,
-                                    ownership_percent: ownership,
-                                    share_class: shareClass,
-                                    number_of_shares: sharesHeld
+                                    shareholder_name: shareholder
                                 }
                             }
+                        });
+
+                        checks.push({
+                            name: 'Shareholding Ownership',
+                            section: 'Shareholding',
+                            requirementName: 'Captured',
+                            status: ownership ? 'pass' : 'warning',
+                            message: !ownership ? 'Ownership percentage is missing.' : '',
+                            yourData: ownership || "Not captured",
+                            docType: userShare.doc_type,
+                            docData: userShare
+                        });
+
+                        checks.push({
+                            name: 'Shareholding Share Class',
+                            section: 'Shareholding',
+                            requirementName: 'Captured',
+                            status: shareClass ? 'pass' : 'warning',
+                            message: !shareClass ? 'Share class is missing.' : '',
+                            yourData: shareClass || "Not captured",
+                            docType: userShare.doc_type,
+                            docData: userShare
+                        });
+
+                        checks.push({
+                            name: 'Shareholding Shares Held',
+                            section: 'Shareholding',
+                            requirementName: 'Captured',
+                            yourData: sharesHeld || "Not captured",
+                            status: sharesHeld ? 'pass' : 'warning',
+                            message: !sharesHeld ? 'Shares held is missing.' : '',
+                            docType: userShare.doc_type,
+                            docData: userShare
                         });
                     }
                     return;
