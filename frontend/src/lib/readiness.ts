@@ -21,6 +21,25 @@ export interface ComparisonResult {
     docData?: any
 }
 
+function isIncompleteDoc(doc: any) {
+    return doc?.computed_status === 'incomplete' || doc?.status === 'incomplete' || doc?.metadata?.is_incomplete === true;
+}
+
+function createIncompleteCheck(section: string, docType: string, docData: any): ComparisonResult {
+    return {
+        name: `${section} Details`,
+        section,
+        requirementName: 'Complete required metadata',
+        status: 'fail',
+        message: 'Document details are incomplete. Update required metadata.',
+        yourData: 'Incomplete',
+        actionHint: 'Update Info',
+        actionType: 'REPLACE',
+        docType,
+        docData
+    };
+}
+
 export const checkDocStatus = (userDocs: any[], typeKey: string): Omit<ComparisonResult, 'section'> => {
     const safeDocs = (userDocs || []).filter((doc: any) => doc && typeof doc === 'object');
     const doc = safeDocs.find((d: any) => d.doc_type === typeKey)
@@ -90,6 +109,10 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                 checks.push({ name: 'CIDB Status', section: 'CIDB', requirementName: 'Active', status: 'fail', message: 'Upload a valid CIDB Certificate.', yourData: 'Not uploaded', actionHint: 'Upload Document', actionType: 'UPLOAD', docType: 'cidb_cert' });
                 checks.push({ name: 'CIDB Expiry', section: 'CIDB', requirementName: 'Valid on submission', status: 'fail', message: 'Upload a valid CIDB Certificate.', yourData: 'Not uploaded', actionHint: 'Upload Document', actionType: 'UPLOAD', docType: 'cidb_cert' });
             } else {
+                if (isIncompleteDoc(userCidb)) {
+                    checks.push(createIncompleteCheck('CIDB', 'cidb_cert', userCidb));
+                    return;
+                }
                 const metadata = userCidb.metadata || {};
                 
                 // Extract aliases safely
@@ -155,6 +178,10 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                 checks.push({ name: 'B-BBEE Level', section: 'B-BBEE', requirementName: `Level ${minLevel}`, status: 'fail', message: 'Upload a valid B-BBEE Certificate.', yourData: 'Not uploaded', actionHint: 'Update BBBEE Info', actionType: 'UPLOAD', docType: 'bbbee_cert' });
                 checks.push({ name: 'B-BBEE Expiry', section: 'B-BBEE', requirementName: 'Valid on submission', status: 'fail', message: 'Upload a valid B-BBEE Certificate.', yourData: 'Not uploaded', actionHint: 'Update BBBEE Info', actionType: 'UPLOAD', docType: 'bbbee_cert' });
             } else {
+                if (isIncompleteDoc(userBbbee)) {
+                    checks.push(createIncompleteCheck('B-BBEE', 'bbbee_cert', userBbbee));
+                    return;
+                }
                 const rawLevel = userBbbee.metadata?.bbbee_level;
 
                 if (!rawLevel) {
@@ -252,6 +279,10 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             docType: 'cipc_cert'
                         });
                     } else {
+                        if (isIncompleteDoc(userCipc)) {
+                            checks.push(createIncompleteCheck('CIPC', 'cipc_cert', userCipc));
+                            return;
+                        }
                         const metadata = userCipc.metadata || {};
                         const rawEntityStatus =
                             metadata.entity_status ||
@@ -328,6 +359,10 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             docType: docKey
                         });
                     } else {
+                        if (isIncompleteDoc(userTax)) {
+                            checks.push(createIncompleteCheck('Tax Clearance', userTax.doc_type, userTax));
+                            return;
+                        }
                         const metadata = userTax.metadata || {};
                         const rawStatus = metadata.status || metadata.tax_status || metadata.compliance_status || metadata.tax_compliance_status;
                         const rawPin = metadata.pin || metadata.tax_pin || metadata.sars_pin || metadata.tax_compliance_pin;
@@ -421,6 +456,10 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             docType: docKey
                         });
                     } else {
+                        if (isIncompleteDoc(userCsd)) {
+                            checks.push(createIncompleteCheck('CSD', userCsd.doc_type, userCsd));
+                            return;
+                        }
                         const metadata = userCsd.metadata || {};
                         const rawStatus = metadata.registration_status || metadata.status || metadata.supplier_status || metadata.csd_status;
                         const rawMaaa = metadata.maaa_number || metadata.maaa || metadata.supplier_number || metadata.csd_number;
@@ -515,6 +554,10 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             docType: docKey
                         });
                     } else {
+                        if (isIncompleteDoc(userBank)) {
+                            checks.push(createIncompleteCheck('Bank Letter', userBank.doc_type, userBank));
+                            return;
+                        }
                         const rawExpiry = userBank.expiry_date || (userBank.metadata && (userBank.metadata.expiry_date || userBank.metadata.valid_until));
                         
                         let expiryStatus: 'pass' | 'warning' | 'fail' | 'info' = 'pass';
@@ -589,6 +632,10 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             docType: docKey
                         });
                     } else {
+                        if (isIncompleteDoc(userCoid)) {
+                            checks.push(createIncompleteCheck('COID', userCoid.doc_type, userCoid));
+                            return;
+                        }
                         const metadata = userCoid.metadata || {};
                         const rawStatus = metadata.status || metadata.coid_status || metadata.coida_status || metadata.good_standing_status || userCoid.status;
                         const rawExpiry = userCoid.expiry_date || metadata.expiry_date || metadata.valid_until;
@@ -664,6 +711,10 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             docType: docKey
                         });
                     } else {
+                        if (isIncompleteDoc(userUif)) {
+                            checks.push(createIncompleteCheck('UIF', userUif.doc_type, userUif));
+                            return;
+                        }
                         const metadata = userUif.metadata || {};
                         const rawStatus = metadata.status || metadata.uif_status || metadata.registration_status || metadata.company_status || userUif.status;
                         const rawReference = metadata.uif_reference || metadata.uif_ref || metadata.reference || metadata.reference_number || metadata.uif_number;
@@ -717,6 +768,10 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             docType: docKey
                         });
                     } else {
+                        if (isIncompleteDoc(userShe)) {
+                            checks.push(createIncompleteCheck('SHE File', userShe.doc_type, userShe));
+                            return;
+                        }
                         const metadata = userShe.metadata || {};
                         const rawStatus = metadata.status || metadata.she_status || metadata.file_status || metadata.document_status || userShe.status;
                         const preparedBy = metadata.prepared_by || metadata.preparedBy || metadata.author || metadata.compiler;
@@ -774,6 +829,10 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             docType: docKey
                         });
                     } else {
+                        if (isIncompleteDoc(userOhs)) {
+                            checks.push(createIncompleteCheck('OHS Plan', userOhs.doc_type, userOhs));
+                            return;
+                        }
                         const metadata = userOhs.metadata || {};
                         const rawStatus = metadata.status || metadata.ohs_status || metadata.plan_status || metadata.document_status || userOhs.status;
                         const planNumber = metadata.plan_number || metadata.planNo || metadata.ohs_plan_number || metadata.document_number;
@@ -826,6 +885,10 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             docType: docKey
                         });
                     } else {
+                        if (isIncompleteDoc(userShare)) {
+                            checks.push(createIncompleteCheck('Shareholding', userShare.doc_type, userShare));
+                            return;
+                        }
                         const metadata = userShare.metadata || {};
                         const shareholder = metadata.shareholder_name || metadata.shareholder || metadata.shareholderName || metadata.owner_name || metadata.ownerName;
                         const ownership = metadata.ownership_percentage || metadata.ownership_percent || metadata.ownership || metadata.ownershipPercentage || metadata.ownershipPercent;
@@ -900,6 +963,10 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             docType: docKey
                         });
                     } else {
+                        if (isIncompleteDoc(userVat)) {
+                            checks.push(createIncompleteCheck('VAT', userVat.doc_type, userVat));
+                            return;
+                        }
                         const metadata = userVat.metadata || {};
                         const rawStatus = metadata.status || metadata.vat_status || metadata.registration_status || metadata.company_status || userVat.status;
                         const vatNumber = metadata.vat_number || metadata.vat_no || metadata.vat_registration_number || metadata.reference || metadata.reference_number || metadata.registration_number;
@@ -953,6 +1020,10 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             docType: docKey
                         });
                     } else {
+                        if (isIncompleteDoc(userPaye)) {
+                            checks.push(createIncompleteCheck('PAYE', userPaye.doc_type, userPaye));
+                            return;
+                        }
                         const metadata = userPaye.metadata || {};
                         const rawStatus = metadata.status || metadata.paye_status || metadata.registration_status || metadata.company_status || userPaye.status;
                         const payeNumber = metadata.paye_number || metadata.paye_no || metadata.reference || metadata.reference_number || metadata.registration_number;
@@ -1024,6 +1095,10 @@ export const calculateReadinessScore = (tender: any, docsData: any[]): {
                             docType: docKey
                         });
                     } else {
+                        if (isIncompleteDoc(userSbd)) {
+                            checks.push(createIncompleteCheck('SBD 6.1', userSbd.doc_type, userSbd));
+                            return;
+                        }
                         const metadata = userSbd.metadata || {};
                         const rawStatus = metadata.status || metadata.form_status || metadata.signature_status || metadata.completion_status || userSbd.status;
                         const bbbeeLevel = metadata.bbbee_level_claimed || metadata.b_bbee_level_claimed || metadata.bbbee_level || metadata.claimed_bbbee_level;
