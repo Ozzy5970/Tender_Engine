@@ -125,10 +125,6 @@ export default function Pricing() {
                         </li>
                         <li className="flex items-start text-gray-600 space-x-3">
                             <Check className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                            <span className="text-sm">Full compliance gap breakdown</span>
-                        </li>
-                        <li className="flex items-start text-gray-600 space-x-3">
-                            <Check className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
                             <span className="text-sm">Expiry and renewal alerts</span>
                         </li>
                         <li className="flex items-start text-gray-600 space-x-3">
@@ -137,7 +133,7 @@ export default function Pricing() {
                         </li>
                         <li className="flex items-start text-gray-600 space-x-3">
                             <Check className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                            <span className="text-sm">Email support within 24 hours</span>
+                            <span className="text-sm">Email support</span>
                         </li>
                     </ul>
                     <button
@@ -188,11 +184,7 @@ export default function Pricing() {
                         </li>
                         <li className="flex items-start text-gray-300 space-x-3">
                             <Check className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
-                            <span className="text-sm text-gray-300">Best for teams submitting tenders regularly</span>
-                        </li>
-                        <li className="flex items-start text-gray-300 space-x-3">
-                            <Check className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
-                            <span className="text-sm text-gray-300">Early access to new AI features</span>
+                            <span className="text-sm text-gray-300">Early access to new platform features</span>
                         </li>
                     </ul>
                     <button

@@ -1234,8 +1234,8 @@ function SecuritySettings() {
                                 <h4 className="font-bold text-gray-900">7. Plan Specific Terms</h4>
                                 <ul className="list-disc pl-5 space-y-2">
                                     <li><strong>Free Plan:</strong> Limited to 1 tender readiness check per month. Includes basic pass/fail results.</li>
-                                    <li><strong>Standard Plan:</strong> Includes 25 tender readiness checks per month, full compliance gap breakdowns, and email support.</li>
-                                    <li><strong>Enterprise (Pro) Plan:</strong> Unlimited tender readiness checks, priority support, and early access to features.</li>
+                                    <li><strong>Standard Plan:</strong> Includes 25 tender readiness checks per month, expiry and renewal alerts, saved tender readiness results, and email support.</li>
+                                    <li><strong>Enterprise (Pro) Plan:</strong> Unlimited tender readiness checks, priority support, priority onboarding and setup support, and early access to new platform features.</li>
                                 </ul>
 
                                 <br />
