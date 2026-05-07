@@ -63,7 +63,6 @@ export default function Pricing() {
                         <h3 className="text-xl font-bold text-gray-900">Starter</h3>
                         <p className="text-gray-500 mt-2 text-sm">
                             Perfect for small subcontractors testing the system.
-                            <br /><span className="font-semibold text-orange-600">Strict limit: 1 Tender / month.</span>
                         </p>
                         <div className="mt-6 flex items-baseline">
                             <span className="text-5xl font-extrabold text-gray-900">Free</span>
@@ -72,15 +71,19 @@ export default function Pricing() {
                     <ul className="mb-8 space-y-4">
                         <li className="flex items-start text-gray-600 space-x-3">
                             <Check className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                            <span className="text-sm"><strong>1 Tender Analysis / Month</strong><br /><span className="text-xs text-gray-500">Analyze one full tender document.</span></span>
+                            <span className="text-sm">1 tender readiness check per month</span>
                         </li>
                         <li className="flex items-start text-gray-600 space-x-3">
                             <Check className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                            <span className="text-sm"><strong>Basic Compliance</strong><br /><span className="text-xs text-gray-500">See if your docs are Valid or Expired.</span></span>
+                            <span className="text-sm">Upload and store compliance documents</span>
                         </li>
                         <li className="flex items-start text-gray-600 space-x-3">
                             <Check className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                            <span className="text-sm"><strong>Limited AI Insights</strong><br /><span className="text-xs text-gray-500">Basic pass/fail results only.</span></span>
+                            <span className="text-sm">Basic pass/fail/warning readiness result</span>
+                        </li>
+                        <li className="flex items-start text-gray-600 space-x-3">
+                            <Check className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                            <span className="text-sm">See missing, expired, and incomplete documents</span>
                         </li>
                     </ul>
                     <button
@@ -105,34 +108,36 @@ export default function Pricing() {
                     <div className="mb-8 mt-2">
                         <h3 className="text-xl font-bold text-blue-600">Standard</h3>
                         <p className="text-gray-500 mt-2 text-sm">
-                            For growing businesses bidding regularly.
-                            <br /><span className="font-semibold text-blue-600">25 Tenders + Full AI Power.</span>
+                            For growing contractors bidding regularly.
                         </p>
                         <div className="mt-6 flex items-baseline text-gray-900">
                             <span className="text-3xl font-bold">R</span>
                             <span className="text-5xl font-extrabold tracking-tight">499</span>
                             <span className="text-gray-500 text-xl ml-2">/mo</span>
                         </div>
-                        {/* Note: Updated price to match SQL (499) */}
                     </div>
                     <ul className="mb-8 space-y-4">
                         <li className="flex items-start text-gray-700 space-x-3">
                             <div className="p-1 rounded-full bg-blue-100 text-blue-600 mt-0.5">
                                 <Zap className="w-4 h-4" />
                             </div>
-                            <span className="text-sm font-bold">25 Tenders / Month</span>
+                            <span className="text-sm font-bold">25 tender readiness checks per month</span>
                         </li>
                         <li className="flex items-start text-gray-600 space-x-3">
                             <Check className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                            <span className="text-sm"><strong>Full AI Analysis</strong><br /><span className="text-xs text-gray-500">Same powerful AI engine as Enterprise.</span></span>
+                            <span className="text-sm">Full compliance gap breakdown</span>
                         </li>
                         <li className="flex items-start text-gray-600 space-x-3">
                             <Check className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                            <span className="text-sm"><strong>Standard Support</strong><br /><span className="text-xs text-gray-500">Email us anytime. We reply within 24h.</span></span>
+                            <span className="text-sm">Expiry and renewal alerts</span>
                         </li>
                         <li className="flex items-start text-gray-600 space-x-3">
                             <Check className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                            <span className="text-sm"><strong>Advanced Compliance</strong><br /><span className="text-xs text-gray-500">Gap analysis & expiry alerts.</span></span>
+                            <span className="text-sm">Save multiple tender readiness results</span>
+                        </li>
+                        <li className="flex items-start text-gray-600 space-x-3">
+                            <Check className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                            <span className="text-sm">Email support within 24 hours</span>
                         </li>
                     </ul>
                     <button
@@ -156,37 +161,38 @@ export default function Pricing() {
                             <Building className="w-5 h-5 text-purple-400" /> Enterprise
                         </h3>
                         <p className="text-gray-400 mt-2 text-sm">
-                            For established teams who can't afford downtime.
-                            <br /><span className="font-semibold text-purple-400">Unlimited Everything.</span>
+                            For established contractors managing frequent tenders.
                         </p>
                         <div className="mt-6 flex items-baseline text-white">
                             <span className="text-3xl font-bold">R</span>
                             <span className="text-5xl font-extrabold tracking-tight">1,999</span>
                             <span className="text-gray-400 text-xl ml-2">/mo</span>
                         </div>
-                        {/* Note: Updated price to match potential SQL (1999) or keep 4000? Previous SQL said 1999 for Pro. I'll stick to 1999 for consistency unless told otherwise. */}
                     </div>
                     <ul className="mb-8 space-y-4">
                         <li className="flex items-start text-gray-300 space-x-3">
                             <div className="p-1 rounded-full bg-purple-500/20 text-purple-400 mt-0.5">
                                 <Zap className="w-4 h-4" />
                             </div>
-                            <span className="text-sm font-bold text-white">Unlimited Tenders</span>
+                            <span className="text-sm font-bold text-white">Unlimited tender readiness checks</span>
                         </li>
                         <li className="flex items-start text-gray-300 space-x-3">
                             <div className="p-1 rounded-full bg-purple-500/20 text-purple-400 mt-0.5">
                                 <Shield className="w-4 h-4" />
                             </div>
-                            <span className="text-sm font-bold text-white">Priority Support (VIP)</span>
-                            <span className="text-xs bg-purple-900 text-purple-300 px-2 py-0.5 rounded-full ml-auto">ASAP</span>
+                            <span className="text-sm font-bold text-white">Priority support</span>
                         </li>
                         <li className="flex items-start text-gray-300 space-x-3">
                             <Check className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
-                            <span className="text-sm text-gray-300"><strong>Deep AI Insights</strong><br /><span className="text-xs text-gray-500">Full analysis & strategy suggestions.</span></span>
+                            <span className="text-sm text-gray-300">Priority onboarding and setup support</span>
                         </li>
                         <li className="flex items-start text-gray-300 space-x-3">
                             <Check className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
-                            <span className="text-sm text-gray-300"><strong>Full System Access</strong><br /><span className="text-xs text-gray-500">Compliance Vault, Templates, History.</span></span>
+                            <span className="text-sm text-gray-300">Best for teams submitting tenders regularly</span>
+                        </li>
+                        <li className="flex items-start text-gray-300 space-x-3">
+                            <Check className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
+                            <span className="text-sm text-gray-300">Early access to new AI features</span>
                         </li>
                     </ul>
                     <button

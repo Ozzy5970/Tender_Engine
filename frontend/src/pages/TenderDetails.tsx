@@ -242,6 +242,13 @@ export default function TenderDetails() {
     const failCount = comparison?.checks?.filter(c => c.status === 'fail').length || 0;
     const warningCount = comparison?.checks?.filter(c => c.status === 'warning').length || 0;
 
+    const priorityFixes = comparison?.checks?.filter(c => c.status === 'fail') || [];
+    const priorityWarnings = comparison?.checks?.filter(c => c.status === 'warning') || [];
+    const itemsToShow = priorityFixes.length > 0 ? priorityFixes : priorityWarnings;
+    const displayItems = itemsToShow.slice(0, 3);
+    const remainingCount = itemsToShow.length > 3 ? itemsToShow.length - 3 : 0;
+    const isFailPriority = priorityFixes.length > 0;
+
     if (tenderLoading || docsLoading || profileLoading) {
         return <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
     }
@@ -437,6 +444,55 @@ export default function TenderDetails() {
                             ? `You have ${warningCount} item${warningCount !== 1 ? 's' : ''} to review.`
                             : "All requirements met. Ready to submit."}
                     </span>
+                </div>
+            )}
+
+            {score !== null && displayItems.length > 0 && (
+                <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mt-4">
+                    <div className={cn("px-5 py-3 border-b border-gray-200 flex items-center gap-2", isFailPriority ? "bg-red-50/50" : "bg-amber-50/50")}>
+                        <ShieldAlert className={cn("w-5 h-5", isFailPriority ? "text-red-600" : "text-amber-600")} />
+                        <div>
+                            <h2 className="text-sm font-bold text-gray-900">{isFailPriority ? "Priority actions" : "Items to review"}</h2>
+                            <p className="text-xs text-gray-500 mt-0.5">{isFailPriority ? "Fix these first before submitting this tender." : "Review these before final submission."}</p>
+                        </div>
+                    </div>
+                    <div className="divide-y divide-gray-100">
+                        {displayItems.map((item, idx) => {
+                            if (!item) return null;
+                            const label = formatCheckLabel(item.name || "");
+                            return (
+                                <div key={`${item.section || "section"}-${item.name || "item"}-${idx}`} className="p-4 flex flex-col sm:flex-row gap-4 justify-between items-start hover:bg-gray-50/50 transition-colors">
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-xs font-bold uppercase tracking-wider text-gray-500">{item.section || "Unknown Section"}</span>
+                                            <span className="text-gray-300">•</span>
+                                            <span className="text-sm font-bold text-gray-900">{label}</span>
+                                        </div>
+                                        <p className={cn("text-sm font-medium", isFailPriority ? "text-red-700" : "text-amber-700")}>
+                                            {item.message || "Requirement not met."}
+                                        </p>
+                                    </div>
+                                    {item.actionHint && (
+                                        <button 
+                                            onClick={() => handleActionClick(item)}
+                                            className="shrink-0 mt-2 sm:mt-0 px-3 py-1.5 text-xs font-bold rounded border bg-white shadow-sm transition-colors hover:bg-gray-50 border-gray-200 text-gray-700 whitespace-nowrap"
+                                        >
+                                            {item.actionHint}
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                    {remainingCount > 0 && (
+                        <div className="bg-gray-50 px-5 py-2.5 border-t border-gray-200 text-center">
+                            <span className="text-xs font-medium text-gray-500">
+                                {isFailPriority 
+                                    ? `+ ${remainingCount} more issue${remainingCount > 1 ? 's' : ''} in the detailed comparison below.` 
+                                    : `+ ${remainingCount} more item${remainingCount > 1 ? 's' : ''} to review in the detailed comparison below.`}
+                            </span>
+                        </div>
+                    )}
                 </div>
             )}
 
