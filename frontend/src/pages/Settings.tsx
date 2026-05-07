@@ -314,6 +314,115 @@ function BillingSettings({ navigate }: any) {
     )
 }
 
+const normalizeWhitespace = (str: string) => str.trim().replace(/\s+/g, ' ');
+
+const normalizeCamelSpacing = (str: string) => {
+    return str
+        .replace(/([0-9])([a-zA-Z])/g, '$1 $2')
+        .replace(/([a-z])([A-Z])/g, '$1 $2');
+};
+
+const normalizeRegistrationNumber = (str: string) => {
+    let cleaned = str.trim().replace(/\s+/g, '');
+    if (/^\d{12}$/.test(cleaned)) {
+        return `${cleaned.slice(0, 4)}/${cleaned.slice(4, 10)}/${cleaned.slice(10, 12)}`;
+    }
+    return str.trim();
+};
+
+const validateRegistrationNumber = (str: string) => {
+    if (!str) return null;
+    const regRegex = /^(?:19|20)\d{2}\/\d{6}\/\d{2}$/;
+    if (!regRegex.test(str)) {
+        return "Use SA company format, e.g. 2021/458792/07.";
+    }
+    return null;
+};
+
+const normalizeTaxReference = (str: string) => str.replace(/[\s\-]/g, '');
+
+const validateTaxReference = (str: string) => {
+    if (!str) return null;
+    if (!/^\d{10}$/.test(str)) {
+        return "Tax reference number should be 10 digits.";
+    }
+    return null;
+};
+
+const normalizePhone = (str: string) => {
+    let cleaned = str.trim().replace(/[\s\-\(\)]/g, '');
+    if (cleaned.startsWith('+27')) {
+        cleaned = '0' + cleaned.slice(3);
+    }
+    return cleaned;
+};
+
+const validatePhone = (str: string) => {
+    if (!str) return null;
+    const phoneRegex = /^(\+27|0)[6-8][0-9]{8}$/;
+    if (!phoneRegex.test(str)) {
+        return "Enter a valid South African phone number.";
+    }
+    return null;
+};
+
+const normalizePostalCode = (str: string) => str.replace(/[\s\-]/g, '');
+
+const validatePostalCode = (str: string) => {
+    if (!str) return null;
+    if (!/^\d{4}$/.test(str)) {
+        return "Postal code should be 4 digits.";
+    }
+    return null;
+};
+
+const validateField = (name: string, value: string) => {
+    let error = null;
+    if (name === 'full_name') {
+        const words = value.trim().split(/\s+/);
+        if (value.trim() && words.length < 2) {
+            error = "Enter your full name and surname.";
+        }
+    } else if (name === 'company_name') {
+        if (!value.trim()) {
+            error = "Company name is required.";
+        }
+    } else if (name === 'registration_number') {
+        error = validateRegistrationNumber(value);
+    } else if (name === 'tax_reference_number') {
+        error = validateTaxReference(value);
+    } else if (name === 'phone') {
+        error = validatePhone(value);
+    } else if (name === 'postal_code') {
+        error = validatePostalCode(value);
+    }
+    return error;
+};
+
+const normalizeField = (name: string, value: string) => {
+    if (!value) return value;
+    if (name === 'full_name') {
+        let val = normalizeWhitespace(value);
+        val = normalizeCamelSpacing(val);
+        return val;
+    } else if (name === 'company_name') {
+        return normalizeWhitespace(value);
+    } else if (name === 'registration_number') {
+        return normalizeRegistrationNumber(value);
+    } else if (name === 'tax_reference_number') {
+        return normalizeTaxReference(value);
+    } else if (name === 'phone') {
+        return normalizePhone(value);
+    } else if (['address_line_1', 'address_line_2', 'suburb', 'city', 'province', 'country'].includes(name)) {
+        let val = normalizeWhitespace(value);
+        val = normalizeCamelSpacing(val);
+        return val;
+    } else if (name === 'postal_code') {
+        return normalizePostalCode(value);
+    }
+    return value;
+};
+
 function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => void }) {
     const { session, refreshProfile } = useAuth()
     const [loading, setLoading] = useState(false)
@@ -339,6 +448,44 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
     })
     const [initialFormData, setInitialFormData] = useState<any>(null)
     const [message, setMessage] = useState<string | null>(null)
+
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+    const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({})
+
+    const handleBlur = (field: string) => {
+        const value = formData[field as keyof typeof formData]
+        const normalized = normalizeField(field, value as string)
+        
+        // Only update if normalization changed it, to avoid unnecessary renders
+        if (normalized !== value) {
+            setFormData(prev => ({ ...prev, [field]: normalized }))
+        }
+        
+        const error = validateField(field, normalized)
+        
+        setTouchedFields(prev => ({ ...prev, [field]: true }))
+        if (error) {
+            setFieldErrors(prev => ({ ...prev, [field]: error }))
+        } else {
+            setFieldErrors(prev => {
+                const next = { ...prev }
+                delete next[field]
+                return next
+            })
+        }
+    }
+
+    const getInputClass = (field: string) => {
+        const hasError = Boolean(touchedFields[field] && fieldErrors[field]);
+        return `w-full rounded-lg shadow-sm ${hasError ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'}`;
+    }
+
+    const renderFieldError = (field: string) => {
+        if (touchedFields[field] && fieldErrors[field]) {
+            return <p className="text-sm text-red-600 mt-1">{fieldErrors[field]}</p>
+        }
+        return null;
+    }
 
     const hasUnsavedChanges = initialFormData !== null && JSON.stringify(formData) !== JSON.stringify(initialFormData)
 
@@ -427,63 +574,58 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
         setSaving(true)
         setMessage(null)
 
-        // Validation Rules
-        const regRegex = /^(?:19|20)\d{2}\/\d{6}\/\d{2}$/
-        const phoneRegex = /^(\+27|0)[6-8][0-9]{8}$/ // Basic SA Mobile or +27 International
+        // Run validation on all fields
+        const newErrors: Record<string, string> = {}
+        const newFormData = { ...formData }
+        const newTouched: Record<string, boolean> = {}
 
-        // 1. Defensives
-        if (!formData.company_name || formData.company_name.trim().length < 2) {
-            setMessage("Error: Company Name is required (min 2 chars).")
+        Object.keys(formData).forEach((key) => {
+            if (key === 'email') return; // Skip disabled
+            const val = formData[key as keyof typeof formData] as string;
+            const normalized = normalizeField(key, val);
+            newFormData[key as keyof typeof formData] = normalized;
+            newTouched[key] = true;
+            
+            const err = validateField(key, normalized);
+            if (err) newErrors[key] = err;
+        })
+
+        setFormData(newFormData)
+        setTouchedFields(newTouched)
+        setFieldErrors(newErrors)
+
+        if (Object.keys(newErrors).length > 0) {
+            setMessage("Please fix the highlighted fields.")
             setSaving(false)
             return
         }
 
-        // 2. Tax Number Validation (strip non-digits)
-        const cleanedTax = formData.tax_reference_number ? formData.tax_reference_number.replace(/\D/g, '') : ''
-        if (cleanedTax && cleanedTax.length !== 10) {
-            setMessage("Error: Tax Reference Number must be exactly 10 digits.")
-            setSaving(false)
-            return
-        }
-
-        // 3. Registration Number Validation
-        if (formData.registration_number && !regRegex.test(formData.registration_number.trim())) {
-            setMessage("Error: Company Registration Number must be in format YYYY/NNNNNN/NN")
-            setSaving(false)
-            return
-        }
-
-        // 4. Phone Validation (Soft check)
-        if (formData.phone && !phoneRegex.test(formData.phone.replace(/\s/g, ''))) {
-            setMessage("Error: Please enter a valid SA mobile number (e.g. 082 123 4567)")
-            setSaving(false)
-            return
-        }
+        const cleanedTax = newFormData.tax_reference_number ? newFormData.tax_reference_number.replace(/\D/g, '') : ''
 
         // DUAL-SYNC: Update both public profile and internal Auth metadata
         const [profileResult, authResult] = await Promise.all([
             supabase
                 .from('profiles')
                 .update({
-                    full_name: formData.full_name.trim(),
-                    phone: formData.phone.trim(),
-                    company_name: formData.company_name.trim(),
-                    registration_number: formData.registration_number.trim(),
+                    full_name: newFormData.full_name,
+                    phone: newFormData.phone,
+                    company_name: newFormData.company_name,
+                    registration_number: newFormData.registration_number,
                     tax_reference_number: cleanedTax,
-                    address_line_1: formData.address_line_1.trim(),
-                    address_line_2: formData.address_line_2.trim(),
-                    suburb: formData.suburb.trim(),
-                    city: formData.city.trim(),
-                    province: formData.province.trim(),
-                    postal_code: formData.postal_code.trim(),
-                    country: formData.country.trim()
+                    address_line_1: newFormData.address_line_1,
+                    address_line_2: newFormData.address_line_2,
+                    suburb: newFormData.suburb,
+                    city: newFormData.city,
+                    province: newFormData.province,
+                    postal_code: newFormData.postal_code,
+                    country: newFormData.country
                 })
                 .eq('id', session?.user.id),
 
             supabase.auth.updateUser({
                 data: {
-                    full_name: formData.full_name,
-                    company_name: formData.company_name
+                    full_name: newFormData.full_name,
+                    company_name: newFormData.company_name
                 }
             })
         ])
@@ -498,7 +640,7 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
             
             // Normalize form data cleanly based on validation changes
             const savedFormData = {
-                ...formData,
+                ...newFormData,
                 tax_reference_number: cleanedTax
             }
             
@@ -534,9 +676,11 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
                             type="text"
                             value={formData.full_name}
                             onChange={e => setFormData({ ...formData, full_name: e.target.value })}
-                            className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                            onBlur={() => handleBlur('full_name')}
+                            className={getInputClass('full_name')}
                             placeholder="John Doe"
                         />
+                        {renderFieldError('full_name')}
                     </div>
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700">Email Address</label>
@@ -556,9 +700,11 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
                             type="tel"
                             value={formData.phone}
                             onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                            className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                            onBlur={() => handleBlur('phone')}
+                            className={getInputClass('phone')}
                             placeholder="+27 82 123 4567"
                         />
+                        {renderFieldError('phone')}
                     </div>
                 </div>
 
@@ -572,9 +718,11 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
                                     type="text"
                                     value={formData.company_name}
                                     onChange={e => setFormData({ ...formData, company_name: e.target.value })}
-                                    className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                                    onBlur={() => handleBlur('company_name')}
+                                    className={getInputClass('company_name')}
                                     placeholder="e.g. Apex Civil Engineering (Pty) Ltd"
                                 />
+                                {renderFieldError('company_name')}
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -584,9 +732,11 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
                                         type="text"
                                         value={formData.registration_number}
                                         onChange={e => setFormData({ ...formData, registration_number: e.target.value })}
-                                        className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                                        onBlur={() => handleBlur('registration_number')}
+                                        className={getInputClass('registration_number')}
                                         placeholder="e.g. 2023/123456/07"
                                     />
+                                    {renderFieldError('registration_number')}
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-gray-700">Tax Reference Number</label>
@@ -594,9 +744,11 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
                                         type="text"
                                         value={formData.tax_reference_number}
                                         onChange={e => setFormData({ ...formData, tax_reference_number: e.target.value })}
-                                        className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                                        onBlur={() => handleBlur('tax_reference_number')}
+                                        className={getInputClass('tax_reference_number')}
                                         placeholder="e.g. 9123456789 (10 digits)"
                                     />
+                                    {renderFieldError('tax_reference_number')}
                                 </div>
                             </div>
                         </div>
@@ -612,9 +764,11 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
                                 type="text"
                                 value={formData.address_line_1}
                                 onChange={e => setFormData({ ...formData, address_line_1: e.target.value })}
-                                className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                                onBlur={() => handleBlur('address_line_1')}
+                                className={getInputClass('address_line_1')}
                                 placeholder="e.g. 123 Nelson Mandela Blvd"
                             />
+                            {renderFieldError('address_line_1')}
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-700">Address Line 2 <span className="text-gray-400 font-normal">(Optional)</span></label>
@@ -622,9 +776,11 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
                                 type="text"
                                 value={formData.address_line_2}
                                 onChange={e => setFormData({ ...formData, address_line_2: e.target.value })}
-                                className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                                onBlur={() => handleBlur('address_line_2')}
+                                className={getInputClass('address_line_2')}
                                 placeholder="Suite, unit, floor, etc."
                             />
+                            {renderFieldError('address_line_2')}
                         </div>
                     </div>
                     
@@ -635,9 +791,11 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
                                 type="text"
                                 value={formData.suburb}
                                 onChange={e => setFormData({ ...formData, suburb: e.target.value })}
-                                className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                                onBlur={() => handleBlur('suburb')}
+                                className={getInputClass('suburb')}
                                 placeholder="e.g. Foreshore"
                             />
+                            {renderFieldError('suburb')}
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-700">City</label>
@@ -645,9 +803,11 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
                                 type="text"
                                 value={formData.city}
                                 onChange={e => setFormData({ ...formData, city: e.target.value })}
-                                className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                                onBlur={() => handleBlur('city')}
+                                className={getInputClass('city')}
                                 placeholder="e.g. Cape Town"
                             />
+                            {renderFieldError('city')}
                         </div>
                     </div>
 
@@ -658,9 +818,11 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
                                 type="text"
                                 value={formData.province}
                                 onChange={e => setFormData({ ...formData, province: e.target.value })}
-                                className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                                onBlur={() => handleBlur('province')}
+                                className={getInputClass('province')}
                                 placeholder="Western Cape"
                             />
+                            {renderFieldError('province')}
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-700">Postal Code</label>
@@ -668,9 +830,11 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
                                 type="text"
                                 value={formData.postal_code}
                                 onChange={e => setFormData({ ...formData, postal_code: e.target.value })}
-                                className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                                onBlur={() => handleBlur('postal_code')}
+                                className={getInputClass('postal_code')}
                                 placeholder="8001"
                             />
+                            {renderFieldError('postal_code')}
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-700">Country</label>
@@ -678,9 +842,11 @@ function ProfileSettings({ setAppDirty }: { setAppDirty: (dirty: boolean) => voi
                                 type="text"
                                 value={formData.country}
                                 onChange={e => setFormData({ ...formData, country: e.target.value })}
-                                className="w-full rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                                onBlur={() => handleBlur('country')}
+                                className={getInputClass('country')}
                                 disabled={false}
                             />
+                            {renderFieldError('country')}
                         </div>
                     </div>
                 </div>
