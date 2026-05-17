@@ -26,26 +26,34 @@ export default function AdminUserDetails() {
     const { profile, docs, tenderCount, history } = data
 
     return (
-        <div className="max-w-5xl mx-auto py-8 space-y-8">
-            <button
-                onClick={() => navigate("/admin/users")}
-                className="flex items-center text-sm text-gray-500 hover:text-gray-900"
-            >
-                <ArrowLeft className="w-4 h-4 mr-1" />
-                Back to User List
-            </button>
-
-            {/* Header / Profile Card */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex flex-col md:flex-row gap-6">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-2xl font-bold text-blue-700 shrink-0">
-                    {profile?.company_name?.charAt(0) || "C"}
+        <div className="min-h-screen bg-slate-50 font-sans">
+            {/* Premium Admin Header */}
+            <div className="bg-slate-900 pb-24 pt-12 px-8 shadow-inner border-b border-indigo-900/50">
+                <div className="max-w-5xl mx-auto">
+                    <button
+                        onClick={() => navigate("/admin/users")}
+                        className="flex items-center text-sm text-slate-400 hover:text-white transition-colors mb-6"
+                    >
+                        <ArrowLeft className="w-4 h-4 mr-1" />
+                        Back to User List
+                    </button>
+                    <h1 className="text-3xl font-bold text-white tracking-tight">User Details</h1>
+                    <p className="text-indigo-200 mt-1">Detailed view of client information and subscription history.</p>
                 </div>
-                <div className="flex-1 space-y-4">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">{profile?.company_name || "Unknown Company"}</h1>
-                        <p className="text-sm text-gray-500 flex items-center gap-4 mt-1">
-                            <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {profile?.email || "No Email (Auth)"}</span>
-                            {profile?.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {profile.phone}</span>}
+            </div>
+
+            <div className="max-w-5xl mx-auto px-4 sm:px-8 -mt-16 relative z-10 space-y-8">
+                {/* Profile Card */}
+                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm flex flex-col md:flex-row gap-6">
+                    <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center text-2xl font-bold text-indigo-600 shrink-0 border border-indigo-100">
+                        {profile?.company_name?.charAt(0) || "C"}
+                    </div>
+                    <div className="flex-1 space-y-4">
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900">{profile?.company_name || "Unknown Company"}</h1>
+                            <p className="text-sm text-gray-500 flex items-center gap-4 mt-1">
+                                <span className="flex items-center gap-1"><Mail className="w-3 h-3 text-indigo-400" /> {profile?.email || "No Email (Auth)"}</span>
+                                {profile?.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-indigo-400" /> {profile.phone}</span>}
                         </p>
                     </div>
 
@@ -152,7 +160,7 @@ export default function AdminUserDetails() {
                     </div>
                 </div>
             </div>
-
+        </div>
         </div>
     )
 }

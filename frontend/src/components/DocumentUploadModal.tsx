@@ -3,11 +3,25 @@ import { useState, useEffect } from "react"
 import { X, UploadCloud, FileText, Loader2, Save, Sparkles, AlertTriangle } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { DOCUMENT_TYPES } from "@/lib/taxonomy"
-import { CompanyService } from "@/services/api"
+import { CompanyService, ErrorService } from "@/services/api"
 import { toast } from "sonner"
 
-// Helper functions integrated inline
+// Safe logging helpers
+const getErrorMessage = (err: unknown) => {
+  if (!err) return "";
+  if (typeof err === "string") return err;
+  if (err instanceof Error) return err.message;
+  if (typeof err === "object" && "message" in err && typeof (err as { message?: unknown }).message === "string") {
+    return (err as { message: string }).message;
+  }
+  return "";
+};
 
+const sanitizeFileNameForLog = (name: string) => {
+  const base = name.split(/[\\/]/).pop() || "unknown-file";
+  const cleaned = base.replace(/[^a-zA-Z0-9._-]/g, "_");
+  return cleaned.length > 80 ? `${cleaned.slice(0, 77)}...` : cleaned;
+};
 interface DocumentUploadModalProps {
     isOpen: boolean
     onClose: () => void
@@ -118,6 +132,25 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
 
                 if (analyzeError || hasErrorPayload) {
                     console.warn("AI Analysis failed or unavailable:", analyzeError || data)
+                    
+                    // Safe error logging call for Admin Diagnostics
+                    ErrorService.logError({
+                        severity: "warning",
+                        page: `DocumentUploadModal - ${docType}`,
+                        description: data?.error || data?.description || getErrorMessage(analyzeError) || "AI analysis failed or unavailable.",
+                        stack_trace: JSON.stringify({
+                            fileName: sanitizeFileNameForLog(fileName),
+                            fileSize: file?.size || null,
+                            fileType: file?.type || null,
+                            docType,
+                            failureType: analyzeError ? "invoke_error" : "edge_error_payload",
+                            edgeDetails: data?.details || data?.code || null,
+                            edgeError: data?.error || null,
+                            edgeDescription: data?.description || null,
+                            edgeStack: typeof data?.stack === "string" ? data.stack.slice(0, 2000) : null
+                        })
+                    }).catch(e => console.warn("Error logging failed", e))
+
                     setAiFailed(true)
                 } else if (data) {
                     setAiFailed(false)

@@ -93,41 +93,48 @@ export default function AdminErrors() {
     }
 
     return (
-        <div className="max-w-[1200px] mx-auto py-8 px-6 space-y-8 bg-white min-h-screen">
-            <div className="flex items-center justify-between">
-                <div>
-                    <button
-                        onClick={() => navigate("/admin")}
-                        className="flex items-center text-sm text-gray-500 hover:text-gray-900 mb-2 transition-colors"
-                    >
-                        <ArrowLeft className="w-4 h-4 mr-1" />
-                        Back to Console
-                    </button>
-                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-                        <AlertTriangle className="w-8 h-8 text-red-600" />
-                        System Health
-                    </h1>
-                    <p className="text-gray-500">Log of critical system errors and application crashes.</p>
+        <div className="min-h-screen bg-slate-50 font-sans">
+            {/* Premium Admin Header */}
+            <div className="bg-slate-900 pb-24 pt-12 px-8 shadow-inner border-b border-indigo-900/50">
+                <div className="max-w-[1200px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <button
+                            onClick={() => navigate("/admin")}
+                            className="flex items-center text-sm text-slate-400 hover:text-white mb-4 transition-colors"
+                        >
+                            <ArrowLeft className="w-4 h-4 mr-1" />
+                            Back to Console
+                        </button>
+                        <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+                            <AlertTriangle className="w-8 h-8 text-amber-500" />
+                            System Health
+                        </h1>
+                        <p className="text-indigo-200 mt-2">Log of critical system errors and application crashes.</p>
+                    </div>
+                    
+                    <div className="flex gap-3 mt-4 md:mt-0">
+                        <button
+                            onClick={downloadCSV}
+                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-500 rounded-lg font-medium transition-colors shadow-sm"
+                        >
+                            <Download className="w-4 h-4" />
+                            Export Log
+                        </button>
+                        {errors.length > 0 && (
+                            <button
+                                onClick={clearAllLogs}
+                                className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-red-900/30 text-red-400 border border-slate-700 hover:border-red-800 rounded-lg font-medium transition-colors shadow-sm"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                Clear All
+                            </button>
+                        )}
+                    </div>
                 </div>
-                <button
-                    onClick={downloadCSV}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
-                >
-                    <Download className="w-4 h-4" />
-                    Export Log
-                </button>
-                {errors.length > 0 && (
-                    <button
-                        onClick={clearAllLogs}
-                        className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-red-50 text-red-600 border border-red-200 hover:border-red-300 rounded-lg font-medium transition-colors ml-3"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                        Clear All
-                    </button>
-                )}
             </div>
 
-            {/* Table */}
+            <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 -mt-16 relative z-10 space-y-8">
+                {/* Table */}
             <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
@@ -244,6 +251,7 @@ export default function AdminErrors() {
                     </div>
                 )}
             </AnimatePresence>
+        </div>
         </div>
     )
 }

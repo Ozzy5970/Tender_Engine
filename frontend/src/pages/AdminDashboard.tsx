@@ -190,31 +190,35 @@ export default function AdminDashboard() {
     }
 
     return (
-        <div className="p-8 max-w-7xl mx-auto font-sans">
-            {/* Header */}
-            <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight">System Overview</h1>
-                    <p className="text-gray-500 mt-2 flex items-center gap-2">
-                        Admin Console
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-mono font-bold">v2.0 (Snapshot)</span>
-                    </p>
-                </div>
-
-                {status === 'DEGRADED_VIEW' && (
-                    <div className="px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-amber-800 text-sm font-medium animate-in fade-in slide-in-from-top-2">
-                        <AlertTriangle className="w-4 h-4" />
-                        <div className="flex flex-col md:flex-row md:items-center gap-1">
-                            <span>Limited Connection (Using Cached Snapshot)</span>
-                            {lastUpdated && (
-                                <span className="text-amber-700 opacity-80 text-xs md:text-sm">
-                                    • {new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                            )}
-                        </div>
+        <div className="min-h-screen bg-slate-50 font-sans">
+            {/* Premium Admin Header */}
+            <div className="bg-slate-900 pb-24 pt-12 px-8 shadow-inner border-b border-indigo-900/50">
+                <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight text-white">System Overview</h1>
+                        <p className="text-indigo-200 mt-2 flex items-center gap-2">
+                            Admin Console
+                            <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-100 rounded text-xs font-mono font-bold border border-indigo-500/30">v2.0 (Snapshot)</span>
+                        </p>
                     </div>
-                )}
+
+                    {status === 'DEGRADED_VIEW' && (
+                        <div className="px-4 py-2 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-center gap-2 text-amber-200 text-sm font-medium animate-in fade-in slide-in-from-top-2">
+                            <AlertTriangle className="w-4 h-4" />
+                            <div className="flex flex-col md:flex-row md:items-center gap-1">
+                                <span>Limited Connection (Cached Snapshot)</span>
+                                {lastUpdated && (
+                                    <span className="text-amber-500/80 text-xs md:text-sm">
+                                        • {new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
+
+            <div className="p-8 max-w-7xl mx-auto -mt-16 relative z-10">
 
             {/* TEMP DEBUG CARD */}
             {debugData && (
@@ -368,6 +372,7 @@ export default function AdminDashboard() {
                 </a>
 
             </div>
-        </div >
+        </div>
+        </div>
     )
 }

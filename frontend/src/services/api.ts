@@ -1451,28 +1451,43 @@ export const FeedbackService = {
  * Error Logging Service
  */
 export const ErrorService = {
-    async logError(error: Error | string, page: string, severity: 'critical' | 'warning' | 'info' = 'critical') {
-        const { data: { user } } = await supabase.auth.getUser()
+    async logError(
+        errorOrPayload: Error | string | { page: string, description: string, stack_trace: string, severity: 'critical' | 'warning' | 'info' },
+        pageStr?: string,
+        severityStr: 'critical' | 'warning' | 'info' = 'critical'
+    ) {
+        try {
+            const { data: { user } } = await supabase.auth.getUser()
 
-        let description = ''
-        let stack = ''
+            let page = pageStr || 'unknown'
+            let description = ''
+            let stack = ''
+            let severity = severityStr
 
-        if (error instanceof Error) {
-            description = error.message
-            stack = error.stack || ''
-        } else {
-            description = String(error)
+            if (errorOrPayload instanceof Error) {
+                description = errorOrPayload.message
+                stack = errorOrPayload.stack || ''
+            } else if (typeof errorOrPayload === 'string') {
+                description = errorOrPayload
+            } else if (errorOrPayload && typeof errorOrPayload === 'object') {
+                page = errorOrPayload.page
+                description = errorOrPayload.description
+                stack = errorOrPayload.stack_trace
+                severity = errorOrPayload.severity
+            }
+
+            const { error: dbError } = await supabase.from('error_logs').insert({
+                user_id: user?.id || null, // Can be null if generic error
+                page,
+                description,
+                stack_trace: stack,
+                severity
+            })
+
+            if (dbError) console.warn("Failed to log error to DB:", dbError)
+        } catch (e) {
+            console.warn("Failed to execute logError:", e)
         }
-
-        const { error: dbError } = await supabase.from('error_logs').insert({
-            user_id: user?.id || null, // Can be null if generic error
-            page,
-            description,
-            stack_trace: stack,
-            severity
-        })
-
-        if (dbError) console.error("Failed to log error to DB:", dbError)
     },
 
     async getAll() {
