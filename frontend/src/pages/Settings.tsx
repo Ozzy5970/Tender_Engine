@@ -176,7 +176,7 @@ export default function Settings() {
 }
 
 function BillingSettings({ navigate }: any) {
-    const { tier } = useAuth()
+    const { tier, isTierLoading, tierError } = useAuth()
 
     const planDetails = {
         'Free': { label: 'Basic', desc: 'You are on the limited starter plan.', badge: 'gray' },
@@ -236,14 +236,20 @@ function BillingSettings({ navigate }: any) {
             <div className={`bg-${current.badge}-50 border border-${current.badge}-200 rounded-xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4`}>
                 <div>
                     <div className="flex items-center gap-3 mb-1">
-                        <h3 className="text-lg font-bold text-gray-900">Current Plan: {tier}</h3>
-                        <span className={`bg-${current.badge}-200 text-${current.badge}-800 text-xs px-2 py-1 rounded font-bold uppercase`}>
-                            {current.label}
-                        </span>
+                        <h3 className="text-lg font-bold text-gray-900">
+                            Current Plan: {isTierLoading ? <span className="text-gray-500 text-base font-medium">Checking plan...</span> : tierError ? <span className="text-red-500 text-base font-medium">Unable to verify</span> : tier}
+                        </h3>
+                        {!isTierLoading && !tierError && (
+                            <span className={`bg-${current.badge}-200 text-${current.badge}-800 text-xs px-2 py-1 rounded font-bold uppercase`}>
+                                {current.label}
+                            </span>
+                        )}
                     </div>
-                    <p className={`text-sm text-${current.badge}-700`}>{current.desc}</p>
+                    {!isTierLoading && !tierError && (
+                        <p className={`text-sm text-${current.badge}-700`}>{current.desc}</p>
+                    )}
                 </div>
-                {tier !== 'Pro' ? (
+                {!isTierLoading && tier !== 'Pro' ? (
                     <button
                         onClick={() => navigate('/pricing')}
                         className="bg-gray-900 text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-gray-800 transition-colors shadow-sm"

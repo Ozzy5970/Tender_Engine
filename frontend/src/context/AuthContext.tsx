@@ -21,6 +21,8 @@ type AuthContextType = {
     isAdmin: boolean // Computed for backward compat: adminStatus === 'ADMIN'
     adminStatus: AdminStatus
     tier: "Free" | "Standard" | "Pro"
+    isTierLoading: boolean
+    tierError: string | null
     companyName: string | null
     fullName: string | null
     isVerified: boolean
@@ -39,6 +41,8 @@ const AuthContext = createContext<AuthContextType>({
     isAdmin: false,
     adminStatus: 'UNKNOWN',
     tier: "Free",
+    isTierLoading: true,
+    tierError: null,
     companyName: null,
     fullName: null,
     isVerified: false,
@@ -60,6 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Profile Data
     const [adminStatus, setAdminStatus] = useState<AdminStatus>('UNKNOWN')
     const [tier, setTier] = useState<"Free" | "Standard" | "Pro">("Free")
+    const [isTierLoading, setIsTierLoading] = useState(true)
+    const [tierError, setTierError] = useState<string | null>(null)
     const [companyName, setCompanyName] = useState<string | null>(null)
     const [fullName, setFullName] = useState<string | null>(null)
     const [isAppDirty, setAppDirty] = useState(false)
@@ -87,6 +93,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAdminStatus('UNKNOWN')
         lastCheckedUserIdRef.current = null
         setTier("Free")
+        setIsTierLoading(true)
+        setTierError(null)
         setCompanyName(null)
         setFullName(null)
 
@@ -113,6 +121,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const verificationPromise = (async () => {
             verificationInProgress.current = true
+            setIsTierLoading(true)
+            setTierError(null)
             let serverVerified = false
             const startTime = Date.now()
 
@@ -197,8 +207,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
 
                 // 3. Fetch Subscription Tier
-                const { data: sub } = subRes as any
-                if (sub?.plan_name) {
+                const { data: sub, error: subErr } = subRes as any
+                if (subErr && subErr.code !== 'PGRST116') {
+                    // PGRST116 means 0 rows in maybeSingle(), which correctly means no subscription.
+                    // Any other error means fetch failed.
+                    setTierError("Unable to verify plan")
+                } else if (sub?.plan_name) {
                     const p = sub.plan_name.toLowerCase()
                     if (p.includes('enterprise') || p.includes('pro')) setTier("Pro")
                     else if (p.includes('standard')) setTier("Standard")
@@ -206,6 +220,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 } else {
                     setTier("Free")
                 }
+                setIsTierLoading(false)
 
                 // Finalize Status
                 lastCheckedUserIdRef.current = userId;
@@ -222,6 +237,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 console.error("⛔ [AuthContext] Auth check unexpected error:", e)
                 setAdminStatus('NOT_ADMIN')
                 if (status === 'LOADING') setStatus('LIMITED')
+                setTierError("Unable to verify plan")
+                setIsTierLoading(false)
                 return true
             } finally {
                 verificationInProgress.current = false
@@ -276,8 +293,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     setUser(initialSession.user)
                     // Optimistic UI for fast perceived load time
                     setStatus('AUTHENTICATED')
-                    // Silent background hydration
-                    checkUserRoleAndTier(initialSession.user.id)
+                    // Removed: checkUserRoleAndTier(initialSession.user.id) to prevent JWT race condition
                 } else if (!isMagicLink) {
                     setStatus('UNAUTHENTICATED')
                 }
@@ -304,6 +320,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setAdminStatus('UNKNOWN') 
                 lastCheckedUserIdRef.current = null 
                 setTier("Free")
+                setIsTierLoading(true)
+                setTierError(null)
                 setCompanyName(null)
                 setFullName(null)
                 setStatus('UNAUTHENTICATED')
@@ -334,6 +352,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAdmin, 
         adminStatus, 
         tier,
+        isTierLoading,
+        tierError,
         companyName,
         fullName,
         loading: status === 'LOADING',

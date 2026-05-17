@@ -43,7 +43,7 @@ interface Tender {
 
 export default function Tenders() {
     const navigate = useNavigate()
-    const { tier } = useAuth()
+    const { tier, isTierLoading, tierError } = useAuth()
 
     const { data: apiTenders, loading, refetch } = useFetch(TenderService.getAll)
     const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -158,7 +158,15 @@ export default function Tenders() {
                     </button>
 
                     {/* Tier Usage Indicator */}
-                    {tier !== 'Pro' && (
+                    {isTierLoading ? (
+                        <div className="flex flex-col items-end w-48 justify-center h-full">
+                            <span className="text-[10px] font-bold uppercase text-gray-400">Checking plan...</span>
+                        </div>
+                    ) : tierError ? (
+                        <div className="flex flex-col items-end w-48 justify-center h-full">
+                            <span className="text-[10px] font-bold uppercase text-orange-500">Plan Unavailable</span>
+                        </div>
+                    ) : tier !== 'Pro' && (
                         <div className="flex flex-col items-end w-48">
                             <div className="flex justify-between w-full text-[10px] font-bold uppercase text-gray-500 mb-1">
                                 <span>{tier} Plan Limit</span>
