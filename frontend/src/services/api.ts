@@ -1450,19 +1450,32 @@ export const FeedbackService = {
 /**
  * Error Logging Service
  */
+export type ErrorLogStatus = 'open' | 'seen' | 'resolved' | 'ignored'
+
+export type ErrorLogUpdate = {
+    status?: ErrorLogStatus
+    seen_at?: string | null
+    seen_by?: string | null
+    resolved_at?: string | null
+    resolved_by?: string | null
+    ignored_at?: string | null
+    ignored_by?: string | null
+    updated_at?: string
+}
+
 export const ErrorService = {
     async logError(
-        errorOrPayload: Error | string | { page: string, description: string, stack_trace: string, severity: 'critical' | 'warning' | 'info' },
+        errorOrPayload: Error | string | { page: string, description: string, stack_trace: string, severity: 'critical' | 'warning' | 'info', metadata?: Record<string, unknown>, fingerprint?: string },
         pageStr?: string,
         severityStr: 'critical' | 'warning' | 'info' = 'critical'
     ) {
         try {
-            const { data: { user } } = await supabase.auth.getUser()
-
             let page = pageStr || 'unknown'
             let description = ''
             let stack = ''
             let severity = severityStr
+            let metadata: Record<string, unknown> = {}
+            let fingerprint = ''
 
             if (errorOrPayload instanceof Error) {
                 description = errorOrPayload.message
@@ -1474,17 +1487,22 @@ export const ErrorService = {
                 description = errorOrPayload.description
                 stack = errorOrPayload.stack_trace
                 severity = errorOrPayload.severity
+                if (errorOrPayload.metadata) metadata = errorOrPayload.metadata
+                if (errorOrPayload.fingerprint) fingerprint = errorOrPayload.fingerprint
             }
 
-            const { error: dbError } = await supabase.from('error_logs').insert({
-                user_id: user?.id || null, // Can be null if generic error
-                page,
-                description,
-                stack_trace: stack,
-                severity
+            const finalFingerprint = fingerprint || `${severity}:${page}:${description.slice(0, 120)}`
+
+            const { error: rpcError } = await supabase.rpc('log_system_error', {
+                p_page: page,
+                p_description: description,
+                p_stack_trace: stack,
+                p_severity: severity,
+                p_fingerprint: finalFingerprint,
+                p_metadata: metadata
             })
 
-            if (dbError) console.warn("Failed to log error to DB:", dbError)
+            if (rpcError) console.warn("Failed to log error to DB via RPC:", rpcError)
         } catch (e) {
             console.warn("Failed to execute logError:", e)
         }
@@ -1496,9 +1514,47 @@ export const ErrorService = {
         )
     },
 
+    async getAdminErrors(filters: { status: string, severity: string }) {
+        let query = supabase.from('error_logs')
+            .select('*, profiles(email, company_name)')
+            .order('last_seen_at', { ascending: false })
+            .limit(100)
+            
+        if (filters.status !== 'all') {
+            query = query.eq('status', filters.status)
+        }
+        if (filters.severity !== 'all') {
+            query = query.eq('severity', filters.severity)
+        }
+        
+        const { data, error } = await handleRequest(query)
+        if (data) {
+            // Map profiles to flat properties for UI compatibility
+            const mapped = (data as any[]).map(err => ({
+                ...err,
+                email: err.profiles?.email || null,
+                company_name: err.profiles?.company_name || null
+            }))
+            return { data: mapped, error }
+        }
+        return { data, error }
+    },
+
+    async updateErrors(ids: string[], updates: ErrorLogUpdate) {
+        return handleRequest(
+            supabase.from('error_logs').update(updates).in('id', ids)
+        )
+    },
+
     async getStats() {
         return handleRequest(
             supabase.rpc('get_error_stats')
+        )
+    },
+
+    async deleteErrors(ids: string[]) {
+        return handleRequest(
+            supabase.from('error_logs').delete().in('id', ids)
         )
     },
 

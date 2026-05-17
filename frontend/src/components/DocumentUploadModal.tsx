@@ -133,22 +133,29 @@ export default function DocumentUploadModal({ isOpen, onClose, onSuccess, catego
                 if (analyzeError || hasErrorPayload) {
                     console.warn("AI Analysis failed or unavailable:", analyzeError || data)
                     
+                    const errorMessage = data?.error || data?.description || getErrorMessage(analyzeError) || "AI analysis failed or unavailable."
+                    
+                    const rawErrorKey = String(data?.code || data?.details || data?.error || data?.description || getErrorMessage(analyzeError) || "unknown")
+                    const safeErrorKey = rawErrorKey.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-:\.]/g, '').slice(0, 80)
+                    const failureType = analyzeError ? "invoke_error" : "edge_error_payload"
+
                     // Safe error logging call for Admin Diagnostics
                     ErrorService.logError({
                         severity: "warning",
                         page: `DocumentUploadModal - ${docType}`,
-                        description: data?.error || data?.description || getErrorMessage(analyzeError) || "AI analysis failed or unavailable.",
-                        stack_trace: JSON.stringify({
+                        description: errorMessage,
+                        stack_trace: typeof data?.stack === "string" ? data.stack.slice(0, 2000) : "",
+                        fingerprint: `DocumentUploadModal:AI_FAIL:${docType}:${failureType}:${safeErrorKey}`,
+                        metadata: {
                             fileName: sanitizeFileNameForLog(fileName),
                             fileSize: file?.size || null,
                             fileType: file?.type || null,
                             docType,
-                            failureType: analyzeError ? "invoke_error" : "edge_error_payload",
+                            failureType,
                             edgeDetails: data?.details || data?.code || null,
                             edgeError: data?.error || null,
-                            edgeDescription: data?.description || null,
-                            edgeStack: typeof data?.stack === "string" ? data.stack.slice(0, 2000) : null
-                        })
+                            edgeDescription: data?.description || null
+                        }
                     }).catch(e => console.warn("Error logging failed", e))
 
                     setAiFailed(true)
