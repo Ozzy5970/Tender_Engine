@@ -1,0 +1,1 @@
+select payload from auth.audit_log_entries order by created_at desc limit 5;
